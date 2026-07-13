@@ -108,6 +108,9 @@ function registerIpc(): void {
   // Thu muc mac dinh (Downloads)
   ipcMain.handle('app:downloadsDir', async () => app.getPath('downloads'))
 
+  // Phien ban ung dung
+  ipcMain.handle('app:version', async () => app.getVersion())
+
   // Tai xuong
   ipcMain.handle('ytdlp:download', async (event, id: string, req: DownloadRequest) => {
     const result = await download(id, req, (p) => event.sender.send('ytdlp:progress', p))

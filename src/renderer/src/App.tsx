@@ -15,8 +15,7 @@ interface Tab {
   subtitle: string
 }
 
-// Danh sach tab o sidebar. Them tinh nang moi = them 1 entry vao day
-// (kem 1 nhanh render trong <content-body> ben duoi).
+// Tab tinh nang chinh (o tren). Them tinh nang moi = them 1 entry vao day.
 const TABS: Tab[] = [
   {
     key: 'download',
@@ -24,19 +23,22 @@ const TABS: Tab[] = [
     icon: '⬇',
     title: 'Tải xuống',
     subtitle: 'Video & âm thanh đa nền tảng'
-  },
-  {
-    key: 'license',
-    label: 'Giấy phép',
-    icon: '📜',
-    title: 'Giấy phép & Điều khoản',
-    subtitle: 'Bản quyền và trách nhiệm sử dụng'
   }
 ]
+
+// Muc phu o day sidebar
+const LICENSE_TAB: Tab = {
+  key: 'license',
+  label: 'Giấy phép',
+  icon: '📜',
+  title: 'Giấy phép & Điều khoản',
+  subtitle: 'Bản quyền và trách nhiệm sử dụng'
+}
 
 export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
   const [tab, setTab] = useState<TabKey>('download')
+  const [version, setVersion] = useState('')
 
   const check = async (): Promise<void> => {
     setStage('checking')
@@ -46,6 +48,7 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void check()
+    void window.api.appVersion().then(setVersion)
   }, [])
 
   if (stage === 'checking') {
@@ -67,7 +70,18 @@ export default function App(): JSX.Element {
     )
   }
 
-  const active = TABS.find((t) => t.key === tab) ?? TABS[0]
+  const active = [...TABS, LICENSE_TAB].find((t) => t.key === tab) ?? TABS[0]
+
+  const renderTab = (t: Tab): JSX.Element => (
+    <button
+      key={t.key}
+      className={`side-item ${t.key === tab ? 'active' : ''}`}
+      onClick={() => setTab(t.key)}
+    >
+      <span className="side-ico">{t.icon}</span>
+      <span>{t.label}</span>
+    </button>
+  )
 
   return (
     <div className="shell">
@@ -75,19 +89,13 @@ export default function App(): JSX.Element {
         <div className="side-brand">
           <span className="side-logo">T-blao</span>
         </div>
-        <nav className="side-nav">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              className={`side-item ${t.key === tab ? 'active' : ''}`}
-              onClick={() => setTab(t.key)}
-            >
-              <span className="side-ico">{t.icon}</span>
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="side-foot muted small">Sắp có thêm tính năng…</div>
+        <nav className="side-nav">{TABS.map(renderTab)}</nav>
+        <div className="side-hint muted small">Sắp có thêm tính năng…</div>
+
+        <div className="side-bottom">
+          {renderTab(LICENSE_TAB)}
+          <div className="side-version">Phiên bản {version || '…'}</div>
+        </div>
       </aside>
 
       <main className="content">
