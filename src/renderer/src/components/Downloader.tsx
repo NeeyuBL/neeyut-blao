@@ -115,6 +115,12 @@ export default function Downloader(): JSX.Element {
   })
   // Khoang chon (tu so x den so y) — huu ich cho kenh/playlist rat nhieu video
   const [plRange, setPlRange] = useState<{ from: number; to: number }>({ from: 1, to: 1 })
+  // Bang chon danh sach con (tab kenh: Videos/Shorts, hoac cac playlist)
+  const [subChooser, setSubChooser] = useState<{
+    open: boolean
+    parent: string
+    lists: { title: string; url: string; count: number | null }[]
+  }>({ open: false, parent: '', lists: [] })
 
   // Chon dinh dang nang cao (per-item)
   const [formatPick, setFormatPick] = useState<{
@@ -212,12 +218,19 @@ export default function Downloader(): JSX.Element {
 
     const singles: string[] = []
     const collected: SelEntry[] = []
+    const sublists: { title: string; url: string; count: number | null }[] = []
     for (const url of urls) {
       try {
         const res = await window.api.getPlaylist(url, cf)
         if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
-          for (const e of res.playlist.entries)
-            collected.push({ ...e, checked: true, playlistTitle: res.playlist.title ?? 'Playlist' })
+          const plTitle = res.playlist.title ?? 'Playlist'
+          for (const e of res.playlist.entries) {
+            if (e.isPlaylist) {
+              sublists.push({ title: e.title, url: e.url, count: e.count ?? null })
+            } else {
+              collected.push({ ...e, checked: true, playlistTitle: plTitle })
+            }
+          }
         } else {
           singles.push(url)
         }
@@ -227,7 +240,10 @@ export default function Downloader(): JSX.Element {
     }
 
     if (singles.length) await addSingles(singles, cf)
-    if (collected.length) {
+    // Uu tien: neu co danh sach con (tab kenh) -> mo bang chon danh sach truoc
+    if (sublists.length) {
+      setSubChooser({ open: true, parent: urls[0], lists: sublists })
+    } else if (collected.length) {
       setPlRange({ from: 1, to: collected.length })
       setPlaylistSel({ open: true, entries: collected })
     }
@@ -248,6 +264,41 @@ export default function Downloader(): JSX.Element {
       ...s,
       entries: s.entries.map((e, i) => ({ ...e, checked: i + 1 >= from && i + 1 <= to }))
     }))
+
+  // Dao vao 1 danh sach con: lay video that (hoac hien tiep bang chon neu van long nhau)
+  const openSubList = async (url: string): Promise<void> => {
+    setSubChooser({ open: false, parent: '', lists: [] })
+    setProbing(true)
+    const cf = cookiesFile()
+    try {
+      const res = await window.api.getPlaylist(url, cf)
+      if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
+        const nested = res.playlist.entries.filter((e) => e.isPlaylist)
+        if (nested.length > 0) {
+          setSubChooser({
+            open: true,
+            parent: url,
+            lists: nested.map((e) => ({ title: e.title, url: e.url, count: e.count ?? null }))
+          })
+        } else {
+          const plTitle = res.playlist.title ?? 'Playlist'
+          const collected: SelEntry[] = res.playlist.entries.map((e) => ({
+            ...e,
+            checked: true,
+            playlistTitle: plTitle
+          }))
+          setPlRange({ from: 1, to: collected.length })
+          setPlaylistSel({ open: true, entries: collected })
+        }
+      } else {
+        // Khong phai playlist -> coi nhu 1 video don
+        await addSingles([url], cf)
+      }
+    } catch {
+      await addSingles([url], cf)
+    }
+    setProbing(false)
+  }
 
   const confirmAddPlaylist = (): void => {
     const chosen = playlistSel.entries.filter((e) => e.checked)
@@ -677,6 +728,46 @@ export default function Downloader(): JSX.Element {
         </div>
       )}
 
+      {/* Bang chon danh sach con (tab kenh / nhieu playlist) */}
+      {subChooser.open && (
+        <div
+          className="modal-overlay"
+          onClick={() => setSubChooser({ open: false, parent: '', lists: [] })}
+        >
+          <div className="modal" onClick={(ev) => ev.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Chọn danh sách để tải</h3>
+              <span className="muted small">{subChooser.lists.length} danh sách</span>
+            </div>
+            <div className="sub-note muted small">
+              Link này chứa nhiều danh sách. Chọn 1 danh sách để xem video bên trong (kèm số lượng),
+              rồi mới chọn khoảng tải.
+            </div>
+            <div className="modal-list">
+              {subChooser.lists.map((l, i) => (
+                <button className="sub-item" key={l.url || i} onClick={() => openSubList(l.url)}>
+                  <span className="sub-ico">📃</span>
+                  <span className="sub-title" title={l.title}>
+                    {l.title}
+                  </span>
+                  <span className="sub-count muted small">
+                    {l.count != null ? `${l.count} video` : 'Mở →'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="modal-foot">
+              <button
+                className="btn"
+                onClick={() => setSubChooser({ open: false, parent: '', lists: [] })}
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bang chon video tu playlist */}
       {playlistSel.open &&
         (() => {
@@ -780,6 +871,16 @@ export default function Downloader(): JSX.Element {
             </div>
           )
         })()}
+
+      {/* Overlay khi dang tai danh sach (dao vao tab lon co the mat vai giay) */}
+      {probing && !subChooser.open && !playlistSel.open && (
+        <div className="modal-overlay">
+          <div className="probing-box">
+            <div className="spinner" />
+            <div className="muted small">Đang tải danh sách…</div>
+          </div>
+        </div>
+      )}
 
       {/* Bang chon dinh dang nang cao */}
       {formatPick.open && (

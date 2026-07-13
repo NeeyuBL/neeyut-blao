@@ -49,6 +49,8 @@ export interface PlaylistEntry {
   uploader: string | null
   duration: number | null
   durationString: string | null
+  isPlaylist?: boolean // entry nay ban than la playlist con (vd tab kenh: Videos/Shorts)
+  count?: number | null // so video trong playlist con (neu biet)
 }
 
 export interface PlaylistProbe {

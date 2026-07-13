@@ -129,14 +129,23 @@ export async function fetchPlaylist(
   if (data._type === 'playlist' && Array.isArray(data.entries)) {
     const entries = data.entries
       .filter(Boolean)
-      .map((e: any) => ({
-        id: String(e.id ?? ''),
-        title: String(e.title ?? e.url ?? 'Video'),
-        url: String(e.webpage_url ?? e.url ?? ''),
-        uploader: e.uploader ?? e.channel ?? null,
-        duration: typeof e.duration === 'number' ? e.duration : null,
-        durationString: e.duration_string ?? secondsToString(e.duration ?? null)
-      }))
+      .map((e: any) => {
+        // Entry co the la playlist con (tab kenh) chu khong phai video don
+        const nested =
+          e._type === 'playlist' ||
+          (typeof e.ie_key === 'string' && e.ie_key.endsWith('Tab')) ||
+          (typeof e.url === 'string' && /[?&]list=/.test(e.url))
+        return {
+          id: String(e.id ?? ''),
+          title: String(e.title ?? e.url ?? 'Video'),
+          url: String(e.webpage_url ?? e.url ?? ''),
+          uploader: e.uploader ?? e.channel ?? null,
+          duration: typeof e.duration === 'number' ? e.duration : null,
+          durationString: e.duration_string ?? secondsToString(e.duration ?? null),
+          isPlaylist: nested,
+          count: typeof e.playlist_count === 'number' ? e.playlist_count : null
+        }
+      })
       .filter((e: { url: string }) => e.url)
     return {
       isPlaylist: true,
