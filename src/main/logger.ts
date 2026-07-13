@@ -1,5 +1,6 @@
 import { app } from 'electron'
 import { appendFile, mkdir } from 'node:fs/promises'
+import { rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import type { LogEntry, LogLevel } from '../shared/types'
@@ -53,4 +54,14 @@ export function clearLogs(): void {
   buffer.length = 0
   logEmitter.emit('cleared')
   logInfo('Đã xóa nhật ký.')
+}
+
+/** Xoa sach file log (dong bo) — goi luc app thoat de moi lan mo la nhat ky moi. */
+export function wipeLogFileSync(): void {
+  buffer.length = 0
+  try {
+    rmSync(logFilePath(), { force: true })
+  } catch {
+    /* bo qua */
+  }
 }

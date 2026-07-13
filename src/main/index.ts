@@ -3,7 +3,15 @@ import { join } from 'node:path'
 import { checkDependencies, runSetup } from './deps'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
-import { clearLogs, getLogs, logEmitter, logError, logFilePath, logInfo } from './logger'
+import {
+  clearLogs,
+  getLogs,
+  logEmitter,
+  logError,
+  logFilePath,
+  logInfo,
+  wipeLogFileSync
+} from './logger'
 import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
@@ -59,6 +67,9 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+// Tu xoa nhat ky khi thoat app -> moi lan mo la nhat ky moi
+app.on('before-quit', () => wipeLogFileSync())
 
 function registerIpc(): void {
   // Kiem tra phu thuoc luc khoi dong
