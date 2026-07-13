@@ -16,6 +16,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: 'T-blao',
+    icon: join(__dirname, '../../build/icon.png'),
     backgroundColor: '#0f1115',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
