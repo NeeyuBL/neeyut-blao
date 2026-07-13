@@ -978,6 +978,11 @@ export default function Downloader(): JSX.Element {
                 ⚠ Bắt buộc có <b>phần đầu</b> (<code>socks5://</code>, <code>http://</code>…). Chỉ dán{' '}
                 <code>1.2.3.4:1080</code> (thiếu phần đầu) sẽ báo lỗi.
               </div>
+              <div className="proxy-note small">
+                📋 Nếu mua proxy (DataImpulse, v.v.): copy <b>đúng nguyên chuỗi</b> nhà cung cấp đưa,
+                kể cả phần đuôi trong tên đăng nhập (vd <code>__cr.eg</code> để chọn quốc gia). Thiếu
+                đuôi này vẫn chạy nhưng có thể ra sai khu vực.
+              </div>
               <p className="muted small">
                 Sau khi dán, bấm <b>Kiểm tra proxy</b>: xanh là dùng được (kèm IP thoát), đỏ là sai
                 định dạng hoặc không kết nối được.

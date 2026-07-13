@@ -1,4 +1,5 @@
-import { net, session } from 'electron'
+import { spawn } from 'node:child_process'
+import { resolveYtDlp } from './deps'
 import type { ProxyTestResult } from '../shared/types'
 
 // Chap nhan: http(s)://  socks4://  socks5://  socks5h://  (co the kem user:pass@)
@@ -8,21 +9,43 @@ export function isValidProxy(p: string): boolean {
   return PROXY_RE.test(p.trim())
 }
 
-/** Chuyen chuoi proxy nguoi dung -> dinh dang proxyRules cua Chromium (chi dung noi bo cho phep thu). */
-function toProxyRules(p: string): string {
-  const m = p.match(/^(\w+):\/\/(.+)$/)
-  if (!m) return p
-  const scheme = m[1].toLowerCase()
-  let hostpart = m[2]
-  const at = hostpart.lastIndexOf('@') // bo user:pass cho buoc thu ket noi
-  if (at >= 0) hostpart = hostpart.slice(at + 1)
-  if (scheme.startsWith('socks')) return `socks5://${hostpart}`
-  return hostpart // http/https proxy: 'host:port' ap dung cho moi giao thuc
+function runYtdlp(
+  cmd: string,
+  args: string[],
+  timeoutMs: number
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { windowsHide: true })
+    let stdout = ''
+    let stderr = ''
+    const timer = setTimeout(() => {
+      try {
+        child.kill()
+      } catch {
+        /* bo qua */
+      }
+      resolve({ code: -1, stdout, stderr: stderr || 'timeout' })
+    }, timeoutMs)
+    child.stdout.on('data', (d) => (stdout += d.toString()))
+    child.stderr.on('data', (d) => (stderr += d.toString()))
+    child.on('error', (err) => {
+      clearTimeout(timer)
+      resolve({ code: -1, stdout, stderr: err.message })
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolve({ code: code ?? -1, stdout, stderr })
+    })
+  })
 }
 
+// Dau hieu loi lien quan den proxy (khong ket noi duoc), phan biet voi "URL khong phai video"
+const PROXY_FAIL_RE =
+  /socks|proxy|timed?\s?out|timeout|refused|reset|unable to connect|cannot connect|getaddrinfo|econnrefused|failed to establish|connection (?:aborted|failed|error)|407|handshake|authentication/i
+
 /**
- * Thu proxy: goi ra api.ipify.org qua proxy, tra ve IP thoat.
- * Khong sua input nguoi dung — chi bao dung/sai.
+ * Thu proxy bang chinh yt-dlp (ho tro day du SOCKS5 co mat khau) — goi api.ipify.org qua proxy.
+ * Khong sua input nguoi dung, chi bao dung/sai.
  */
 export async function testProxy(proxy: string): Promise<ProxyTestResult> {
   const p = proxy.trim()
@@ -30,59 +53,35 @@ export async function testProxy(proxy: string): Promise<ProxyTestResult> {
   if (!isValidProxy(p)) {
     return {
       ok: false,
-      message: 'Sai định dạng. Ví dụ đúng: socks5://127.0.0.1:1080 hoặc http://1.2.3.4:8080'
+      message: 'Sai định dạng. Ví dụ đúng: socks5://user:pass@1.2.3.4:1080 hoặc http://1.2.3.4:8080'
     }
   }
 
-  const ses = session.fromPartition('tblao-proxytest')
-  try {
-    await ses.setProxy({ proxyRules: toProxyRules(p), proxyBypassRules: '' })
-  } catch (e) {
-    return { ok: false, message: 'Không đặt được proxy: ' + (e instanceof Error ? e.message : '') }
+  const cmd = await resolveYtDlp()
+  if (!cmd) return { ok: false, message: 'Chưa cài công cụ tải. Vui lòng chạy lại bước cài đặt.' }
+
+  const args = ['--proxy', p, '--no-warnings', '--socket-timeout', '20', '-J', 'https://api.ipify.org']
+  const { code, stderr } = await runYtdlp(cmd, args, 35000)
+
+  // yt-dlp lay duoc trang qua proxy -> proxy chay tot
+  if (code === 0) {
+    return { ok: true, message: 'Proxy hoạt động ✓ (đã kết nối ra internet qua proxy)' }
   }
 
-  return new Promise<ProxyTestResult>((resolve) => {
-    let done = false
-    const finish = (r: ProxyTestResult): void => {
-      if (!done) {
-        done = true
-        resolve(r)
-      }
-    }
-    const req = net.request({
-      url: 'https://api.ipify.org?format=text',
-      session: ses,
-      useSessionCookies: false
-    })
-    const timer = setTimeout(() => {
-      try {
-        req.abort()
-      } catch {
-        /* bo qua */
-      }
-      finish({
-        ok: false,
-        message: 'Hết thời gian chờ — proxy không phản hồi (kiểm tra host/cổng, đã bật VPN/proxy chưa).'
-      })
-    }, 12000)
+  // Loi khong lien quan proxy (vd generic extractor bao khong phai video) -> proxy van OK
+  if (!PROXY_FAIL_RE.test(stderr)) {
+    return { ok: true, message: 'Proxy hoạt động ✓ (đã kết nối ra internet qua proxy)' }
+  }
 
-    req.on('response', (res) => {
-      let body = ''
-      res.on('data', (d) => (body += d.toString()))
-      res.on('end', () => {
-        clearTimeout(timer)
-        const code = res.statusCode ?? 0
-        if (code >= 200 && code < 400) {
-          finish({ ok: true, message: `Proxy hoạt động ✓  (IP thoát: ${body.trim() || 'không rõ'})` })
-        } else {
-          finish({ ok: false, message: `Proxy phản hồi lỗi HTTP ${code}` })
-        }
-      })
-    })
-    req.on('error', (err) => {
-      clearTimeout(timer)
-      finish({ ok: false, message: 'Không kết nối được proxy: ' + err.message })
-    })
-    req.end()
-  })
+  const firstErr =
+    stderr
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .find((l) => /error/i.test(l)) ||
+    stderr.split(/\r?\n/)[0] ||
+    ''
+  return {
+    ok: false,
+    message: 'Không kết nối được proxy: ' + firstErr.replace(/^ERROR:\s*/i, '').slice(0, 220)
+  }
 }
