@@ -59,7 +59,7 @@ export function captureCookies(
     // Cho phep popup dang nhap (OAuth Google...) mo trong cung session
     win.webContents.setWindowOpenHandler(() => ({ action: 'allow' }))
 
-    onEvent({ phase: 'launching', message: 'Dang mo cua so dang nhap...' })
+    onEvent({ phase: 'launching', message: 'Đang mở cửa sổ đăng nhập…' })
 
     let announced = false
     win.webContents.on('did-finish-load', () => {
@@ -67,7 +67,7 @@ export function captureCookies(
         announced = true
         onEvent({
           phase: 'ready',
-          message: 'Hay dang nhap, roi DONG cua so nay de luu cookie.'
+          message: 'Hãy đăng nhập, rồi ĐÓNG cửa sổ này để lưu cookie.'
         })
       }
     })
@@ -84,7 +84,7 @@ export function captureCookies(
         try {
           const cookies = await ses.cookies.get({})
           await writeFile(cookiesPath(), toNetscape(cookies), 'utf-8')
-          onEvent({ phase: 'saved', message: `Da luu ${cookies.length} cookie.`, count: cookies.length })
+          onEvent({ phase: 'saved', message: `Đã lưu ${cookies.length} cookie.`, count: cookies.length })
           resolve({ ok: true, count: cookies.length, path: cookiesPath(), error: null })
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)

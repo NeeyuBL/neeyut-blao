@@ -121,4 +121,7 @@ function registerIpc(): void {
   ipcMain.handle('shell:openPath', async (_e, p: string) => {
     await shell.openPath(p)
   })
+  ipcMain.handle('shell:openExternal', async (_e, url: string) => {
+    await shell.openExternal(url)
+  })
 }

@@ -47,6 +47,7 @@ const api = {
 
   showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('shell:showItem', filePath),
   openPath: (p: string): Promise<void> => ipcRenderer.invoke('shell:openPath', p),
+  openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
 
   // ---- Cookie dang nhap ----
   cookieStatus: (): Promise<CookieStatus> => ipcRenderer.invoke('cookies:status'),

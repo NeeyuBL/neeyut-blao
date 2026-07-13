@@ -2,9 +2,10 @@ import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
 import Downloader from './components/Downloader'
+import License from './components/License'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download'
+type TabKey = 'download' | 'license'
 
 interface Tab {
   key: TabKey
@@ -19,10 +20,17 @@ interface Tab {
 const TABS: Tab[] = [
   {
     key: 'download',
-    label: 'Tai xuong',
+    label: 'Tải xuống',
     icon: '⬇',
-    title: 'Tai xuong',
-    subtitle: 'Video & audio da nen tang'
+    title: 'Tải xuống',
+    subtitle: 'Video & âm thanh đa nền tảng'
+  },
+  {
+    key: 'license',
+    label: 'Giấy phép',
+    icon: '📜',
+    title: 'Giấy phép & Điều khoản',
+    subtitle: 'Bản quyền và trách nhiệm sử dụng'
   }
 ]
 
@@ -45,7 +53,7 @@ export default function App(): JSX.Element {
       <div className="boot">
         <div className="center">
           <div className="spinner" />
-          <p>Dang kiem tra moi truong...</p>
+          <p>Đang kiểm tra môi trường…</p>
         </div>
       </div>
     )
@@ -79,7 +87,7 @@ export default function App(): JSX.Element {
             </button>
           ))}
         </nav>
-        <div className="side-foot muted small">Sap co them tinh nang…</div>
+        <div className="side-foot muted small">Sắp có thêm tính năng…</div>
       </aside>
 
       <main className="content">
@@ -89,7 +97,10 @@ export default function App(): JSX.Element {
             <p className="content-sub muted">{active.subtitle}</p>
           </div>
         </header>
-        <div className="content-body">{tab === 'download' && <Downloader />}</div>
+        <div className="content-body">
+          {tab === 'download' && <Downloader />}
+          {tab === 'license' && <License />}
+        </div>
       </main>
     </div>
   )

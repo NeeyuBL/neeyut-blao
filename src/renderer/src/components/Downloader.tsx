@@ -13,9 +13,9 @@ import type {
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'opus', 'flac', 'wav']
-// Do phan giai muc tieu (yt-dlp se lay ban tot nhat <= gia tri nay)
+// Do phan giai muc tieu (lay ban tot nhat <= gia tri nay)
 const RES_PRESETS: { label: string; value: number | null }[] = [
-  { label: 'Tot nhat', value: null },
+  { label: 'Tốt nhất', value: null },
   { label: '2160p (4K)', value: 2160 },
   { label: '1440p', value: 1440 },
   { label: '1080p', value: 1080 },
@@ -24,13 +24,17 @@ const RES_PRESETS: { label: string; value: number | null }[] = [
   { label: '360p', value: 360 }
 ]
 
-// Kieu dat ten file: nhan bang chu, ben trong la mau yt-dlp
+// Kieu dat ten file: nhan bang chu de hieu, ben trong la mau ky thuat
 const NAME_PRESETS: { label: string; tpl: string; ex: string }[] = [
-  { label: 'Tieu de video', tpl: '%(title)s.%(ext)s', ex: 'Ten video.mp4' },
-  { label: 'Tieu de + ma video', tpl: '%(title)s [%(id)s].%(ext)s', ex: 'Ten video [aBc123].mp4' },
-  { label: 'Kenh - Tieu de', tpl: '%(uploader)s - %(title)s.%(ext)s', ex: 'Ten kenh - Ten video.mp4' },
-  { label: 'Ngay dang - Tieu de', tpl: '%(upload_date)s - %(title)s.%(ext)s', ex: '20240115 - Ten video.mp4' },
-  { label: 'So thu tu - Tieu de (playlist)', tpl: '%(playlist_index)s - %(title)s.%(ext)s', ex: '01 - Ten video.mp4' }
+  { label: 'Tiêu đề video', tpl: '%(title)s.%(ext)s', ex: 'Tên video.mp4' },
+  { label: 'Tiêu đề + mã video', tpl: '%(title)s [%(id)s].%(ext)s', ex: 'Tên video [aBc123].mp4' },
+  { label: 'Kênh - Tiêu đề', tpl: '%(uploader)s - %(title)s.%(ext)s', ex: 'Tên kênh - Tên video.mp4' },
+  { label: 'Ngày đăng - Tiêu đề', tpl: '%(upload_date)s - %(title)s.%(ext)s', ex: '20240115 - Tên video.mp4' },
+  {
+    label: 'Số thứ tự - Tiêu đề (playlist)',
+    tpl: '%(playlist_index)s - %(title)s.%(ext)s',
+    ex: '01 - Tên video.mp4'
+  }
 ]
 
 type ItemStatus = 'fetching' | 'ready' | 'downloading' | 'done' | 'error'
@@ -44,19 +48,19 @@ interface QueueItem {
   progress: DownloadProgress | null
   result: DownloadResult | null
   error: string | null
-  formatId: string | null // dinh dang tuy chon nguoi dung chon
-  formatLabel: string | null // nhan hien thi cho dinh dang do
+  formatId: string | null
+  formatLabel: string | null
 }
 
 type SelEntry = PlaylistEntry & { checked: boolean; playlistTitle: string }
 
-/** Tu 1 VideoFormat, dung chuoi selector cho yt-dlp + nhan hien thi. */
+/** Tu 1 VideoFormat, dung chuoi selector + nhan hien thi. */
 function buildFormatChoice(f: VideoFormat): { selector: string; label: string } {
   const hasV = !!f.vcodec
   const hasA = !!f.acodec
   let selector = f.format_id
   if (hasV && !hasA) selector = `${f.format_id}+bestaudio/${f.format_id}` // video-only -> ghep audio
-  const res = f.height ? `${f.height}p` : hasA && !hasV ? 'Audio' : f.resolution ?? f.format_id
+  const res = f.height ? `${f.height}p` : hasA && !hasV ? 'Âm thanh' : f.resolution ?? f.format_id
   const parts = [res, f.ext.toUpperCase()]
   if (f.fps) parts.push(`${f.fps}fps`)
   return { selector, label: parts.join(' · ') }
@@ -71,7 +75,7 @@ export default function Downloader(): JSX.Element {
   const [embedMetadata, setEmbedMetadata] = useState(true)
   const [outputDir, setOutputDir] = useState('')
 
-  // Tuy chon nang cao (P1)
+  // Tuy chon nang cao
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [container, setContainer] = useState('mp4')
   const [outputTemplate, setOutputTemplate] = useState('%(title)s [%(id)s].%(ext)s')
@@ -102,7 +106,7 @@ export default function Downloader(): JSX.Element {
     formats: VideoFormat[]
   }>({ open: false, itemId: null, formats: [] })
 
-  // Cookie dang nhap
+  // Dang nhap bang cookie
   const [cookieStat, setCookieStat] = useState<CookieStatus | null>(null)
   const [useCookies, setUseCookies] = useState(false)
   const [cookieBusy, setCookieBusy] = useState(false)
@@ -134,9 +138,9 @@ export default function Downloader(): JSX.Element {
       const s = await window.api.cookieStatus()
       setCookieStat(s)
       setUseCookies(true)
-      setCookieMsg(`Da luu ${res.count} cookie. San sang tai noi dung can dang nhap.`)
+      setCookieMsg(`Đã lưu ${res.count} cookie. Sẵn sàng tải nội dung cần đăng nhập.`)
     } else {
-      setCookieMsg('Loi lay cookie: ' + (res.error ?? ''))
+      setCookieMsg('Lỗi lấy cookie: ' + (res.error ?? ''))
     }
     setCookieBusy(false)
   }
@@ -146,7 +150,7 @@ export default function Downloader(): JSX.Element {
     const s = await window.api.cookieStatus()
     setCookieStat(s)
     setUseCookies(false)
-    setCookieMsg('Da xoa cookie.')
+    setCookieMsg('Đã xóa cookie.')
   }
 
   const patch = (id: string, upd: Partial<QueueItem>): void => {
@@ -173,7 +177,7 @@ export default function Downloader(): JSX.Element {
         const res = await window.api.getInfo(it.url, cf)
         if (res.ok && res.info)
           patch(it.id, { info: res.info, title: res.info.title, status: 'ready' })
-        else patch(it.id, { status: 'error', error: res.error ?? 'Khong lay duoc thong tin.' })
+        else patch(it.id, { status: 'error', error: res.error ?? 'Không lấy được thông tin.' })
       })
     )
   }
@@ -278,7 +282,6 @@ export default function Downloader(): JSX.Element {
     runningRef.current = true
     setRunning(true)
 
-    // Chup danh sach hien tai; tai tuan tu cac muc chua xong
     const queue = items.filter((it) => it.status === 'ready' || it.status === 'error')
     for (const it of queue) {
       patch(it.id, { status: 'downloading', progress: null, result: null, error: null })
@@ -322,13 +325,13 @@ export default function Downloader(): JSX.Element {
               className={`seg-btn ${kind === 'audio' ? 'active' : ''}`}
               onClick={() => setKind('audio')}
             >
-              🎵 Audio
+              🎵 Âm thanh
             </button>
           </div>
 
           {kind === 'video' ? (
             <label className="field">
-              <span>Do phan giai</span>
+              <span>Độ phân giải</span>
               <select
                 value={height ?? ''}
                 onChange={(e) => setHeight(e.target.value ? Number(e.target.value) : null)}
@@ -342,7 +345,7 @@ export default function Downloader(): JSX.Element {
             </label>
           ) : (
             <label className="field">
-              <span>Dinh dang audio</span>
+              <span>Định dạng âm thanh</span>
               <select value={audioFormat} onChange={(e) => setAudioFormat(e.target.value)}>
                 {AUDIO_FORMATS.map((f) => (
                   <option key={f} value={f}>
@@ -359,7 +362,7 @@ export default function Downloader(): JSX.Element {
               checked={embedThumbnail}
               onChange={(e) => setEmbedThumbnail(e.target.checked)}
             />
-            Nhung anh bia
+            Kèm ảnh bìa
           </label>
           <label className="check">
             <input
@@ -367,14 +370,14 @@ export default function Downloader(): JSX.Element {
               checked={embedMetadata}
               onChange={(e) => setEmbedMetadata(e.target.checked)}
             />
-            Nhung metadata
+            Kèm thông tin (tác giả, tên…)
           </label>
         </div>
 
         <div className="folder-row">
           <input className="folder-input" value={outputDir} readOnly title={outputDir} />
           <button className="btn" onClick={chooseFolder}>
-            Chon thu muc
+            Chọn thư mục
           </button>
         </div>
       </div>
@@ -382,14 +385,14 @@ export default function Downloader(): JSX.Element {
       {/* Tuy chon nang cao */}
       <div className="card adv-card">
         <button className="adv-toggle" onClick={() => setShowAdvanced((v) => !v)}>
-          <span>⚙ Tuy chon nang cao</span>
+          <span>⚙ Tùy chọn nâng cao</span>
           <span className="adv-arrow">{showAdvanced ? '▴' : '▾'}</span>
         </button>
         {showAdvanced && (
           <div className="adv-body">
             <div className="adv-row">
               <label className="field">
-                <span>Dinh dang file (video)</span>
+                <span>Định dạng file (video)</span>
                 <select value={container} onChange={(e) => setContainer(e.target.value)}>
                   <option value="mp4">MP4</option>
                   <option value="mkv">MKV</option>
@@ -397,7 +400,7 @@ export default function Downloader(): JSX.Element {
                 </select>
               </label>
               <label className="field grow">
-                <span>Kieu dat ten file</span>
+                <span>Kiểu đặt tên file</span>
                 <select
                   value={customName ? 'custom' : outputTemplate}
                   onChange={(e) => {
@@ -415,14 +418,14 @@ export default function Downloader(): JSX.Element {
                       {p.label}
                     </option>
                   ))}
-                  <option value="custom">Tuy chinh…</option>
+                  <option value="custom">Tùy chỉnh…</option>
                 </select>
               </label>
             </div>
 
             {customName ? (
               <label className="field">
-                <span>Mau tuy chinh (cu phap yt-dlp)</span>
+                <span>Mẫu tùy chỉnh (nâng cao)</span>
                 <input
                   className="folder-input"
                   value={outputTemplate}
@@ -431,12 +434,15 @@ export default function Downloader(): JSX.Element {
                   placeholder="%(title)s.%(ext)s"
                 />
                 <span className="muted small">
-                  Vi du: <code>%(uploader)s/%(title)s.%(ext)s</code> = luu theo thu muc kenh
+                  Ví dụ: <code>%(uploader)s/%(title)s.%(ext)s</code> = lưu theo thư mục kênh. Dùng
+                  các biến: <code>title</code> (tên), <code>id</code> (mã), <code>ext</code> (đuôi
+                  file), <code>uploader</code> (kênh), <code>upload_date</code> (ngày).
                 </span>
               </label>
             ) : (
               <div className="name-preview muted small">
-                Ten file se dang: <b>{NAME_PRESETS.find((p) => p.tpl === outputTemplate)?.ex ?? outputTemplate}</b>
+                Tên file sẽ là:{' '}
+                <b>{NAME_PRESETS.find((p) => p.tpl === outputTemplate)?.ex ?? outputTemplate}</b>
               </div>
             )}
 
@@ -447,12 +453,12 @@ export default function Downloader(): JSX.Element {
                   checked={writeSubs}
                   onChange={(e) => setWriteSubs(e.target.checked)}
                 />
-                Tai phu de <span className="muted small">(chi khi tai Video)</span>
+                Tải phụ đề <span className="muted small">(chỉ khi tải Video)</span>
               </label>
               {writeSubs && (
                 <div className="adv-subs-detail">
                   <label className="field">
-                    <span>Ngon ngu</span>
+                    <span>Ngôn ngữ</span>
                     <input
                       className="mini-input"
                       value={subLangs}
@@ -466,7 +472,7 @@ export default function Downloader(): JSX.Element {
                       checked={autoSubs}
                       onChange={(e) => setAutoSubs(e.target.checked)}
                     />
-                    Ke ca phu de tu dong
+                    Kèm cả phụ đề tự động
                   </label>
                   <label className="check">
                     <input
@@ -474,7 +480,7 @@ export default function Downloader(): JSX.Element {
                       checked={embedSubs}
                       onChange={(e) => setEmbedSubs(e.target.checked)}
                     />
-                    Nhung vao video
+                    Gắn vào video
                   </label>
                 </div>
               )}
@@ -487,7 +493,7 @@ export default function Downloader(): JSX.Element {
                   checked={useArchive}
                   onChange={(e) => setUseArchive(e.target.checked)}
                 />
-                Bo qua file da tai (nho lich su)
+                Bỏ qua file đã tải (nhớ lịch sử)
               </label>
               <label className="check">
                 <input
@@ -495,40 +501,40 @@ export default function Downloader(): JSX.Element {
                   checked={forceOverwrite}
                   onChange={(e) => setForceOverwrite(e.target.checked)}
                 />
-                Ghi de file trung
+                Ghi đè file trùng
               </label>
             </div>
           </div>
         )}
       </div>
 
-      {/* Cookie dang nhap */}
+      {/* Dang nhap bang cookie */}
       <div className="card cookie-card">
         <div className="cookie-head">
           <div>
-            <div className="cookie-title">🔑 Cookie dang nhap</div>
+            <div className="cookie-title">🔑 Đăng nhập bằng cookie</div>
             <div className="muted small">
-              Danh cho video can dang nhap. Bam nut de mo trinh duyet, dang nhap, roi{' '}
-              <b>dong trinh duyet</b> — cookie se tu luu.
+              Dành cho video cần đăng nhập. Bấm nút để mở cửa sổ đăng nhập, đăng nhập xong rồi{' '}
+              <b>đóng cửa sổ</b> — cookie sẽ tự lưu.
             </div>
           </div>
           {cookieStat?.has ? (
-            <span className="cookie-status ok">Da luu · {cookieStat.count} cookie</span>
+            <span className="cookie-status ok">Đã lưu · {cookieStat.count} cookie</span>
           ) : (
-            <span className="cookie-status">Chua co cookie</span>
+            <span className="cookie-status">Chưa có cookie</span>
           )}
         </div>
 
         <div className="cookie-actions">
           <input
             className="url-input small-input"
-            placeholder="Trang can dang nhap (vd: https://youtube.com) — de trong cung duoc"
+            placeholder="Trang cần đăng nhập (vd: https://youtube.com) — để trống cũng được"
             value={loginUrl}
             onChange={(e) => setLoginUrl(e.target.value)}
             disabled={cookieBusy}
           />
           <button className="btn primary" onClick={openLogin} disabled={cookieBusy}>
-            {cookieBusy ? 'Dang xu ly...' : 'Mo trinh duyet dang nhap'}
+            {cookieBusy ? 'Đang xử lý…' : 'Mở cửa sổ đăng nhập'}
           </button>
         </div>
 
@@ -540,11 +546,11 @@ export default function Downloader(): JSX.Element {
               disabled={!cookieStat?.has}
               onChange={(e) => setUseCookies(e.target.checked)}
             />
-            Dung cookie khi tai
+            Dùng cookie khi tải
           </label>
           {cookieStat?.has && (
             <button className="link-btn" onClick={clearCookie} disabled={cookieBusy}>
-              Xoa cookie
+              Xóa cookie
             </button>
           )}
         </div>
@@ -556,19 +562,19 @@ export default function Downloader(): JSX.Element {
       <div className="url-row">
         <input
           className="url-input"
-          placeholder="Dan 1 hoac nhieu lien ket (cach nhau bang khoang trang / xuong dong)"
+          placeholder="Dán 1 hoặc nhiều liên kết (cách nhau bằng khoảng trắng / xuống dòng)"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addUrls()}
         />
         <button className="btn primary" onClick={addUrls} disabled={!urlInput.trim() || probing}>
-          {probing ? 'Dang phan tich...' : '+ Them'}
+          {probing ? 'Đang phân tích…' : '+ Thêm'}
         </button>
       </div>
 
       <p className="hint muted small">
-        💡 Link <b>video</b> → them vao hang doi, moi video co nut <b>⚙</b> de chon dinh dang chi
-        tiet. &nbsp; Link <b>playlist</b> → hien bang chon video de tai.
+        💡 Link <b>video</b> → thêm vào hàng đợi, mỗi video có nút <b>⚙</b> để chọn định dạng chi
+        tiết. &nbsp; Link <b>playlist</b> → hiện bảng chọn video để tải.
       </p>
 
       {/* Hang doi */}
@@ -576,18 +582,18 @@ export default function Downloader(): JSX.Element {
         <>
           <div className="queue-bar">
             <div className="queue-summary muted small">
-              {items.length} muc · {done} xong{failed > 0 ? ` · ${failed} loi` : ''}
+              {items.length} mục · {done} xong{failed > 0 ? ` · ${failed} lỗi` : ''}
             </div>
             <div className="queue-actions">
               <button className="btn" onClick={clearAll} disabled={running}>
-                Xoa het
+                Xóa hết
               </button>
               <button
                 className="btn primary"
                 onClick={downloadAll}
                 disabled={running || pending === 0 || !outputDir}
               >
-                {running ? 'Dang tai...' : `⬇ Tai tat ca (${pending})`}
+                {running ? 'Đang tải…' : `⬇ Tải tất cả (${pending})`}
               </button>
             </div>
           </div>
@@ -610,12 +616,12 @@ export default function Downloader(): JSX.Element {
 
       {items.length === 0 && (
         <div className="empty muted">
-          <div className="empty-title">Hang doi trong</div>
+          <div className="empty-title">Hàng đợi trống</div>
           <div>
-            Dan link <b>video</b> hoac <b>playlist</b> o tren roi bam <b>Them</b>.
+            Dán link <b>video</b> hoặc <b>playlist</b> ở trên rồi bấm <b>Thêm</b>.
           </div>
           <div className="small" style={{ marginTop: 8 }}>
-            Sau khi them, moi video se co nut <b>⚙</b> de chon dinh dang (do phan giai, codec…).
+            Sau khi thêm, mỗi video sẽ có nút <b>⚙</b> để chọn định dạng (độ phân giải, codec…).
           </div>
         </div>
       )}
@@ -625,18 +631,18 @@ export default function Downloader(): JSX.Element {
         <div className="modal-overlay" onClick={() => setPlaylistSel({ open: false, entries: [] })}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <h3>Chon video tu playlist</h3>
+              <h3>Chọn video từ playlist</h3>
               <span className="muted small">
-                {playlistSel.entries.filter((e) => e.checked).length}/{playlistSel.entries.length} da
-                chon
+                {playlistSel.entries.filter((e) => e.checked).length}/{playlistSel.entries.length} đã
+                chọn
               </span>
             </div>
             <div className="modal-tools">
               <button className="btn small-btn" onClick={() => setAllEntries(true)}>
-                Chon tat ca
+                Chọn tất cả
               </button>
               <button className="btn small-btn" onClick={() => setAllEntries(false)}>
-                Bo chon
+                Bỏ chọn
               </button>
             </div>
             <div className="modal-list">
@@ -653,14 +659,14 @@ export default function Downloader(): JSX.Element {
             </div>
             <div className="modal-foot">
               <button className="btn" onClick={() => setPlaylistSel({ open: false, entries: [] })}>
-                Huy
+                Hủy
               </button>
               <button
                 className="btn primary"
                 onClick={confirmAddPlaylist}
                 disabled={playlistSel.entries.filter((e) => e.checked).length === 0}
               >
-                Them {playlistSel.entries.filter((e) => e.checked).length} video vao hang doi
+                Thêm {playlistSel.entries.filter((e) => e.checked).length} video vào hàng đợi
               </button>
             </div>
           </div>
@@ -675,26 +681,27 @@ export default function Downloader(): JSX.Element {
         >
           <div className="modal wide" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <h3>Chon dinh dang</h3>
-              <span className="muted small">Chon 1 dong · video-only se tu ghep audio tot nhat</span>
+              <h3>Chọn định dạng</h3>
+              <span className="muted small">
+                Chọn 1 dòng · video không tiếng sẽ tự ghép âm thanh tốt nhất
+              </span>
             </div>
             <div className="modal-list">
               <table className="fmt-table">
                 <thead>
                   <tr>
                     <th></th>
-                    <th>Do phan giai</th>
-                    <th>Ext</th>
+                    <th>Độ phân giải</th>
+                    <th>Đuôi</th>
                     <th>FPS</th>
                     <th>Codec</th>
-                    <th>Kich thuoc</th>
+                    <th>Kích thước</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[...formatPick.formats]
                     .sort(
-                      (a, b) =>
-                        (b.height ?? 0) - (a.height ?? 0) || (b.tbr ?? 0) - (a.tbr ?? 0)
+                      (a, b) => (b.height ?? 0) - (a.height ?? 0) || (b.tbr ?? 0) - (a.tbr ?? 0)
                     )
                     .map((f) => (
                       <tr key={f.format_id} onClick={() => chooseFormat(f)}>
@@ -705,7 +712,7 @@ export default function Downloader(): JSX.Element {
                           {f.height
                             ? `${f.height}p`
                             : f.acodec && !f.vcodec
-                              ? 'Audio'
+                              ? 'Âm thanh'
                               : f.resolution ?? '—'}
                         </td>
                         <td>{f.ext}</td>
@@ -724,7 +731,7 @@ export default function Downloader(): JSX.Element {
                 className="btn"
                 onClick={() => setFormatPick({ open: false, itemId: null, formats: [] })}
               >
-                Dong
+                Đóng
               </button>
             </div>
           </div>
@@ -737,22 +744,22 @@ export default function Downloader(): JSX.Element {
 function statusLabel(it: QueueItem): string {
   switch (it.status) {
     case 'fetching':
-      return 'Dang lay thong tin...'
+      return 'Đang lấy thông tin…'
     case 'ready':
-      return 'Cho tai'
+      return 'Chờ tải'
     case 'downloading':
       switch (it.progress?.status) {
         case 'postprocessing':
-          return 'Dang xu ly...'
+          return 'Đang xử lý…'
         case 'preparing':
-          return 'Dang chuan bi...'
+          return 'Đang chuẩn bị…'
         default:
-          return 'Dang tai...'
+          return 'Đang tải…'
       }
     case 'done':
       return 'Xong'
     case 'error':
-      return 'Loi'
+      return 'Lỗi'
   }
 }
 
@@ -777,8 +784,6 @@ function QueueRow({
   const title = item.info?.title || item.title || item.url
   const canPickFormat = !!item.info?.formats?.length && item.status !== 'downloading'
 
-  // Canh bao neu do phan giai chung cao hon muc toi da cua video nay.
-  // Chi ap dung khi: che do Video, co chon do phan giai cu the, chua chon format rieng.
   const maxH = item.info?.heights?.[0] ?? null
   const resWarn =
     selKind === 'video' &&
@@ -788,7 +793,7 @@ function QueueRow({
     !item.formatLabel &&
     item.status !== 'downloading' &&
     item.status !== 'done'
-      ? `Video nay toi da ${maxH}p — chon ${selHeight}p se chi tai duoc ${maxH}p. Hay chon ${maxH}p hoac "Tot nhat".`
+      ? `Video này tối đa ${maxH}p — chọn ${selHeight}p sẽ chỉ tải được ${maxH}p. Hãy chọn ${maxH}p hoặc "Tốt nhất".`
       : null
 
   return (
@@ -810,7 +815,7 @@ function QueueRow({
           <div className="qfmt">
             <span className="fmt-badge">⚙ {item.formatLabel}</span>
             <button className="link-btn" onClick={onClearFormat}>
-              bo chon
+              bỏ chọn
             </button>
           </div>
         )}
@@ -831,7 +836,7 @@ function QueueRow({
                   {formatBytes(p.downloadedBytes)} / {formatBytes(p.totalBytes)}
                 </span>
                 <span>{formatSpeed(p.speed)}</span>
-                <span>ETA {formatEta(p.eta)}</span>
+                <span>Còn {formatEta(p.eta)}</span>
               </div>
             )}
           </>
@@ -851,18 +856,22 @@ function QueueRow({
         </span>
         <div className="qbtns">
           {canPickFormat && (
-            <button className="ibtn" title="Chon dinh dang" onClick={onPickFormat}>
+            <button className="ibtn" title="Chọn định dạng" onClick={onPickFormat}>
               ⚙
             </button>
           )}
           {item.status === 'done' && item.result?.file && (
             <>
-              <button className="ibtn" title="Mo file" onClick={() => window.api.openPath(item.result!.file!)}>
+              <button
+                className="ibtn"
+                title="Mở file"
+                onClick={() => window.api.openPath(item.result!.file!)}
+              >
                 ▶
               </button>
               <button
                 className="ibtn"
-                title="Mo thu muc"
+                title="Mở thư mục"
                 onClick={() => window.api.showItem(item.result!.file!)}
               >
                 📂
@@ -870,7 +879,7 @@ function QueueRow({
             </>
           )}
           {item.status !== 'downloading' && (
-            <button className="ibtn" title="Xoa khoi hang doi" onClick={onRemove}>
+            <button className="ibtn" title="Xóa khỏi hàng đợi" onClick={onRemove}>
               ✕
             </button>
           )}

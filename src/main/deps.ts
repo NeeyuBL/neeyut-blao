@@ -128,7 +128,7 @@ async function findFile(dir: string, name: string): Promise<string | null> {
 }
 
 async function installYtDlp(onProgress: ProgressCb): Promise<void> {
-  onProgress({ phase: 'downloading-ytdlp', message: 'Dang tai bo tai xuong...', percent: 0 })
+  onProgress({ phase: 'downloading-ytdlp', message: 'Đang tải bộ tải xuống…', percent: 0 })
   const dest = join(binDir(), exe('yt-dlp'))
   let url: string
   if (isWin) {
@@ -139,22 +139,22 @@ async function installYtDlp(onProgress: ProgressCb): Promise<void> {
     url = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp'
   }
   await downloadFile(url, dest, (p) =>
-    onProgress({ phase: 'downloading-ytdlp', message: `Dang tai bo tai xuong... ${p}%`, percent: p })
+    onProgress({ phase: 'downloading-ytdlp', message: `Đang tải bộ tải xuống… ${p}%`, percent: p })
   )
   if (!isWin) await chmod(dest, 0o755)
 }
 
 async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
-  onProgress({ phase: 'downloading-ffmpeg', message: 'Dang tai ffmpeg...', percent: 0 })
+  onProgress({ phase: 'downloading-ffmpeg', message: 'Đang tải ffmpeg…', percent: 0 })
 
   if (isWin) {
     const tmpZip = join(binDir(), 'ffmpeg.zip')
     const url =
       'https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
     await downloadFile(url, tmpZip, (p) =>
-      onProgress({ phase: 'downloading-ffmpeg', message: `Dang tai ffmpeg... ${p}%`, percent: p })
+      onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ffmpeg… ${p}%`, percent: p })
     )
-    onProgress({ phase: 'extracting', message: 'Dang giai nen ffmpeg...', percent: -1 })
+    onProgress({ phase: 'extracting', message: 'Đang giải nén ffmpeg…', percent: -1 })
     const extractDir = join(binDir(), 'ffmpeg_tmp')
     await rm(extractDir, { recursive: true, force: true })
     await expandZipWindows(tmpZip, extractDir)
@@ -169,7 +169,7 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     // macOS/Linux: khuyen nghi cai qua he thong (brew install ffmpeg).
     // MVP tren Windows la trong tam; o day nem loi de UI huong dan.
     throw new Error(
-      'Tren macOS/Linux, vui long cai ffmpeg qua he thong (vd: brew install ffmpeg) roi mo lai app.'
+      'Trên macOS/Linux, vui lòng cài ffmpeg qua hệ thống (vd: brew install ffmpeg) rồi mở lại ứng dụng.'
     )
   }
 }
@@ -180,7 +180,7 @@ export async function runSetup(onProgress: ProgressCb): Promise<void> {
     const status = await checkDependencies()
     if (!status.ytdlp) await installYtDlp(onProgress)
     if (!status.ffmpeg) await installFfmpeg(onProgress)
-    onProgress({ phase: 'done', message: 'Hoan tat! San sang su dung.', percent: 100 })
+    onProgress({ phase: 'done', message: 'Hoàn tất! Sẵn sàng sử dụng.', percent: 100 })
   } catch (err) {
     onProgress({
       phase: 'error',

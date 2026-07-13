@@ -9,7 +9,7 @@ interface Props {
 export default function SetupScreen({ onDone }: Props): JSX.Element {
   const [progress, setProgress] = useState<SetupProgress>({
     phase: 'checking',
-    message: 'Thieu thanh phan can thiet de tai va xu ly video.',
+    message: 'Thiếu thành phần cần thiết để tải và xử lý video.',
     percent: 0
   })
   const [running, setRunning] = useState(false)
@@ -40,15 +40,15 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
   return (
     <div className="center setup">
       <div className="card setup-card">
-        <h2>Cai dat cong cu</h2>
+        <h2>Cài đặt công cụ</h2>
         <p className="muted">
-          T-blao can cai them vai thanh phan de tai va xu ly video. Ung dung se tu tai ve nhung
-          thanh phan con thieu (khong can quyen admin).
+          T-blao cần cài thêm vài thành phần để tải và xử lý video. Ứng dụng sẽ tự tải về những
+          thành phần còn thiếu (không cần quyền admin).
         </p>
 
         {!running && !error && (
           <button className="btn primary" onClick={start}>
-            Tai &amp; cai dat
+            Tải &amp; cài đặt
           </button>
         )}
 
@@ -68,7 +68,7 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
           <div className="error-box">
             <p>{error}</p>
             <button className="btn" onClick={start}>
-              Thu lai
+              Thử lại
             </button>
           </div>
         )}

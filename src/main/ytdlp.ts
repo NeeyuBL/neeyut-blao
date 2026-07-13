@@ -32,7 +32,7 @@ async function ffmpegLocation(): Promise<string | null> {
 
 async function ytdlpCmd(): Promise<string> {
   const cmd = await resolveYtDlp()
-  if (!cmd) throw new Error('Khong tim thay bo tai xuong. Vui long chay lai buoc cai dat.')
+  if (!cmd) throw new Error('Không tìm thấy bộ tải xuống. Vui lòng chạy lại bước cài đặt.')
   return cmd
 }
 
@@ -66,7 +66,7 @@ export async function fetchInfo(url: string, cookiesFile?: string | null): Promi
   args.push(url)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
-    throw new Error(stderr.trim() || 'Khong lay duoc thong tin. Kiem tra lai URL.')
+    throw new Error(stderr.trim() || 'Không lấy được thông tin. Kiểm tra lại đường dẫn.')
   }
   const data = JSON.parse(stdout)
 
@@ -122,7 +122,7 @@ export async function fetchPlaylist(
   args.push(url)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
-    throw new Error(stderr.trim() || 'Khong lay duoc danh sach.')
+    throw new Error(stderr.trim() || 'Không lấy được danh sách.')
   }
   const data = JSON.parse(stdout)
 
@@ -305,7 +305,7 @@ export async function download(
           id,
           ok: false,
           file: null,
-          error: errBuf.trim() || `Bo tai xuong thoat voi ma ${code}`
+          error: errBuf.trim() || `Bộ tải xuống thoát với mã ${code}`
         })
       }
     })
