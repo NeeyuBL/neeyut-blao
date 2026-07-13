@@ -26,12 +26,12 @@ Cập nhật lần cuối: 2026-07-13 · Repo: https://github.com/NeeyuBL/T-blao
 
 ## 🎯 GIAI ĐOẠN 0 — HOÀN THIỆN TÍNH NĂNG (ĐANG LÀM — ưu tiên số 1)
 
-### Tính năng tải (P1 còn lại)
-- [ ] **Phụ đề** — tải + nhúng vào video, chọn ngôn ngữ, phụ đề tự động (`--write-subs --embed-subs --sub-langs --write-auto-subs`)
-- [ ] **Bỏ qua file đã tải** — download archive (`--download-archive`)
-- [ ] **Mẫu tên file tùy chỉnh** — đặt quy tắc đặt tên (`-o` template)
-- [ ] **Đổi định dạng đầu ra** — mp4/mkv (`--remux-video` / `--recode-video`)
-- [ ] **Tiếp tục tải dở / ghi đè** (`-c` / `-w`)
+### Tính năng tải (P1 còn lại) — ✅ XONG (panel "Tùy chọn nâng cao")
+- [x] **Phụ đề** — tải + nhúng vào video, chọn ngôn ngữ, phụ đề tự động
+- [x] **Bỏ qua file đã tải** — download archive (lưu ở userData/download-archive.txt)
+- [x] **Mẫu tên file tùy chỉnh** — `-o` template chỉnh được
+- [x] **Đổi định dạng đầu ra** — MP4/MKV/WEBM (merge-output-format)
+- [x] **Ghi đè file trùng** (`--force-overwrites`; tiếp tục tải dở là mặc định)
 
 ### Trải nghiệm & độ hoàn thiện (quan trọng để "share được")
 - [ ] **Dịch lỗi thường gặp sang tiếng Việt thân thiện** (vd "Unsupported URL" → gợi ý dán link video)

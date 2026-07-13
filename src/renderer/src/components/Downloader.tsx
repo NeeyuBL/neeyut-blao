@@ -62,6 +62,17 @@ export default function Downloader(): JSX.Element {
   const [embedMetadata, setEmbedMetadata] = useState(true)
   const [outputDir, setOutputDir] = useState('')
 
+  // Tuy chon nang cao (P1)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [container, setContainer] = useState('mp4')
+  const [outputTemplate, setOutputTemplate] = useState('%(title)s [%(id)s].%(ext)s')
+  const [writeSubs, setWriteSubs] = useState(false)
+  const [autoSubs, setAutoSubs] = useState(false)
+  const [subLangs, setSubLangs] = useState('vi,en')
+  const [embedSubs, setEmbedSubs] = useState(true)
+  const [useArchive, setUseArchive] = useState(false)
+  const [forceOverwrite, setForceOverwrite] = useState(false)
+
   const [urlInput, setUrlInput] = useState('')
   const [items, setItems] = useState<QueueItem[]>([])
   const [running, setRunning] = useState(false)
@@ -241,7 +252,15 @@ export default function Downloader(): JSX.Element {
     embedThumbnail,
     embedMetadata,
     cookiesFile: cookiesFile(),
-    formatId: item.formatId
+    formatId: item.formatId,
+    container,
+    outputTemplate,
+    writeSubs,
+    autoSubs,
+    subLangs,
+    embedSubs,
+    useArchive,
+    forceOverwrite
   })
 
   const downloadAll = async (): Promise<void> => {
@@ -348,6 +367,96 @@ export default function Downloader(): JSX.Element {
             Chon thu muc
           </button>
         </div>
+      </div>
+
+      {/* Tuy chon nang cao */}
+      <div className="card adv-card">
+        <button className="adv-toggle" onClick={() => setShowAdvanced((v) => !v)}>
+          <span>⚙ Tuy chon nang cao</span>
+          <span className="adv-arrow">{showAdvanced ? '▴' : '▾'}</span>
+        </button>
+        {showAdvanced && (
+          <div className="adv-body">
+            <div className="adv-row">
+              <label className="field">
+                <span>Dinh dang file (video)</span>
+                <select value={container} onChange={(e) => setContainer(e.target.value)}>
+                  <option value="mp4">MP4</option>
+                  <option value="mkv">MKV</option>
+                  <option value="webm">WEBM</option>
+                </select>
+              </label>
+              <label className="field grow">
+                <span>Mau ten file</span>
+                <input
+                  className="folder-input"
+                  value={outputTemplate}
+                  onChange={(e) => setOutputTemplate(e.target.value)}
+                  spellCheck={false}
+                />
+              </label>
+            </div>
+
+            <div className="adv-subs">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={writeSubs}
+                  onChange={(e) => setWriteSubs(e.target.checked)}
+                />
+                Tai phu de <span className="muted small">(chi khi tai Video)</span>
+              </label>
+              {writeSubs && (
+                <div className="adv-subs-detail">
+                  <label className="field">
+                    <span>Ngon ngu</span>
+                    <input
+                      className="mini-input"
+                      value={subLangs}
+                      onChange={(e) => setSubLangs(e.target.value)}
+                      placeholder="vi,en"
+                    />
+                  </label>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={autoSubs}
+                      onChange={(e) => setAutoSubs(e.target.checked)}
+                    />
+                    Ke ca phu de tu dong
+                  </label>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={embedSubs}
+                      onChange={(e) => setEmbedSubs(e.target.checked)}
+                    />
+                    Nhung vao video
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="adv-checks">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={useArchive}
+                  onChange={(e) => setUseArchive(e.target.checked)}
+                />
+                Bo qua file da tai (nho lich su)
+              </label>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={forceOverwrite}
+                  onChange={(e) => setForceOverwrite(e.target.checked)}
+                />
+                Ghi de file trung
+              </label>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Cookie dang nhap */}

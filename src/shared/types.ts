@@ -70,6 +70,15 @@ export interface DownloadRequest {
   embedMetadata: boolean
   cookiesFile: string | null // duong dan cookies.txt neu dung cookie dang nhap
   formatId: string | null // bo chon dinh dang tuy chon (vd '137+bestaudio'); null = dung kind/height
+  // --- P1 nang cao ---
+  container: string // dinh dang file video khi ghep: mp4/mkv/webm
+  outputTemplate: string // mau ten file yt-dlp (vd '%(title)s [%(id)s].%(ext)s')
+  writeSubs: boolean // tai phu de
+  autoSubs: boolean // ke ca phu de tu dong (ASR)
+  subLangs: string // ngon ngu phu de, vd 'vi,en'
+  embedSubs: boolean // nhung phu de vao video
+  useArchive: boolean // bo qua file da tai (download archive)
+  forceOverwrite: boolean // ghi de file trung
 }
 
 export type DownloadStatus = 'preparing' | 'downloading' | 'postprocessing' | 'finished' | 'error'

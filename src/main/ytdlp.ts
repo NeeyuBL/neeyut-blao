@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import { constants } from 'node:fs'
@@ -154,9 +155,12 @@ const PP_TAGS = ['[Merger]', '[ExtractAudio]', '[EmbedThumbnail]', '[Metadata]',
 function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
   const args: string[] = []
 
-  // Output: <thu muc>/<tieu de> [id].ext
-  const outTemplate = join(req.outputDir, '%(title)s [%(id)s].%(ext)s')
-  args.push('-o', outTemplate)
+  // Output: <thu muc>/<mau ten file>
+  const template =
+    req.outputTemplate && req.outputTemplate.trim()
+      ? req.outputTemplate.trim()
+      : '%(title)s [%(id)s].%(ext)s'
+  args.push('-o', join(req.outputDir, template))
   args.push('--no-playlist')
   args.push('--no-warnings')
   args.push('--newline', '--no-colors')
@@ -167,10 +171,11 @@ function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
   if (ffLoc) args.push('--ffmpeg-location', ffLoc)
   if (isWin) args.push('--windows-filenames')
 
+  const container = req.container || 'mp4'
   if (req.formatId) {
     // Nguoi dung chon dinh dang cu the (uu tien cao nhat)
     args.push('-f', req.formatId)
-    if (req.formatId.includes('+')) args.push('--merge-output-format', 'mp4')
+    if (req.formatId.includes('+')) args.push('--merge-output-format', container)
   } else if (req.kind === 'audio') {
     args.push('-x', '--audio-format', req.audioFormat || 'mp3', '--audio-quality', '0')
   } else {
@@ -179,11 +184,25 @@ function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
       h && h > 0
         ? `bv*[height<=${h}]+ba/b[height<=${h}]/bv*+ba/b`
         : 'bv*+ba/b'
-    args.push('-f', fmt, '--merge-output-format', 'mp4')
+    args.push('-f', fmt, '--merge-output-format', container)
+  }
+
+  // Phu de (chi ap dung cho video)
+  if (req.kind === 'video' && (req.writeSubs || req.autoSubs)) {
+    if (req.writeSubs) args.push('--write-subs')
+    if (req.autoSubs) args.push('--write-auto-subs')
+    args.push('--sub-langs', req.subLangs && req.subLangs.trim() ? req.subLangs.trim() : 'en')
+    if (req.embedSubs) args.push('--embed-subs')
   }
 
   if (req.embedThumbnail) args.push('--embed-thumbnail')
   if (req.embedMetadata) args.push('--embed-metadata')
+
+  // Bo qua file da tai (luu lich su o userData)
+  if (req.useArchive) {
+    args.push('--download-archive', join(app.getPath('userData'), 'download-archive.txt'))
+  }
+  if (req.forceOverwrite) args.push('--force-overwrites')
 
   if (req.cookiesFile) args.push('--cookies', req.cookiesFile)
 

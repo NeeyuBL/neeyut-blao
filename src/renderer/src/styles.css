@@ -418,6 +418,75 @@ select {
   gap: 14px;
 }
 
+/* ---- Tuy chon nang cao ---- */
+.adv-card {
+  padding: 0;
+}
+.adv-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 15px 18px;
+  cursor: pointer;
+}
+.adv-toggle:hover {
+  color: var(--primary);
+}
+.adv-arrow {
+  color: var(--muted);
+  font-size: 12px;
+}
+.adv-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 18px 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+.adv-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.field.grow {
+  flex: 1;
+  min-width: 220px;
+}
+.mini-input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 13px;
+  width: 120px;
+}
+.adv-subs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.adv-subs-detail {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-left: 24px;
+}
+.adv-checks {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
 .queue-bar {
   display: flex;
   align-items: center;
