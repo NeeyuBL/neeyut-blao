@@ -887,6 +887,29 @@ select {
   gap: 8px;
   padding: 0 20px 12px;
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.pl-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pl-tool-btns {
+  display: flex;
+  gap: 8px;
+}
+.pl-num {
+  width: 72px;
+  text-align: center;
+}
+.pl-more {
+  padding: 10px;
+  text-align: center;
+  border-top: 1px dashed var(--border);
+  margin-top: 4px;
 }
 .small-btn {
   padding: 6px 12px;

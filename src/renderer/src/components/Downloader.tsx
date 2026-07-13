@@ -113,6 +113,8 @@ export default function Downloader(): JSX.Element {
     open: false,
     entries: []
   })
+  // Khoang chon (tu so x den so y) — huu ich cho kenh/playlist rat nhieu video
+  const [plRange, setPlRange] = useState<{ from: number; to: number }>({ from: 1, to: 1 })
 
   // Chon dinh dang nang cao (per-item)
   const [formatPick, setFormatPick] = useState<{
@@ -225,7 +227,10 @@ export default function Downloader(): JSX.Element {
     }
 
     if (singles.length) await addSingles(singles, cf)
-    if (collected.length) setPlaylistSel({ open: true, entries: collected })
+    if (collected.length) {
+      setPlRange({ from: 1, to: collected.length })
+      setPlaylistSel({ open: true, entries: collected })
+    }
     setProbing(false)
   }
 
@@ -237,6 +242,12 @@ export default function Downloader(): JSX.Element {
     }))
   const setAllEntries = (val: boolean): void =>
     setPlaylistSel((s) => ({ ...s, entries: s.entries.map((e) => ({ ...e, checked: val })) }))
+  // Chi tich chon cac video co so thu tu trong [from, to], bo tich phan con lai
+  const applyRange = (from: number, to: number): void =>
+    setPlaylistSel((s) => ({
+      ...s,
+      entries: s.entries.map((e, i) => ({ ...e, checked: i + 1 >= from && i + 1 <= to }))
+    }))
 
   const confirmAddPlaylist = (): void => {
     const chosen = playlistSel.entries.filter((e) => e.checked)
@@ -667,51 +678,108 @@ export default function Downloader(): JSX.Element {
       )}
 
       {/* Bang chon video tu playlist */}
-      {playlistSel.open && (
-        <div className="modal-overlay" onClick={() => setPlaylistSel({ open: false, entries: [] })}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3>Chọn video từ playlist</h3>
-              <span className="muted small">
-                {playlistSel.entries.filter((e) => e.checked).length}/{playlistSel.entries.length} đã
-                chọn
-              </span>
-            </div>
-            <div className="modal-tools">
-              <button className="btn small-btn" onClick={() => setAllEntries(true)}>
-                Chọn tất cả
-              </button>
-              <button className="btn small-btn" onClick={() => setAllEntries(false)}>
-                Bỏ chọn
-              </button>
-            </div>
-            <div className="modal-list">
-              {playlistSel.entries.map((e, i) => (
-                <label className="pl-entry" key={e.id || i}>
-                  <input type="checkbox" checked={e.checked} onChange={() => toggleEntry(i)} />
-                  <span className="pl-idx">{i + 1}</span>
-                  <span className="pl-title" title={e.title}>
-                    {e.title}
+      {playlistSel.open &&
+        (() => {
+          const total = playlistSel.entries.length
+          const checkedCount = playlistSel.entries.filter((e) => e.checked).length
+          const from = Math.max(1, Math.min(plRange.from || 1, total))
+          const to = Math.max(from, Math.min(plRange.to || total, total))
+          const RENDER_CAP = 500 // gioi han so dong ve DOM cho khoi lag
+          const rows: { e: SelEntry; i: number }[] = []
+          for (let i = from - 1; i < to && rows.length < RENDER_CAP; i++)
+            rows.push({ e: playlistSel.entries[i], i })
+          const hidden = to - from + 1 - rows.length
+
+          return (
+            <div
+              className="modal-overlay"
+              onClick={() => setPlaylistSel({ open: false, entries: [] })}
+            >
+              <div className="modal" onClick={(ev) => ev.stopPropagation()}>
+                <div className="modal-head">
+                  <h3>Chọn video từ playlist</h3>
+                  <span className="muted small">
+                    {total} video · đã chọn {checkedCount}
                   </span>
-                  {e.durationString && <span className="pl-dur muted">{e.durationString}</span>}
-                </label>
-              ))}
+                </div>
+
+                <div className="modal-tools">
+                  <div className="pl-range">
+                    <span className="muted small">Tải từ</span>
+                    <input
+                      className="mini-input pl-num"
+                      type="number"
+                      min={1}
+                      max={total}
+                      value={plRange.from}
+                      onChange={(ev) =>
+                        setPlRange((r) => ({ ...r, from: Number(ev.target.value) || 1 }))
+                      }
+                    />
+                    <span className="muted small">đến</span>
+                    <input
+                      className="mini-input pl-num"
+                      type="number"
+                      min={1}
+                      max={total}
+                      value={plRange.to}
+                      onChange={(ev) =>
+                        setPlRange((r) => ({ ...r, to: Number(ev.target.value) || total }))
+                      }
+                    />
+                    <span className="muted small">/ {total}</span>
+                    <button className="btn small-btn" onClick={() => applyRange(from, to)}>
+                      ✓ Chọn khoảng này
+                    </button>
+                  </div>
+                  <div className="pl-tool-btns">
+                    <button className="btn small-btn" onClick={() => setAllEntries(true)}>
+                      Chọn tất cả
+                    </button>
+                    <button className="btn small-btn" onClick={() => setAllEntries(false)}>
+                      Bỏ chọn
+                    </button>
+                  </div>
+                </div>
+
+                <div className="modal-list">
+                  {rows.map(({ e, i }) => (
+                    <label className="pl-entry" key={e.id || i}>
+                      <input type="checkbox" checked={e.checked} onChange={() => toggleEntry(i)} />
+                      <span className="pl-idx">{i + 1}</span>
+                      <span className="pl-title" title={e.title}>
+                        {e.title}
+                      </span>
+                      {e.durationString && <span className="pl-dur muted">{e.durationString}</span>}
+                    </label>
+                  ))}
+                  {hidden > 0 && (
+                    <div className="pl-more muted small">
+                      … còn {hidden} video nữa trong khoảng (thu hẹp “Từ…đến” để xem). Nút “Chọn khoảng
+                      này” vẫn áp dụng cho toàn bộ khoảng {from}–{to}.
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-foot">
+                  <button
+                    className="btn"
+                    onClick={() => setPlaylistSel({ open: false, entries: [] })}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    className="btn primary"
+                    onClick={confirmAddPlaylist}
+                    disabled={checkedCount === 0}
+                  >
+                    Thêm {checkedCount} video vào hàng đợi
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="modal-foot">
-              <button className="btn" onClick={() => setPlaylistSel({ open: false, entries: [] })}>
-                Hủy
-              </button>
-              <button
-                className="btn primary"
-                onClick={confirmAddPlaylist}
-                disabled={playlistSel.entries.filter((e) => e.checked).length === 0}
-              >
-                Thêm {playlistSel.entries.filter((e) => e.checked).length} video vào hàng đợi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          )
+        })()}
 
       {/* Bang chon dinh dang nang cao */}
       {formatPick.open && (
