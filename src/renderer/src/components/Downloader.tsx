@@ -39,6 +39,9 @@ const NAME_PRESETS: { label: string; tpl: string; ex: string }[] = [
 
 type ItemStatus = 'fetching' | 'ready' | 'downloading' | 'done' | 'error'
 
+// Cach sap xep file vao thu muc
+type FolderMode = 'flat' | 'playlist' | 'channel'
+
 interface QueueItem {
   id: string
   url: string
@@ -50,6 +53,17 @@ interface QueueItem {
   error: string | null
   formatId: string | null
   formatLabel: string | null
+  subfolder: string | null // ten thu muc con (vd: ten playlist)
+}
+
+// Lam sach ten thu muc: bo ky tu cam tren Windows, gom khoang trang
+function cleanFolder(s: string): string {
+  const out = s
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120)
+  return out || 'Playlist'
 }
 
 type SelEntry = PlaylistEntry & { checked: boolean; playlistTitle: string }
@@ -74,6 +88,7 @@ export default function Downloader(): JSX.Element {
   const [embedThumbnail, setEmbedThumbnail] = useState(true)
   const [embedMetadata, setEmbedMetadata] = useState(true)
   const [outputDir, setOutputDir] = useState('')
+  const [folderMode, setFolderMode] = useState<FolderMode>('flat')
 
   // Tuy chon nang cao
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -169,7 +184,8 @@ export default function Downloader(): JSX.Element {
       result: null,
       error: null,
       formatId: null,
-      formatLabel: null
+      formatLabel: null,
+      subfolder: null // video le -> nam o thu muc goc
     }))
     setItems((prev) => [...prev, ...newItems])
     await Promise.all(
@@ -234,7 +250,8 @@ export default function Downloader(): JSX.Element {
       result: null,
       error: null,
       formatId: null,
-      formatLabel: null
+      formatLabel: null,
+      subfolder: cleanFolder(e.playlistTitle) // playlist -> thu muc theo ten playlist
     }))
     setItems((prev) => [...prev, ...newItems])
     setPlaylistSel({ open: false, entries: [] })
@@ -257,6 +274,13 @@ export default function Downloader(): JSX.Element {
     if (dir) setOutputDir(dir)
   }
 
+  // Chen thu muc con vao truoc mau ten file tuy theo cach sap xep
+  const templateFor = (item: QueueItem): string => {
+    if (folderMode === 'channel') return `%(uploader)s/${outputTemplate}`
+    if (folderMode === 'playlist' && item.subfolder) return `${item.subfolder}/${outputTemplate}`
+    return outputTemplate
+  }
+
   const buildReq = (item: QueueItem): DownloadRequest => ({
     url: item.info?.webpageUrl ?? item.url,
     kind,
@@ -268,7 +292,7 @@ export default function Downloader(): JSX.Element {
     cookiesFile: cookiesFile(),
     formatId: item.formatId,
     container,
-    outputTemplate,
+    outputTemplate: templateFor(item),
     writeSubs,
     autoSubs,
     subLangs,
@@ -380,6 +404,21 @@ export default function Downloader(): JSX.Element {
             Chọn thư mục
           </button>
         </div>
+
+        <label className="field folder-mode-row">
+          <span>Sắp xếp vào thư mục</span>
+          <select value={folderMode} onChange={(e) => setFolderMode(e.target.value as FolderMode)}>
+            <option value="flat">Chung một thư mục</option>
+            <option value="playlist">Mỗi playlist một thư mục riêng</option>
+            <option value="channel">Theo kênh / tác giả</option>
+          </select>
+          <span className="muted small folder-mode-hint">
+            {folderMode === 'flat' && 'Tất cả video lưu chung vào thư mục đã chọn.'}
+            {folderMode === 'playlist' &&
+              'Playlist tự vào thư mục con theo tên playlist. Video lẻ nằm ở thư mục gốc.'}
+            {folderMode === 'channel' && 'Mỗi kênh/tác giả một thư mục con riêng.'}
+          </span>
+        </label>
       </div>
 
       {/* Tuy chon nang cao */}
@@ -605,6 +644,7 @@ export default function Downloader(): JSX.Element {
                 item={it}
                 selKind={kind}
                 selHeight={height}
+                folderMode={folderMode}
                 onRemove={() => removeItem(it.id)}
                 onPickFormat={() => openFormatPicker(it)}
                 onClearFormat={() => clearFormat(it.id)}
@@ -767,6 +807,7 @@ function QueueRow({
   item,
   selKind,
   selHeight,
+  folderMode,
   onRemove,
   onPickFormat,
   onClearFormat
@@ -774,6 +815,7 @@ function QueueRow({
   item: QueueItem
   selKind: DownloadKind
   selHeight: number | null
+  folderMode: FolderMode
   onRemove: () => void
   onPickFormat: () => void
   onClearFormat: () => void
@@ -783,6 +825,14 @@ function QueueRow({
   const busy = p?.status === 'postprocessing'
   const title = item.info?.title || item.title || item.url
   const canPickFormat = !!item.info?.formats?.length && item.status !== 'downloading'
+
+  // Thu muc con dich (de nguoi dung biet file se luu o dau)
+  const folderHint =
+    folderMode === 'playlist' && item.subfolder
+      ? item.subfolder
+      : folderMode === 'channel'
+        ? item.info?.uploader || 'theo kênh'
+        : null
 
   const maxH = item.info?.heights?.[0] ?? null
   const resWarn =
@@ -817,6 +867,12 @@ function QueueRow({
             <button className="link-btn" onClick={onClearFormat}>
               bỏ chọn
             </button>
+          </div>
+        )}
+
+        {folderHint && item.status !== 'downloading' && item.status !== 'done' && (
+          <div className="qfolder muted small" title={folderHint}>
+            📁 {folderHint}
           </div>
         )}
 

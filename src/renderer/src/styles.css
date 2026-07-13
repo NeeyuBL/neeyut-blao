@@ -352,6 +352,13 @@ select {
   font-size: 13px;
 }
 
+.folder-mode-row {
+  margin-top: 12px;
+}
+.folder-mode-hint {
+  margin-top: 4px;
+}
+
 /* ---- Progress ---- */
 .bar {
   width: 100%;
@@ -988,4 +995,10 @@ select {
   border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
   padding: 2px 8px;
   border-radius: 6px;
+}
+.qfolder {
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
