@@ -24,6 +24,15 @@ const RES_PRESETS: { label: string; value: number | null }[] = [
   { label: '360p', value: 360 }
 ]
 
+// Kieu dat ten file: nhan bang chu, ben trong la mau yt-dlp
+const NAME_PRESETS: { label: string; tpl: string; ex: string }[] = [
+  { label: 'Tieu de video', tpl: '%(title)s.%(ext)s', ex: 'Ten video.mp4' },
+  { label: 'Tieu de + ma video', tpl: '%(title)s [%(id)s].%(ext)s', ex: 'Ten video [aBc123].mp4' },
+  { label: 'Kenh - Tieu de', tpl: '%(uploader)s - %(title)s.%(ext)s', ex: 'Ten kenh - Ten video.mp4' },
+  { label: 'Ngay dang - Tieu de', tpl: '%(upload_date)s - %(title)s.%(ext)s', ex: '20240115 - Ten video.mp4' },
+  { label: 'So thu tu - Tieu de (playlist)', tpl: '%(playlist_index)s - %(title)s.%(ext)s', ex: '01 - Ten video.mp4' }
+]
+
 type ItemStatus = 'fetching' | 'ready' | 'downloading' | 'done' | 'error'
 
 interface QueueItem {
@@ -66,6 +75,7 @@ export default function Downloader(): JSX.Element {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [container, setContainer] = useState('mp4')
   const [outputTemplate, setOutputTemplate] = useState('%(title)s [%(id)s].%(ext)s')
+  const [customName, setCustomName] = useState(false)
   const [writeSubs, setWriteSubs] = useState(false)
   const [autoSubs, setAutoSubs] = useState(false)
   const [subLangs, setSubLangs] = useState('vi,en')
@@ -387,15 +397,48 @@ export default function Downloader(): JSX.Element {
                 </select>
               </label>
               <label className="field grow">
-                <span>Mau ten file</span>
+                <span>Kieu dat ten file</span>
+                <select
+                  value={customName ? 'custom' : outputTemplate}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v === 'custom') {
+                      setCustomName(true)
+                    } else {
+                      setCustomName(false)
+                      setOutputTemplate(v)
+                    }
+                  }}
+                >
+                  {NAME_PRESETS.map((p) => (
+                    <option key={p.tpl} value={p.tpl}>
+                      {p.label}
+                    </option>
+                  ))}
+                  <option value="custom">Tuy chinh…</option>
+                </select>
+              </label>
+            </div>
+
+            {customName ? (
+              <label className="field">
+                <span>Mau tuy chinh (cu phap yt-dlp)</span>
                 <input
                   className="folder-input"
                   value={outputTemplate}
                   onChange={(e) => setOutputTemplate(e.target.value)}
                   spellCheck={false}
+                  placeholder="%(title)s.%(ext)s"
                 />
+                <span className="muted small">
+                  Vi du: <code>%(uploader)s/%(title)s.%(ext)s</code> = luu theo thu muc kenh
+                </span>
               </label>
-            </div>
+            ) : (
+              <div className="name-preview muted small">
+                Ten file se dang: <b>{NAME_PRESETS.find((p) => p.tpl === outputTemplate)?.ex ?? outputTemplate}</b>
+              </div>
+            )}
 
             <div className="adv-subs">
               <label className="check">

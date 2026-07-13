@@ -486,6 +486,21 @@ select {
   gap: 22px;
   flex-wrap: wrap;
 }
+.name-preview {
+  margin-top: -4px;
+}
+.name-preview b {
+  color: var(--text);
+  font-weight: 600;
+}
+.adv-body code {
+  font-family: ui-monospace, Consolas, monospace;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 12px;
+}
 
 .queue-bar {
   display: flex;
