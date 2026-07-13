@@ -7,6 +7,7 @@ import {
   DownloadProgress,
   DownloadRequest,
   DownloadResult,
+  LogEntry,
   PlaylistProbe,
   SetupProgress,
   VideoInfo
@@ -49,6 +50,21 @@ const api = {
   showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('shell:showItem', filePath),
   openPath: (p: string): Promise<void> => ipcRenderer.invoke('shell:openPath', p),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+
+  // ---- Nhat ky hoat dong ----
+  getLogs: (): Promise<LogEntry[]> => ipcRenderer.invoke('logs:get'),
+  clearLogs: (): Promise<void> => ipcRenderer.invoke('logs:clear'),
+  openLogFile: (): Promise<void> => ipcRenderer.invoke('logs:openFile'),
+  onLog: (cb: (e: LogEntry) => void): (() => void) => {
+    const listener = (_e: unknown, entry: LogEntry): void => cb(entry)
+    ipcRenderer.on('logs:entry', listener)
+    return () => ipcRenderer.removeListener('logs:entry', listener)
+  },
+  onLogsCleared: (cb: () => void): (() => void) => {
+    const listener = (): void => cb()
+    ipcRenderer.on('logs:cleared', listener)
+    return () => ipcRenderer.removeListener('logs:cleared', listener)
+  },
 
   // ---- Cookie dang nhap ----
   cookieStatus: (): Promise<CookieStatus> => ipcRenderer.invoke('cookies:status'),

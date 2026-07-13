@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
 import Downloader from './components/Downloader'
 import License from './components/License'
+import Logs from './components/Logs'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'license'
+type TabKey = 'download' | 'logs' | 'license'
 
 interface Tab {
   key: TabKey
@@ -27,13 +28,22 @@ const TABS: Tab[] = [
 ]
 
 // Muc phu o day sidebar
-const LICENSE_TAB: Tab = {
-  key: 'license',
-  label: 'Giấy phép',
-  icon: '📜',
-  title: 'Giấy phép & Điều khoản',
-  subtitle: 'Bản quyền và trách nhiệm sử dụng'
-}
+const BOTTOM_TABS: Tab[] = [
+  {
+    key: 'logs',
+    label: 'Nhật ký',
+    icon: '📋',
+    title: 'Nhật ký hoạt động',
+    subtitle: 'Theo dõi hoạt động & lỗi phát sinh'
+  },
+  {
+    key: 'license',
+    label: 'Giấy phép',
+    icon: '📜',
+    title: 'Giấy phép & Điều khoản',
+    subtitle: 'Bản quyền và trách nhiệm sử dụng'
+  }
+]
 
 export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
@@ -70,7 +80,7 @@ export default function App(): JSX.Element {
     )
   }
 
-  const active = [...TABS, LICENSE_TAB].find((t) => t.key === tab) ?? TABS[0]
+  const active = [...TABS, ...BOTTOM_TABS].find((t) => t.key === tab) ?? TABS[0]
 
   const renderTab = (t: Tab): JSX.Element => (
     <button
@@ -93,7 +103,7 @@ export default function App(): JSX.Element {
         <div className="side-hint muted small">Sắp có thêm tính năng…</div>
 
         <div className="side-bottom">
-          {renderTab(LICENSE_TAB)}
+          {BOTTOM_TABS.map(renderTab)}
           <div className="side-version">Phiên bản {version || '…'}</div>
         </div>
       </aside>
@@ -107,6 +117,7 @@ export default function App(): JSX.Element {
         </header>
         <div className="content-body">
           {tab === 'download' && <Downloader />}
+          {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>
       </main>

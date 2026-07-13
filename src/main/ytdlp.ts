@@ -4,6 +4,7 @@ import { access } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { binDir, resolveYtDlp } from './deps'
+import { logError, logInfo } from './logger'
 import {
   DownloadProgress,
   DownloadRequest,
@@ -64,8 +65,10 @@ export async function fetchInfo(url: string, cookiesFile?: string | null): Promi
   const args = ['-J', '--no-warnings', '--no-playlist']
   if (cookiesFile) args.push('--cookies', cookiesFile)
   args.push(url)
+  logInfo(`Lấy thông tin video: ${url}`)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
+    logError(`Lỗi lấy thông tin (${url}): ${stderr.trim().slice(0, 400)}`)
     throw new Error(stderr.trim() || 'Không lấy được thông tin. Kiểm tra lại đường dẫn.')
   }
   const data = JSON.parse(stdout)
@@ -120,8 +123,10 @@ export async function fetchPlaylist(
   const args = ['-J', '--flat-playlist', '--no-warnings']
   if (cookiesFile) args.push('--cookies', cookiesFile)
   args.push(url)
+  logInfo(`Phân tích danh sách: ${url}`)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
+    logError(`Lỗi phân tích danh sách (${url}): ${stderr.trim().slice(0, 400)}`)
     throw new Error(stderr.trim() || 'Không lấy được danh sách.')
   }
   const data = JSON.parse(stdout)
@@ -228,6 +233,8 @@ export async function download(
   const cmd = await ytdlpCmd()
   const ffLoc = await ffmpegLocation()
   const args = buildArgs(req, ffLoc)
+  logInfo(`Bắt đầu tải: ${req.url}`)
+  logInfo(`Lệnh: ${cmd} ${args.join(' ')}`)
 
   return new Promise<DownloadResult>((resolve) => {
     const child = spawn(cmd, args, { windowsHide: true })
@@ -301,6 +308,7 @@ export async function download(
     child.stderr.on('data', (d) => (errBuf += d.toString()))
 
     child.on('error', (err) => {
+      logError(`Không chạy được bộ tải xuống: ${err.message}`)
       resolve({ id, ok: false, file: null, error: err.message })
     })
 
@@ -308,14 +316,12 @@ export async function download(
       if (stdoutBuf) handleLine(stdoutBuf)
       if (code === 0) {
         emit({ status: 'finished', percent: 100 })
+        logInfo(`Hoàn tất: ${destFile ?? req.url}`)
         resolve({ id, ok: true, file: destFile, error: null })
       } else {
-        resolve({
-          id,
-          ok: false,
-          file: null,
-          error: errBuf.trim() || `Bộ tải xuống thoát với mã ${code}`
-        })
+        const error = errBuf.trim() || `Bộ tải xuống thoát với mã ${code}`
+        logError(`Lỗi tải (${req.url}): ${error.slice(0, 600)}`)
+        resolve({ id, ok: false, file: null, error })
       }
     })
   })

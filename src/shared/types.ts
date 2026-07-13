@@ -1,5 +1,12 @@
 // Kieu du lieu dung chung giua main <-> preload <-> renderer
 
+export type LogLevel = 'info' | 'warn' | 'error'
+export interface LogEntry {
+  time: string // ISO
+  level: LogLevel
+  msg: string
+}
+
 export interface DepStatus {
   ytdlp: boolean
   ffmpeg: boolean

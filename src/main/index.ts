@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { checkDependencies, runSetup } from './deps'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
-import { DownloadRequest, SetupProgress } from '../shared/types'
+import { clearLogs, getLogs, logEmitter, logError, logFilePath, logInfo } from './logger'
+import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -28,6 +29,10 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
 
+  // Day nhat ky realtime len giao dien
+  logEmitter.on('entry', (e: LogEntry) => mainWindow?.webContents.send('logs:entry', e))
+  logEmitter.on('cleared', () => mainWindow?.webContents.send('logs:cleared'))
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -43,6 +48,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerIpc()
+  logInfo(`T-blao ${app.getVersion()} khởi động · ${process.platform}`)
   createWindow()
 
   app.on('activate', () => {
@@ -56,7 +62,11 @@ app.on('window-all-closed', () => {
 
 function registerIpc(): void {
   // Kiem tra phu thuoc luc khoi dong
-  ipcMain.handle('deps:check', async () => checkDependencies())
+  ipcMain.handle('deps:check', async () => {
+    const s = await checkDependencies()
+    logInfo(`Kiểm tra môi trường: bộ tải xuống=${s.ytdlp ? 'có' : 'thiếu'}, ffmpeg=${s.ffmpeg ? 'có' : 'thiếu'}`)
+    return s
+  })
 
   // Chay setup (tai cai con thieu), day tien do ve renderer
   ipcMain.handle('deps:setup', async (event) => {
@@ -81,10 +91,17 @@ function registerIpc(): void {
 
   // ---- Cookie dang nhap (Electron native) ----
   ipcMain.handle('cookies:status', async () => cookieStatus())
-  ipcMain.handle('cookies:clear', async () => clearCookies())
-  ipcMain.handle('cookies:capture', async (event, url: string) =>
-    captureCookies(url, (e) => event.sender.send('cookies:capture-event', e))
-  )
+  ipcMain.handle('cookies:clear', async () => {
+    logInfo('Xóa cookie đăng nhập.')
+    return clearCookies()
+  })
+  ipcMain.handle('cookies:capture', async (event, url: string) => {
+    logInfo(`Mở cửa sổ đăng nhập lấy cookie: ${url || '(trống)'}`)
+    const res = await captureCookies(url, (e) => event.sender.send('cookies:capture-event', e))
+    if (res.ok) logInfo(`Đã lưu ${res.count} cookie.`)
+    else logError(`Lấy cookie thất bại: ${res.error ?? ''}`)
+    return res
+  })
 
   // Kiem tra playlist
   ipcMain.handle('ytdlp:playlist', async (_e, url: string, cookiesFile?: string | null) => {
@@ -110,6 +127,13 @@ function registerIpc(): void {
 
   // Phien ban ung dung
   ipcMain.handle('app:version', async () => app.getVersion())
+
+  // Nhat ky hoat dong
+  ipcMain.handle('logs:get', async () => getLogs())
+  ipcMain.handle('logs:clear', async () => clearLogs())
+  ipcMain.handle('logs:openFile', async () => {
+    await shell.openPath(logFilePath())
+  })
 
   // Tai xuong
   ipcMain.handle('ytdlp:download', async (event, id: string, req: DownloadRequest) => {
