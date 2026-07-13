@@ -60,10 +60,15 @@ function run(cmd: string, args: string[]): Promise<{ code: number; stdout: strin
 }
 
 /** Lay thong tin video (tieu de, thumbnail, formats) de hien len UI. */
-export async function fetchInfo(url: string, cookiesFile?: string | null): Promise<VideoInfo> {
+export async function fetchInfo(
+  url: string,
+  cookiesFile?: string | null,
+  proxy?: string | null
+): Promise<VideoInfo> {
   const cmd = await ytdlpCmd()
   const args = ['-J', '--no-warnings', '--no-playlist']
   if (cookiesFile) args.push('--cookies', cookiesFile)
+  if (proxy) args.push('--proxy', proxy)
   args.push(url)
   logInfo(`Lấy thông tin video: ${url}`)
   const { code, stdout, stderr } = await run(cmd, args)
@@ -117,11 +122,13 @@ export async function fetchInfo(url: string, cookiesFile?: string | null): Promi
  */
 export async function fetchPlaylist(
   url: string,
-  cookiesFile?: string | null
+  cookiesFile?: string | null,
+  proxy?: string | null
 ): Promise<PlaylistProbe> {
   const cmd = await ytdlpCmd()
   const args = ['-J', '--flat-playlist', '--no-warnings']
   if (cookiesFile) args.push('--cookies', cookiesFile)
+  if (proxy) args.push('--proxy', proxy)
   args.push(url)
   logInfo(`Phân tích danh sách: ${url}`)
   const { code, stdout, stderr } = await run(cmd, args)
@@ -219,6 +226,7 @@ function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
   if (req.forceOverwrite) args.push('--force-overwrites')
 
   if (req.cookiesFile) args.push('--cookies', req.cookiesFile)
+  if (req.proxy) args.push('--proxy', req.proxy)
 
   args.push(req.url)
   return args

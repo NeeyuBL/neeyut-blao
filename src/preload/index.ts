@@ -9,6 +9,7 @@ import {
   DownloadResult,
   LogEntry,
   PlaylistProbe,
+  ProxyTestResult,
   SetupProgress,
   VideoInfo
 } from '../shared/types'
@@ -25,15 +26,19 @@ const api = {
 
   getInfo: (
     url: string,
-    cookiesFile?: string | null
+    cookiesFile?: string | null,
+    proxy?: string | null
   ): Promise<{ ok: boolean; info?: VideoInfo; error?: string }> =>
-    ipcRenderer.invoke('ytdlp:info', url, cookiesFile),
+    ipcRenderer.invoke('ytdlp:info', url, cookiesFile, proxy),
 
   getPlaylist: (
     url: string,
-    cookiesFile?: string | null
+    cookiesFile?: string | null,
+    proxy?: string | null
   ): Promise<{ ok: boolean; playlist?: PlaylistProbe; error?: string }> =>
-    ipcRenderer.invoke('ytdlp:playlist', url, cookiesFile),
+    ipcRenderer.invoke('ytdlp:playlist', url, cookiesFile, proxy),
+
+  testProxy: (proxy: string): Promise<ProxyTestResult> => ipcRenderer.invoke('proxy:test', proxy),
 
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
   downloadsDir: (): Promise<string> => ipcRenderer.invoke('app:downloadsDir'),

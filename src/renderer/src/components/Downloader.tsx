@@ -102,6 +102,13 @@ export default function Downloader(): JSX.Element {
   const [useArchive, setUseArchive] = useState(false)
   const [forceOverwrite, setForceOverwrite] = useState(false)
 
+  // Proxy (vuot khoa vung)
+  const [proxyVal, setProxyVal] = useState('')
+  const [proxyMsg, setProxyMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [proxyBusy, setProxyBusy] = useState(false)
+  const [proxyGuide, setProxyGuide] = useState(false)
+  const proxyArg = (): string | null => proxyVal.trim() || null
+
   const [urlInput, setUrlInput] = useState('')
   const [items, setItems] = useState<QueueItem[]>([])
   const [running, setRunning] = useState(false)
@@ -176,6 +183,14 @@ export default function Downloader(): JSX.Element {
     setCookieMsg('Đã xóa cookie.')
   }
 
+  const testProxyNow = async (): Promise<void> => {
+    setProxyBusy(true)
+    setProxyMsg(null)
+    const res = await window.api.testProxy(proxyVal.trim())
+    setProxyMsg({ ok: res.ok, text: res.message })
+    setProxyBusy(false)
+  }
+
   const patch = (id: string, upd: Partial<QueueItem>): void => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...upd } : it)))
   }
@@ -198,7 +213,7 @@ export default function Downloader(): JSX.Element {
     setItems((prev) => [...prev, ...newItems])
     await Promise.all(
       newItems.map(async (it) => {
-        const res = await window.api.getInfo(it.url, cf)
+        const res = await window.api.getInfo(it.url, cf, proxyArg())
         if (res.ok && res.info)
           patch(it.id, { info: res.info, title: res.info.title, status: 'ready' })
         else patch(it.id, { status: 'error', error: res.error ?? 'Không lấy được thông tin.' })
@@ -221,7 +236,7 @@ export default function Downloader(): JSX.Element {
     const sublists: { title: string; url: string; count: number | null }[] = []
     for (const url of urls) {
       try {
-        const res = await window.api.getPlaylist(url, cf)
+        const res = await window.api.getPlaylist(url, cf, proxyArg())
         if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
           const plTitle = res.playlist.title ?? 'Playlist'
           for (const e of res.playlist.entries) {
@@ -271,7 +286,7 @@ export default function Downloader(): JSX.Element {
     setProbing(true)
     const cf = cookiesFile()
     try {
-      const res = await window.api.getPlaylist(url, cf)
+      const res = await window.api.getPlaylist(url, cf, proxyArg())
       if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
         const nested = res.playlist.entries.filter((e) => e.isPlaylist)
         if (nested.length > 0) {
@@ -360,7 +375,8 @@ export default function Downloader(): JSX.Element {
     subLangs,
     embedSubs,
     useArchive,
-    forceOverwrite
+    forceOverwrite,
+    proxy: proxyArg()
   })
 
   const downloadAll = async (): Promise<void> => {
@@ -659,6 +675,48 @@ export default function Downloader(): JSX.Element {
         {cookieMsg && <div className="cookie-msg small">{cookieMsg}</div>}
       </div>
 
+      {/* Proxy (vuot khoa vung) */}
+      <div className="card proxy-card">
+        <div className="proxy-head">
+          <div className="proxy-title">
+            🌐 Proxy <span className="muted small">(vượt khóa vùng)</span>
+          </div>
+          <button
+            className="proxy-guide-btn"
+            onClick={() => setProxyGuide(true)}
+            title="Hướng dẫn"
+          >
+            ? Hướng dẫn
+          </button>
+        </div>
+        <div className="proxy-actions">
+          <input
+            className="url-input small-input"
+            placeholder="socks5://127.0.0.1:1080  —  để trống nếu không dùng"
+            value={proxyVal}
+            onChange={(e) => {
+              setProxyVal(e.target.value)
+              setProxyMsg(null)
+            }}
+            spellCheck={false}
+            disabled={proxyBusy}
+          />
+          <button
+            className="btn"
+            onClick={testProxyNow}
+            disabled={proxyBusy || !proxyVal.trim()}
+          >
+            {proxyBusy ? 'Đang kiểm tra…' : 'Kiểm tra proxy'}
+          </button>
+        </div>
+        {proxyMsg && (
+          <div className={`proxy-msg small ${proxyMsg.ok ? 'ok' : 'err'}`}>
+            {proxyMsg.ok ? '✓ ' : '✕ '}
+            {proxyMsg.text}
+          </div>
+        )}
+      </div>
+
       {/* Them URL vao hang doi */}
       <div className="url-row">
         <input
@@ -871,6 +929,68 @@ export default function Downloader(): JSX.Element {
             </div>
           )
         })()}
+
+      {/* Bang huong dan proxy */}
+      {proxyGuide && (
+        <div className="modal-overlay" onClick={() => setProxyGuide(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>Hướng dẫn nhập Proxy</h3>
+            </div>
+            <div className="proxy-guide-body">
+              <p className="muted small">
+                Proxy giúp tải nội dung bị <b>khóa theo khu vực</b> (ví dụ Bilibili, một số đài TV).
+                Bạn cần có sẵn proxy/VPN, rồi dán địa chỉ theo mẫu:
+              </p>
+              <div className="proxy-fmt">scheme://[tài_khoản:mật_khẩu@]host:cổng</div>
+
+              <div className="proxy-ex-title small">Ví dụ dán đúng:</div>
+              <table className="proxy-ex">
+                <tbody>
+                  <tr>
+                    <td>
+                      <code>socks5://127.0.0.1:1080</code>
+                    </td>
+                    <td className="muted">Proxy SOCKS5 chạy trên máy (v2ray, Shadowsocks…)</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <code>socks5h://127.0.0.1:1080</code>
+                    </td>
+                    <td className="muted">SOCKS5 + phân giải tên miền qua proxy (khuyên dùng)</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <code>http://1.2.3.4:8080</code>
+                    </td>
+                    <td className="muted">Proxy HTTP</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <code>socks5://user:pass@1.2.3.4:1080</code>
+                    </td>
+                    <td className="muted">Proxy có tài khoản/mật khẩu</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="proxy-note small">
+                ⚠ Bắt buộc có <b>phần đầu</b> (<code>socks5://</code>, <code>http://</code>…). Chỉ dán{' '}
+                <code>1.2.3.4:1080</code> (thiếu phần đầu) sẽ báo lỗi.
+              </div>
+              <p className="muted small">
+                Sau khi dán, bấm <b>Kiểm tra proxy</b>: xanh là dùng được (kèm IP thoát), đỏ là sai
+                định dạng hoặc không kết nối được.
+              </p>
+            </div>
+            <div className="modal-foot">
+              <button className="btn primary" onClick={() => setProxyGuide(false)}>
+                Đã hiểu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overlay khi dang tai danh sach (dao vao tab lon co the mat vai giay) */}
       {probing && !subChooser.open && !playlistSel.open && (

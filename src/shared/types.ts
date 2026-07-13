@@ -88,6 +88,12 @@ export interface DownloadRequest {
   embedSubs: boolean // nhung phu de vao video
   useArchive: boolean // bo qua file da tai (download archive)
   forceOverwrite: boolean // ghi de file trung
+  proxy: string | null // proxy vuot khoa vung, vd 'socks5://127.0.0.1:1080' (null = khong dung)
+}
+
+export interface ProxyTestResult {
+  ok: boolean
+  message: string
 }
 
 export type DownloadStatus = 'preparing' | 'downloading' | 'postprocessing' | 'finished' | 'error'

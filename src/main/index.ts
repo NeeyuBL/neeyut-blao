@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { checkDependencies, runSetup } from './deps'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
+import { testProxy } from './proxy'
 import {
   clearLogs,
   getLogs,
@@ -91,14 +92,17 @@ function registerIpc(): void {
   })
 
   // Lay thong tin video
-  ipcMain.handle('ytdlp:info', async (_e, url: string, cookiesFile?: string | null) => {
-    try {
-      const info = await fetchInfo(url, cookiesFile)
-      return { ok: true, info }
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  ipcMain.handle(
+    'ytdlp:info',
+    async (_e, url: string, cookiesFile?: string | null, proxy?: string | null) => {
+      try {
+        const info = await fetchInfo(url, cookiesFile, proxy)
+        return { ok: true, info }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
     }
-  })
+  )
 
   // ---- Cookie dang nhap (Electron native) ----
   ipcMain.handle('cookies:status', async () => cookieStatus())
@@ -115,13 +119,23 @@ function registerIpc(): void {
   })
 
   // Kiem tra playlist
-  ipcMain.handle('ytdlp:playlist', async (_e, url: string, cookiesFile?: string | null) => {
-    try {
-      const playlist = await fetchPlaylist(url, cookiesFile)
-      return { ok: true, playlist }
-    } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  ipcMain.handle(
+    'ytdlp:playlist',
+    async (_e, url: string, cookiesFile?: string | null, proxy?: string | null) => {
+      try {
+        const playlist = await fetchPlaylist(url, cookiesFile, proxy)
+        return { ok: true, playlist }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
     }
+  )
+
+  // Kiem tra proxy
+  ipcMain.handle('proxy:test', async (_e, proxy: string) => {
+    const r = await testProxy(proxy)
+    logInfo(`Kiểm tra proxy: ${r.ok ? 'OK' : 'THẤT BẠI'} — ${r.message}`)
+    return r
   })
 
   // Chon thu muc luu
