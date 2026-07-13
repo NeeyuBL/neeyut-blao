@@ -4,6 +4,13 @@ import { checkDependencies, runSetup } from './deps'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
 import { testProxy } from './proxy'
+import { dyEngineStatus, installDyEngine, downloadDouyin, getChannels, removeChannel } from './douyin'
+import {
+  captureDyCookies,
+  clearDyCookies,
+  dyCookieStatus
+} from './douyinCookies'
+import { DouyinRequest } from '../shared/types'
 import {
   clearLogs,
   getLogs,
@@ -152,6 +159,34 @@ function registerIpc(): void {
 
   // Phien ban ung dung
   ipcMain.handle('app:version', async () => app.getVersion())
+
+  // ---- Douyin ----
+  ipcMain.handle('douyin:engineStatus', async () => dyEngineStatus())
+  ipcMain.handle('douyin:installEngine', async (event) => {
+    try {
+      await installDyEngine((percent) => event.sender.send('douyin:install-progress', percent))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+  ipcMain.handle('douyin:download', async (event, id: string, req: DouyinRequest) =>
+    downloadDouyin(id, req, (p) => event.sender.send('douyin:progress', p))
+  )
+  ipcMain.handle('douyin:cookieStatus', async () => dyCookieStatus())
+  ipcMain.handle('douyin:cookieClear', async () => {
+    logInfo('Douyin: xóa cookie đăng nhập.')
+    return clearDyCookies()
+  })
+  ipcMain.handle('douyin:cookieCapture', async (event) => {
+    logInfo('Douyin: mở cửa sổ đăng nhập lấy cookie.')
+    const res = await captureDyCookies((e) => event.sender.send('douyin:cookie-event', e))
+    if (res.ok) logInfo(`Douyin: đã lưu ${res.count} cookie.`)
+    else logError(`Douyin: lấy cookie thất bại: ${res.error ?? ''}`)
+    return res
+  })
+  ipcMain.handle('douyin:channels', async () => getChannels())
+  ipcMain.handle('douyin:removeChannel', async (_e, url: string) => removeChannel(url))
 
   // Nhat ky hoat dong
   ipcMain.handle('logs:get', async () => getLogs())

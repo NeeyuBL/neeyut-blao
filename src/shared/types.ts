@@ -96,6 +96,56 @@ export interface ProxyTestResult {
   message: string
 }
 
+// ---- Douyin ----
+export type DyMode = 'all' | 'batch' | 'new' // kieu tai (chi cho link kenh)
+
+export interface DouyinRequest {
+  url: string
+  outputDir: string
+  isChannel: boolean // link kenh/user (co Kieu tai) hay video don
+  mode: DyMode
+  batchSize: number // so video moi dot cho mode 'batch'
+  music: boolean
+  cover: boolean
+  avatar: boolean
+  metaJson: boolean
+  proxy: string | null
+}
+
+export interface DouyinResult {
+  id: string
+  ok: boolean
+  total: number
+  success: number
+  failed: number
+  skipped: number
+  error: string | null
+}
+
+export interface DouyinProgress {
+  id: string
+  status: 'preparing' | 'downloading' | 'finished' | 'error'
+  line: string | null
+  lastFile: string | null // ten video vua tai xong
+  success: number
+}
+
+export interface DyEngineStatus {
+  has: boolean
+}
+
+export interface DyCookieStatus {
+  has: boolean
+  count: number
+}
+
+export interface DyChannel {
+  url: string
+  name: string
+  lastRun: string // ISO
+  count: number // tong so video da tai tu kenh
+}
+
 export type DownloadStatus = 'preparing' | 'downloading' | 'postprocessing' | 'finished' | 'error'
 
 export interface DownloadProgress {

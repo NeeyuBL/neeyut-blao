@@ -2,11 +2,12 @@ import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
 import Downloader from './components/Downloader'
+import Douyin from './components/Douyin'
 import License from './components/License'
 import Logs from './components/Logs'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'logs' | 'license'
+type TabKey = 'download' | 'douyin' | 'logs' | 'license'
 
 interface Tab {
   key: TabKey
@@ -24,6 +25,13 @@ const TABS: Tab[] = [
     icon: '⬇',
     title: 'Tải xuống',
     subtitle: 'Video & âm thanh đa nền tảng'
+  },
+  {
+    key: 'douyin',
+    label: 'Douyin',
+    icon: '🎬',
+    title: 'Tải Douyin',
+    subtitle: 'Video & kênh Douyin (không watermark)'
   }
 ]
 
@@ -117,6 +125,7 @@ export default function App(): JSX.Element {
         </header>
         <div className="content-body">
           {tab === 'download' && <Downloader />}
+          {tab === 'douyin' && <Douyin />}
           {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>

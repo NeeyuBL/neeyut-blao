@@ -1043,6 +1043,92 @@ select {
   padding: 8px 10px;
 }
 
+/* ---- Douyin ---- */
+.dy-setup {
+  display: flex;
+  justify-content: center;
+  padding-top: 30px;
+}
+.dy-install-card {
+  max-width: 480px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+.dy-install-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+.dy-err {
+  color: var(--danger, #ef4444);
+}
+.dy-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dy-mode-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.dy-mode-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  line-height: 1.5;
+}
+.dy-mode-opt input[type='radio'] {
+  margin-top: 3px;
+}
+.dy-batch {
+  width: 64px;
+  margin: 0 6px;
+  text-align: center;
+}
+.dy-library {
+  margin-top: 6px;
+}
+.dy-lib-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.dy-lib-title {
+  font-weight: 600;
+}
+.dy-chan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dy-chan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.dy-chan-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+.dy-chan-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 /* ---- Nhat ky hoat dong ---- */
 .logs-page {
   display: flex;

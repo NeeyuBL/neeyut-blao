@@ -4,9 +4,15 @@ import {
   CookieCaptureResult,
   CookieStatus,
   DepStatus,
+  DouyinProgress,
+  DouyinRequest,
+  DouyinResult,
   DownloadProgress,
   DownloadRequest,
   DownloadResult,
+  DyChannel,
+  DyCookieStatus,
+  DyEngineStatus,
   LogEntry,
   PlaylistProbe,
   ProxyTestResult,
@@ -55,6 +61,34 @@ const api = {
   showItem: (filePath: string): Promise<void> => ipcRenderer.invoke('shell:showItem', filePath),
   openPath: (p: string): Promise<void> => ipcRenderer.invoke('shell:openPath', p),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+
+  // ---- Douyin ----
+  dyEngineStatus: (): Promise<DyEngineStatus> => ipcRenderer.invoke('douyin:engineStatus'),
+  dyInstallEngine: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('douyin:installEngine'),
+  onDyInstallProgress: (cb: (percent: number) => void): (() => void) => {
+    const listener = (_e: unknown, p: number): void => cb(p)
+    ipcRenderer.on('douyin:install-progress', listener)
+    return () => ipcRenderer.removeListener('douyin:install-progress', listener)
+  },
+  dyDownload: (id: string, req: DouyinRequest): Promise<DouyinResult> =>
+    ipcRenderer.invoke('douyin:download', id, req),
+  onDyProgress: (cb: (p: DouyinProgress) => void): (() => void) => {
+    const listener = (_e: unknown, p: DouyinProgress): void => cb(p)
+    ipcRenderer.on('douyin:progress', listener)
+    return () => ipcRenderer.removeListener('douyin:progress', listener)
+  },
+  dyCookieStatus: (): Promise<DyCookieStatus> => ipcRenderer.invoke('douyin:cookieStatus'),
+  dyCookieClear: (): Promise<void> => ipcRenderer.invoke('douyin:cookieClear'),
+  dyCookieCapture: (): Promise<CookieCaptureResult> => ipcRenderer.invoke('douyin:cookieCapture'),
+  onDyCookieEvent: (cb: (e: CookieCaptureEvent) => void): (() => void) => {
+    const listener = (_e: unknown, ev: CookieCaptureEvent): void => cb(ev)
+    ipcRenderer.on('douyin:cookie-event', listener)
+    return () => ipcRenderer.removeListener('douyin:cookie-event', listener)
+  },
+  dyChannels: (): Promise<DyChannel[]> => ipcRenderer.invoke('douyin:channels'),
+  dyRemoveChannel: (url: string): Promise<DyChannel[]> =>
+    ipcRenderer.invoke('douyin:removeChannel', url),
 
   // ---- Nhat ky hoat dong ----
   getLogs: (): Promise<LogEntry[]> => ipcRenderer.invoke('logs:get'),

@@ -65,7 +65,7 @@ export async function checkDependencies(): Promise<DepStatus> {
 type ProgressCb = (p: SetupProgress) => void
 
 /** Tai 1 file voi progress theo Content-Length. Theo redirect (fetch mac dinh). */
-async function downloadFile(
+export async function downloadFile(
   url: string,
   dest: string,
   onProgress: (percent: number) => void
