@@ -17,7 +17,13 @@ interface DyItem {
 
 const isChannelUrl = (u: string): boolean => /\/user\//i.test(u)
 
-export default function Douyin(): JSX.Element {
+export default function Douyin({
+  outputDir,
+  setOutputDir
+}: {
+  outputDir: string
+  setOutputDir: (d: string) => void
+}): JSX.Element {
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)
@@ -27,7 +33,6 @@ export default function Douyin(): JSX.Element {
   const [cookieBusy, setCookieBusy] = useState(false)
   const [cookieMsg, setCookieMsg] = useState<string | null>(null)
 
-  const [outputDir, setOutputDir] = useState('')
   const [music, setMusic] = useState(true)
   const [cover, setCover] = useState(true)
   const [avatar, setAvatar] = useState(false)
@@ -51,7 +56,6 @@ export default function Douyin(): JSX.Element {
   useEffect(() => {
     void window.api.dyEngineStatus().then((s) => setHasEngine(s.has))
     void window.api.dyCookieStatus().then(setCookie)
-    void window.api.downloadsDir().then((d) => setOutputDir((cur) => cur || d))
     refreshChannels()
     const off = window.api.onDyProgress((p) => {
       setItems((prev) =>

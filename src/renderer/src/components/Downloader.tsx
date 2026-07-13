@@ -80,14 +80,19 @@ function buildFormatChoice(f: VideoFormat): { selector: string; label: string } 
   return { selector, label: parts.join(' · ') }
 }
 
-export default function Downloader(): JSX.Element {
+export default function Downloader({
+  outputDir,
+  setOutputDir
+}: {
+  outputDir: string
+  setOutputDir: (d: string) => void
+}): JSX.Element {
   // Tuy chon chung ap dung cho ca hang doi
   const [kind, setKind] = useState<DownloadKind>('video')
   const [height, setHeight] = useState<number | null>(1080)
   const [audioFormat, setAudioFormat] = useState('mp3')
   const [embedThumbnail, setEmbedThumbnail] = useState(true)
   const [embedMetadata, setEmbedMetadata] = useState(true)
-  const [outputDir, setOutputDir] = useState('')
   const [folderMode, setFolderMode] = useState<FolderMode>('flat')
 
   // Tuy chon nang cao
@@ -147,7 +152,6 @@ export default function Downloader(): JSX.Element {
     useCookies && cookieStat?.has ? cookieStat.path : null
 
   useEffect(() => {
-    void window.api.downloadsDir().then(setOutputDir)
     void window.api.cookieStatus().then((s) => {
       setCookieStat(s)
       if (s.has) setUseCookies(true)

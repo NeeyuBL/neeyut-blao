@@ -57,6 +57,17 @@ export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
   const [tab, setTab] = useState<TabKey>('download')
   const [version, setVersion] = useState('')
+  // Thu muc luu dung CHUNG cho moi tab; nho qua cac lan mo app
+  const [outputDir, setOutputDir] = useState('')
+
+  const updateOutputDir = (d: string): void => {
+    setOutputDir(d)
+    try {
+      localStorage.setItem('tblao.outputDir', d)
+    } catch {
+      /* bo qua */
+    }
+  }
 
   const check = async (): Promise<void> => {
     setStage('checking')
@@ -67,6 +78,9 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void check()
     void window.api.appVersion().then(setVersion)
+    const saved = localStorage.getItem('tblao.outputDir')
+    if (saved) setOutputDir(saved)
+    else void window.api.downloadsDir().then(setOutputDir)
   }, [])
 
   if (stage === 'checking') {
@@ -124,8 +138,10 @@ export default function App(): JSX.Element {
           </div>
         </header>
         <div className="content-body">
-          {tab === 'download' && <Downloader />}
-          {tab === 'douyin' && <Douyin />}
+          {tab === 'download' && (
+            <Downloader outputDir={outputDir} setOutputDir={updateOutputDir} />
+          )}
+          {tab === 'douyin' && <Douyin outputDir={outputDir} setOutputDir={updateOutputDir} />}
           {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>
