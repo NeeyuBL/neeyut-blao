@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / du lieu nhay cam - TUYET DOI khong commit
+.env
+.env.*
+*.local
+cookies.txt
+*.cookies.json
+.cookies.json
+config.yml
+*.secret
+*.pem
+*.key
+
+# Du lieu runtime (khi ghep dy-downloader sau nay)
+*.db
+Downloaded/
+
+# Binaries engine (khong commit - tai/dong goi rieng)
+*.exe
+!build/**/*.exe
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
