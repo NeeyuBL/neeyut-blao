@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { DouyinRequest, DyChannel, DyCookieStatus, DyMode } from '../../../shared/types'
+import { usePersistedState } from '../lib/persist'
 
 type ItemStatus = 'queued' | 'downloading' | 'done' | 'error'
 
@@ -33,15 +34,15 @@ export default function Douyin({
   const [cookieBusy, setCookieBusy] = useState(false)
   const [cookieMsg, setCookieMsg] = useState<string | null>(null)
 
-  const [music, setMusic] = useState(true)
-  const [cover, setCover] = useState(true)
-  const [avatar, setAvatar] = useState(false)
-  const [metaJson, setMetaJson] = useState(true)
-  const [proxy, setProxy] = useState('')
+  const [music, setMusic] = usePersistedState('tblao.dy.music', true)
+  const [cover, setCover] = usePersistedState('tblao.dy.cover', true)
+  const [avatar, setAvatar] = usePersistedState('tblao.dy.avatar', false)
+  const [metaJson, setMetaJson] = usePersistedState('tblao.dy.metaJson', true)
+  const [proxy, setProxy] = usePersistedState('tblao.dy.proxy', '')
 
   const [urlInput, setUrlInput] = useState('')
-  const [mode, setMode] = useState<DyMode>('all')
-  const [batchSize, setBatchSize] = useState(15)
+  const [mode, setMode] = usePersistedState<DyMode>('tblao.dy.mode', 'all')
+  const [batchSize, setBatchSize] = usePersistedState('tblao.dy.batchSize', 15)
 
   const [items, setItems] = useState<DyItem[]>([])
   const [running, setRunning] = useState(false)

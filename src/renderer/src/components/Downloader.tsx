@@ -11,6 +11,7 @@ import type {
   VideoInfo
 } from '../../../shared/types'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
+import { usePersistedState } from '../lib/persist'
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'opus', 'flac', 'wav']
 // Do phan giai muc tieu (lay ban tot nhat <= gia tri nay)
@@ -87,28 +88,31 @@ export default function Downloader({
   outputDir: string
   setOutputDir: (d: string) => void
 }): JSX.Element {
-  // Tuy chon chung ap dung cho ca hang doi
-  const [kind, setKind] = useState<DownloadKind>('video')
-  const [height, setHeight] = useState<number | null>(1080)
-  const [audioFormat, setAudioFormat] = useState('mp3')
-  const [embedThumbnail, setEmbedThumbnail] = useState(true)
-  const [embedMetadata, setEmbedMetadata] = useState(true)
-  const [folderMode, setFolderMode] = useState<FolderMode>('flat')
+  // Tuy chon chung ap dung cho ca hang doi (tu nho qua cac lan mo app)
+  const [kind, setKind] = usePersistedState<DownloadKind>('tblao.dl.kind', 'video')
+  const [height, setHeight] = usePersistedState<number | null>('tblao.dl.height', 1080)
+  const [audioFormat, setAudioFormat] = usePersistedState('tblao.dl.audioFormat', 'mp3')
+  const [embedThumbnail, setEmbedThumbnail] = usePersistedState('tblao.dl.embedThumbnail', true)
+  const [embedMetadata, setEmbedMetadata] = usePersistedState('tblao.dl.embedMetadata', true)
+  const [folderMode, setFolderMode] = usePersistedState<FolderMode>('tblao.dl.folderMode', 'flat')
 
-  // Tuy chon nang cao
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [container, setContainer] = useState('mp4')
-  const [outputTemplate, setOutputTemplate] = useState('%(title)s [%(id)s].%(ext)s')
-  const [customName, setCustomName] = useState(false)
-  const [writeSubs, setWriteSubs] = useState(false)
-  const [autoSubs, setAutoSubs] = useState(false)
-  const [subLangs, setSubLangs] = useState('vi,en')
-  const [embedSubs, setEmbedSubs] = useState(true)
-  const [useArchive, setUseArchive] = useState(false)
-  const [forceOverwrite, setForceOverwrite] = useState(false)
+  // Tuy chon nang cao (tu nho)
+  const [showAdvanced, setShowAdvanced] = usePersistedState('tblao.dl.showAdvanced', false)
+  const [container, setContainer] = usePersistedState('tblao.dl.container', 'mp4')
+  const [outputTemplate, setOutputTemplate] = usePersistedState(
+    'tblao.dl.outputTemplate',
+    '%(title)s [%(id)s].%(ext)s'
+  )
+  const [customName, setCustomName] = usePersistedState('tblao.dl.customName', false)
+  const [writeSubs, setWriteSubs] = usePersistedState('tblao.dl.writeSubs', false)
+  const [autoSubs, setAutoSubs] = usePersistedState('tblao.dl.autoSubs', false)
+  const [subLangs, setSubLangs] = usePersistedState('tblao.dl.subLangs', 'vi,en')
+  const [embedSubs, setEmbedSubs] = usePersistedState('tblao.dl.embedSubs', true)
+  const [useArchive, setUseArchive] = usePersistedState('tblao.dl.useArchive', false)
+  const [forceOverwrite, setForceOverwrite] = usePersistedState('tblao.dl.forceOverwrite', false)
 
-  // Proxy (vuot khoa vung)
-  const [proxyVal, setProxyVal] = useState('')
+  // Proxy (vuot khoa vung) — nho lai chuoi da nhap
+  const [proxyVal, setProxyVal] = usePersistedState('tblao.dl.proxy', '')
   const [proxyMsg, setProxyMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [proxyBusy, setProxyBusy] = useState(false)
   const [proxyGuide, setProxyGuide] = useState(false)

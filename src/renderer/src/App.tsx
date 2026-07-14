@@ -5,6 +5,7 @@ import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
 import License from './components/License'
 import Logs from './components/Logs'
+import { usePersistedState } from './lib/persist'
 
 type Stage = 'checking' | 'setup' | 'ready'
 type TabKey = 'download' | 'douyin' | 'logs' | 'license'
@@ -55,7 +56,7 @@ const BOTTOM_TABS: Tab[] = [
 
 export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
-  const [tab, setTab] = useState<TabKey>('download')
+  const [tab, setTab] = usePersistedState<TabKey>('tblao.tab', 'download')
   const [version, setVersion] = useState('')
   // Thu muc luu dung CHUNG cho moi tab; nho qua cac lan mo app
   const [outputDir, setOutputDir] = useState('')
