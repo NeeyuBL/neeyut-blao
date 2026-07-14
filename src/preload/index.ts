@@ -49,6 +49,9 @@ const api = {
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
   downloadsDir: (): Promise<string> => ipcRenderer.invoke('app:downloadsDir'),
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  ytdlpVersion: (): Promise<string | null> => ipcRenderer.invoke('ytdlp:version'),
+  ytdlpUpdate: (): Promise<{ ok: boolean; message: string }> =>
+    ipcRenderer.invoke('ytdlp:update'),
 
   download: (id: string, req: DownloadRequest): Promise<DownloadResult> =>
     ipcRenderer.invoke('ytdlp:download', id, req),

@@ -118,6 +118,11 @@ export default function Downloader({
   const [proxyGuide, setProxyGuide] = useState(false)
   const proxyArg = (): string | null => proxyVal.trim() || null
 
+  // Cong cu tai: phien ban + cap nhat
+  const [ytVer, setYtVer] = useState<string | null>(null)
+  const [toolUpdating, setToolUpdating] = useState(false)
+  const [toolMsg, setToolMsg] = useState<string | null>(null)
+
   const [urlInput, setUrlInput] = useState('')
   const [items, setItems] = useState<QueueItem[]>([])
   const [running, setRunning] = useState(false)
@@ -147,7 +152,7 @@ export default function Downloader({
 
   // Dang nhap bang cookie
   const [cookieStat, setCookieStat] = useState<CookieStatus | null>(null)
-  const [useCookies, setUseCookies] = useState(false)
+  const [useCookies, setUseCookies] = usePersistedState('tblao.dl.useCookies', false)
   const [cookieBusy, setCookieBusy] = useState(false)
   const [cookieMsg, setCookieMsg] = useState<string | null>(null)
   const [loginUrl, setLoginUrl] = useState('')
@@ -155,11 +160,21 @@ export default function Downloader({
   const cookiesFile = (): string | null =>
     useCookies && cookieStat?.has ? cookieStat.path : null
 
+  const refreshToolVer = (): void => {
+    void window.api.ytdlpVersion().then(setYtVer)
+  }
+  const updateTool = async (): Promise<void> => {
+    setToolUpdating(true)
+    setToolMsg(null)
+    const r = await window.api.ytdlpUpdate()
+    setToolMsg(r.message)
+    setToolUpdating(false)
+    refreshToolVer()
+  }
+
   useEffect(() => {
-    void window.api.cookieStatus().then((s) => {
-      setCookieStat(s)
-      if (s.has) setUseCookies(true)
-    })
+    refreshToolVer()
+    void window.api.cookieStatus().then(setCookieStat)
     const off = window.api.onProgress((p) => {
       setItems((prev) => prev.map((it) => (it.id === p.id ? { ...it, progress: p } : it)))
     })
@@ -629,6 +644,18 @@ export default function Downloader({
                 Ghi đè file trùng
               </label>
             </div>
+
+            {/* Cong cu tai: phien ban + cap nhat */}
+            <div className="adv-tools">
+              <div className="muted small">
+                Công cụ tải: <b>{ytVer || '…'}</b>
+                <span className="muted small"> · tự cập nhật hằng ngày</span>
+              </div>
+              <button className="btn small-btn" onClick={updateTool} disabled={toolUpdating}>
+                {toolUpdating ? 'Đang cập nhật…' : '⟳ Cập nhật công cụ'}
+              </button>
+              {toolMsg && <div className="muted small adv-tool-msg">{toolMsg}</div>}
+            </div>
           </div>
         )}
       </div>
@@ -678,6 +705,10 @@ export default function Downloader({
               Xóa cookie
             </button>
           )}
+        </div>
+        <div className="muted small cookie-tip">
+          💡 Chỉ bật khi tải nội dung <b>cần đăng nhập</b>. Với video công khai (YouTube…), cookie có
+          thể gây lỗi — cứ để tắt. Nếu lỡ bật mà lỗi, app sẽ tự thử lại không cookie.
         </div>
 
         {cookieMsg && <div className="cookie-msg small">{cookieMsg}</div>}

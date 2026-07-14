@@ -200,11 +200,17 @@ function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
   } else if (req.kind === 'audio') {
     args.push('-x', '--audio-format', req.audioFormat || 'mp3', '--audio-quality', '0')
   } else {
+    // Uu tien codec TUONG THICH: H.264 (avc) -> VP9 -> con lai (AV1 cuoi cung).
+    // Tranh AV1 mac dinh vi nhieu trinh phat (VLC cu, may yeu) khong giai ma duoc.
     const h = req.height
+    const cap = h && h > 0 ? `[height<=${h}]` : ''
     const fmt =
-      h && h > 0
-        ? `bv*[height<=${h}]+ba/b[height<=${h}]/bv*+ba/b`
-        : 'bv*+ba/b'
+      `bv*${cap}[vcodec^=avc]+ba[ext=m4a]/` + // H.264 + AAC (chuan MP4, chay moi noi)
+      `bv*${cap}[vcodec^=avc]+ba/` + // H.264 + audio khac
+      `bv*${cap}[vcodec^=vp]+ba/` + // VP9
+      `bv*${cap}+ba/` + // con lai (co the AV1)
+      `b${cap}/` + // 1 file san co
+      `bv*+ba/b` // du phong cuoi
     args.push('-f', fmt, '--merge-output-format', container)
   }
 
@@ -232,18 +238,14 @@ function buildArgs(req: DownloadRequest, ffLoc: string | null): string[] {
   return args
 }
 
-/** Tai xuong voi progress callback. */
-export async function download(
+/** Chay 1 lan yt-dlp download voi args cho truoc. */
+function runYtdlpDownload(
+  cmd: string,
+  args: string[],
   id: string,
   req: DownloadRequest,
   onProgress: (p: DownloadProgress) => void
 ): Promise<DownloadResult> {
-  const cmd = await ytdlpCmd()
-  const ffLoc = await ffmpegLocation()
-  const args = buildArgs(req, ffLoc)
-  logInfo(`Bắt đầu tải: ${req.url}`)
-  logInfo(`Lệnh: ${cmd} ${args.join(' ')}`)
-
   return new Promise<DownloadResult>((resolve) => {
     const child = spawn(cmd, args, { windowsHide: true })
     let destFile: string | null = null
@@ -333,4 +335,29 @@ export async function download(
       }
     })
   })
+}
+
+/** Tai xuong: thu voi cau hinh hien tai; neu 403 ma dang dung cookie -> thu lai KHONG cookie. */
+export async function download(
+  id: string,
+  req: DownloadRequest,
+  onProgress: (p: DownloadProgress) => void
+): Promise<DownloadResult> {
+  const cmd = await ytdlpCmd()
+  const ffLoc = await ffmpegLocation()
+  logInfo(`Bắt đầu tải: ${req.url}`)
+  const args = buildArgs(req, ffLoc)
+  logInfo(`Lệnh: ${cmd} ${args.join(' ')}`)
+  let result = await runYtdlpDownload(cmd, args, id, req, onProgress)
+
+  // YouTube: cookie dang nhap thuong gay 403 cho video cong khai (thieu PO token).
+  // Neu 403 va dang dung cookie -> thu lai KHONG cookie.
+  if (!result.ok && req.cookiesFile && /403|forbidden/i.test(result.error ?? '')) {
+    logInfo('Tải lỗi 403 khi dùng cookie — thử lại KHÔNG cookie…')
+    const req2: DownloadRequest = { ...req, cookiesFile: null }
+    const args2 = buildArgs(req2, ffLoc)
+    result = await runYtdlpDownload(cmd, args2, id, req2, onProgress)
+    if (result.ok) logInfo('Thử lại không cookie: thành công.')
+  }
+  return result
 }

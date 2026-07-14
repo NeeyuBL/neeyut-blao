@@ -365,6 +365,23 @@ select {
 .folder-mode-row {
   margin-top: 12px;
 }
+.adv-tools {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.adv-tool-msg {
+  flex-basis: 100%;
+}
+.cookie-tip {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
 .folder-mode-hint {
   margin-top: 4px;
 }

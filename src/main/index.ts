@@ -1,6 +1,13 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'node:path'
-import { checkDependencies, runSetup } from './deps'
+import {
+  checkDependencies,
+  runSetup,
+  ytDlpVersion,
+  updateYtDlp,
+  hasLocalYtDlp
+} from './deps'
+import { readFile, writeFile } from 'node:fs/promises'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
 import { testProxy } from './proxy'
@@ -62,10 +69,34 @@ function createWindow(): void {
   }
 }
 
+// Tu kiem tra cap nhat cong cu tai (yt-dlp) trong nen, toi da 1 lan/ngay.
+// Chi ap dung khi da co ban rieng trong userData/bin (tranh tai ngam ~30MB tren may dev dung PATH).
+async function maybeAutoUpdateYtDlp(): Promise<void> {
+  try {
+    if (!(await hasLocalYtDlp())) return
+    const stampFile = join(app.getPath('userData'), 'update-check.json')
+    let last = 0
+    try {
+      last = (JSON.parse(await readFile(stampFile, 'utf-8')) as { ytdlp?: number }).ytdlp ?? 0
+    } catch {
+      /* chua co */
+    }
+    const now = Date.now()
+    if (now - last < 24 * 60 * 60 * 1000) return // moi kiem tra trong 24h -> bo qua
+    await writeFile(stampFile, JSON.stringify({ ytdlp: now }), 'utf-8')
+    logInfo('Tự kiểm tra cập nhật công cụ tải…')
+    const r = await updateYtDlp()
+    logInfo(`Tự cập nhật công cụ tải: ${r.message}`)
+  } catch {
+    /* bo qua loi tu cap nhat */
+  }
+}
+
 app.whenReady().then(() => {
   registerIpc()
   logInfo(`T-blao ${app.getVersion()} khởi động · ${process.platform}`)
   createWindow()
+  void maybeAutoUpdateYtDlp()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -159,6 +190,15 @@ function registerIpc(): void {
 
   // Phien ban ung dung
   ipcMain.handle('app:version', async () => app.getVersion())
+
+  // Cong cu tai: phien ban + cap nhat thu cong
+  ipcMain.handle('ytdlp:version', async () => ytDlpVersion())
+  ipcMain.handle('ytdlp:update', async () => {
+    logInfo('Đang cập nhật công cụ tải…')
+    const r = await updateYtDlp()
+    logInfo(`Cập nhật công cụ tải: ${r.ok ? 'OK' : 'LỖI'} — ${r.message}`)
+    return r
+  })
 
   // ---- Douyin ----
   ipcMain.handle('douyin:engineStatus', async () => dyEngineStatus())

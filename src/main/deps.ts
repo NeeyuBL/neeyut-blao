@@ -28,6 +28,22 @@ async function fileExists(p: string): Promise<boolean> {
   }
 }
 
+/** Chay 1 lenh, gom stdout+stderr. */
+function runCapture(cmd: string, args: string[]): Promise<{ code: number; out: string }> {
+  return new Promise((resolve) => {
+    let out = ''
+    try {
+      const child = spawn(cmd, args, { windowsHide: true })
+      child.stdout.on('data', (d) => (out += d.toString()))
+      child.stderr.on('data', (d) => (out += d.toString()))
+      child.on('error', () => resolve({ code: -1, out }))
+      child.on('close', (code) => resolve({ code: code ?? -1, out }))
+    } catch {
+      resolve({ code: -1, out })
+    }
+  })
+}
+
 /** Kiem tra mot lenh co chay duoc khong (tren PATH hoac duong dan tuyet doi). */
 function canRun(cmd: string, args: string[] = ['--version']): Promise<boolean> {
   return new Promise((resolve) => {
@@ -196,6 +212,45 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     throw new Error(
       'Trên Linux, vui lòng cài ffmpeg qua hệ thống (vd: apt install ffmpeg) rồi mở lại ứng dụng.'
     )
+  }
+}
+
+/** Da co ban yt-dlp rieng do app quan ly (trong userData/bin) chua? */
+export function hasLocalYtDlp(): Promise<boolean> {
+  return fileExists(join(binDir(), exe('yt-dlp')))
+}
+
+/** Phien ban yt-dlp hien tai (chuoi), null neu khong lay duoc. */
+export async function ytDlpVersion(): Promise<string | null> {
+  const cmd = await resolveYtDlp()
+  if (!cmd) return null
+  const r = await runCapture(cmd, ['--version'])
+  return r.code === 0 ? r.out.trim().split(/\r?\n/)[0] || null : null
+}
+
+/**
+ * Cap nhat cong cu tai (yt-dlp) len ban moi nhat.
+ * - Co ban rieng trong binDir -> tu cap nhat qua `-U` (nhe).
+ * - Chua co -> tai ban .exe moi nhat ve binDir (app se dung ban nay).
+ */
+export async function updateYtDlp(): Promise<{ ok: boolean; message: string }> {
+  const local = join(binDir(), exe('yt-dlp'))
+  if (await fileExists(local)) {
+    const r = await runCapture(local, ['-U'])
+    const line =
+      r.out
+        .trim()
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .slice(-1)[0] || 'Đã kiểm tra cập nhật.'
+    return { ok: r.code === 0, message: line }
+  }
+  try {
+    await installYtDlp(() => {})
+    const v = await ytDlpVersion()
+    return { ok: true, message: `Đã tải bản mới nhất${v ? ` (${v})` : ''}.` }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) }
   }
 }
 
