@@ -748,6 +748,61 @@ select {
   border-radius: 10px;
   padding: 12px 14px;
 }
+.lic-copyright {
+  margin-top: 4px;
+  font-weight: 600;
+  color: var(--text);
+}
+.lic-notice {
+  margin-top: 8px;
+  background: var(--panel-2);
+}
+
+/* Accordion giay phep */
+.lic-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.lic-card + .lic-card {
+  margin-top: 8px;
+}
+.lic-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+.lic-card-head:hover {
+  background: var(--panel-2);
+}
+.lic-card.open .lic-card-head {
+  border-bottom: 1px solid var(--border);
+}
+.lic-card-head .lic-name {
+  font-weight: 600;
+}
+.lic-card-head .lic-role {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lic-caret {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.lic-card-body {
+  padding: 12px 14px;
+}
 .lic-item-head {
   display: flex;
   align-items: center;

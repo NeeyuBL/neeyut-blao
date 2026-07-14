@@ -1,4 +1,5 @@
 import type { JSX } from 'react'
+import { useState } from 'react'
 
 const MIT_LICENSE = `MIT License
 
@@ -22,7 +23,39 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`
 
-const THIRD_PARTY = [
+// MIT bat buoc giu nguyen thong bao ban quyen cua tac gia goc
+const DOUYIN_MIT = `MIT License
+
+Copyright (c) 2026 jiji262
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.`
+
+interface ThirdParty {
+  name: string
+  role: string
+  license: string
+  link: string | null
+  copyright?: string
+  notice?: string
+}
+
+const THIRD_PARTY: ThirdParty[] = [
   {
     name: 'ffmpeg',
     role: 'Xử lý & ghép âm thanh/video, đổi định dạng, nhúng phụ đề.',
@@ -34,8 +67,44 @@ const THIRD_PARTY = [
     role: 'Công cụ tải nội dung từ các nền tảng.',
     license: 'Unlicense (phạm vi công cộng)',
     link: null
+  },
+  {
+    name: 'Bộ tải Douyin',
+    role: 'Tải video & kênh từ Douyin (không watermark).',
+    license: 'MIT',
+    link: null,
+    copyright: 'Copyright (c) 2026 jiji262',
+    notice: DOUYIN_MIT
   }
 ]
+
+/** 1 o giay phep dang accordion: bam vao tieu de moi so ra noi dung. */
+function LicCard({
+  title,
+  badge,
+  role,
+  children,
+  defaultOpen = false
+}: {
+  title: string
+  badge: string
+  role?: string
+  children: JSX.Element
+  defaultOpen?: boolean
+}): JSX.Element {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className={`lic-card ${open ? 'open' : ''}`}>
+      <button className="lic-card-head" onClick={() => setOpen((o) => !o)}>
+        <span className="lic-name">{title}</span>
+        <span className="lic-badge">{badge}</span>
+        {role && <span className="lic-role muted small">{role}</span>}
+        <span className="lic-caret">{open ? '▴' : '▾'}</span>
+      </button>
+      {open && <div className="lic-card-body">{children}</div>}
+    </div>
+  )
+}
 
 export default function License(): JSX.Element {
   return (
@@ -52,36 +121,35 @@ export default function License(): JSX.Element {
       {/* Giay phep T-blao */}
       <section className="lic-section">
         <h3>Giấy phép T-blao</h3>
-        <p className="muted">
-          T-blao là phần mềm mã nguồn mở, phát hành theo giấy phép <b>MIT</b>.
+        <p className="muted small">
+          T-blao là phần mềm mã nguồn mở. Bấm để xem chi tiết giấy phép.
         </p>
-        <pre className="license-text">{MIT_LICENSE}</pre>
+        <LicCard title="T-blao" badge="MIT" role="Giấy phép ứng dụng">
+          <pre className="license-text">{MIT_LICENSE}</pre>
+        </LicCard>
       </section>
 
       {/* Thanh phan ben thu ba */}
       <section className="lic-section">
         <h3>Thành phần bên thứ ba</h3>
         <p className="muted small">
-          T-blao sử dụng các công cụ mã nguồn mở dưới đây, được tải về khi cần (không kèm trong bộ
-          cài).
+          T-blao sử dụng các công cụ mã nguồn mở dưới đây (tải về khi cần). Bấm từng mục để xem giấy
+          phép.
         </p>
         <div className="lic-list">
           {THIRD_PARTY.map((t) => (
-            <div className="lic-item" key={t.name}>
-              <div className="lic-item-head">
-                <span className="lic-name">{t.name}</span>
-                <span className="lic-badge">{t.license}</span>
-              </div>
-              <div className="muted small">{t.role}</div>
-              {t.link && (
-                <button
-                  className="lic-link"
-                  onClick={() => window.api.openExternal(t.link!)}
-                >
-                  {t.link}
-                </button>
-              )}
-            </div>
+            <LicCard key={t.name} title={t.name} badge={t.license} role={t.role}>
+              <>
+                {t.copyright && <div className="lic-copyright small">{t.copyright}</div>}
+                {t.notice && <pre className="license-text lic-notice">{t.notice}</pre>}
+                {!t.notice && <p className="muted small">{t.role}</p>}
+                {t.link && (
+                  <button className="lic-link" onClick={() => window.api.openExternal(t.link!)}>
+                    {t.link}
+                  </button>
+                )}
+              </>
+            </LicCard>
           ))}
         </div>
       </section>

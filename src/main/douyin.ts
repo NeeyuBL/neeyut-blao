@@ -9,9 +9,17 @@ import { logError, logInfo } from './logger'
 import { DouyinProgress, DouyinRequest, DouyinResult, DyChannel, DyEngineStatus } from '../shared/types'
 
 const isWin = process.platform === 'win32'
+const isMac = process.platform === 'darwin'
 
-// TODO: thay bang URL Release that khi phat hanh engine (Buoc 6)
-const DY_ENGINE_URL = 'https://github.com/NeeyuBL/T-blao/releases/latest/download/dy-engine.exe'
+// TODO: thay bang URL Release that khi phat hanh engine (Buoc phat hanh).
+// Moi OS 1 file: dy-engine.exe (Windows) / dy-engine-macos (macOS) — dong goi rieng tren tung may.
+const DY_ENGINE_BASE = 'https://github.com/NeeyuBL/T-blao/releases/latest/download'
+function engineAsset(): string {
+  return isWin ? 'dy-engine.exe' : isMac ? 'dy-engine-macos' : 'dy-engine-linux'
+}
+function engineUrl(): string {
+  return `${DY_ENGINE_BASE}/${engineAsset()}`
+}
 
 function engineName(): string {
   return isWin ? 'dy-engine.exe' : 'dy-engine'
@@ -45,7 +53,7 @@ export async function dyEngineStatus(): Promise<DyEngineStatus> {
 export async function installDyEngine(onProgress: (percent: number) => void): Promise<void> {
   await mkdir(binDir(), { recursive: true })
   logInfo('Douyin: đang tải bộ tải Douyin…')
-  await downloadFile(DY_ENGINE_URL, enginePath(), onProgress)
+  await downloadFile(engineUrl(), enginePath(), onProgress)
   if (!isWin) await chmod(enginePath(), 0o755)
   logInfo('Douyin: đã tải xong bộ tải Douyin.')
 }

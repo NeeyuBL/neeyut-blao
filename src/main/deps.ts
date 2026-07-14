@@ -94,21 +94,23 @@ export async function downloadFile(
   })
 }
 
-/** Giai nen zip bang PowerShell Expand-Archive (Windows). */
-function expandZipWindows(zipPath: string, destDir: string): Promise<void> {
+/** Giai nen zip: Windows dung Expand-Archive, macOS/Linux dung unzip (co san). */
+function extractZip(zipPath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const ps = spawn(
-      'powershell',
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-Command',
-        `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${destDir}" -Force`
-      ],
-      { windowsHide: true }
-    )
-    ps.on('error', reject)
-    ps.on('close', (code) => (code === 0 ? resolve() : reject(new Error('Expand-Archive that bai'))))
+    const child = isWin
+      ? spawn(
+          'powershell',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${destDir}" -Force`
+          ],
+          { windowsHide: true }
+        )
+      : spawn('unzip', ['-o', zipPath, '-d', destDir])
+    child.on('error', reject)
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error('Giải nén thất bại'))))
   })
 }
 
@@ -157,7 +159,7 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     onProgress({ phase: 'extracting', message: 'Đang giải nén ffmpeg…', percent: -1 })
     const extractDir = join(binDir(), 'ffmpeg_tmp')
     await rm(extractDir, { recursive: true, force: true })
-    await expandZipWindows(tmpZip, extractDir)
+    await extractZip(tmpZip, extractDir)
 
     for (const bin of ['ffmpeg.exe', 'ffprobe.exe']) {
       const src = await findFile(extractDir, bin)
@@ -165,11 +167,34 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     }
     await rm(extractDir, { recursive: true, force: true })
     await rm(tmpZip, { force: true })
+  } else if (isMac) {
+    // macOS: tai ffmpeg + ffprobe static (moi cai la 1 zip chua 1 binary).
+    // LUU Y: chua kiem thu tren may Mac that — can xac minh o giai doan macOS.
+    const targets: [string, string][] = [
+      ['ffmpeg', 'https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip'],
+      ['ffprobe', 'https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip']
+    ]
+    for (const [name, url] of targets) {
+      const tmpZip = join(binDir(), `${name}.zip`)
+      await downloadFile(url, tmpZip, (p) =>
+        onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ${name}… ${p}%`, percent: p })
+      )
+      onProgress({ phase: 'extracting', message: `Đang giải nén ${name}…`, percent: -1 })
+      const extractDir = join(binDir(), `${name}_tmp`)
+      await rm(extractDir, { recursive: true, force: true })
+      await extractZip(tmpZip, extractDir)
+      const src = await findFile(extractDir, name)
+      if (src) {
+        await copyFile(src, join(binDir(), name))
+        await chmod(join(binDir(), name), 0o755)
+      }
+      await rm(extractDir, { recursive: true, force: true })
+      await rm(tmpZip, { force: true })
+    }
   } else {
-    // macOS/Linux: khuyen nghi cai qua he thong (brew install ffmpeg).
-    // MVP tren Windows la trong tam; o day nem loi de UI huong dan.
+    // Linux: khuyen nghi cai qua he thong.
     throw new Error(
-      'Trên macOS/Linux, vui lòng cài ffmpeg qua hệ thống (vd: brew install ffmpeg) rồi mở lại ứng dụng.'
+      'Trên Linux, vui lòng cài ffmpeg qua hệ thống (vd: apt install ffmpeg) rồi mở lại ứng dụng.'
     )
   }
 }
