@@ -37,3 +37,6 @@ Downloaded/
 # Editor
 .vscode/*
 !.vscode/extensions.json
+
+# Tai lieu noi bo (khong cong khai)
+ROADMAP.md
