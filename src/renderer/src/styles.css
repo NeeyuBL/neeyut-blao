@@ -254,6 +254,16 @@ select {
 .url-row {
   display: flex;
   gap: 10px;
+  align-items: flex-start;
+}
+.url-textarea {
+  resize: none;
+  overflow-y: auto;
+  min-height: 44px;
+  max-height: 140px;
+  line-height: 1.4;
+  font-family: inherit;
+  display: block;
 }
 .url-input {
   flex: 1;

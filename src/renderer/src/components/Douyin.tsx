@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { DouyinRequest, DyChannel, DyCookieStatus, DyMode } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
+import LinkInput from './LinkInput'
 
 type ItemStatus = 'queued' | 'downloading' | 'done' | 'error'
 
@@ -345,12 +346,11 @@ export default function Douyin({
 
       {/* Nhap link */}
       <div className="url-row">
-        <input
-          className="url-input"
-          placeholder="Dán link video hoặc kênh Douyin (cách nhau bằng khoảng trắng)"
+        <LinkInput
+          placeholder="Dán link video/kênh Douyin — Enter để thêm, Shift+Enter để xuống dòng"
           value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addUrls()}
+          onChange={setUrlInput}
+          onSubmit={addUrls}
         />
         <button className="btn primary" onClick={addUrls} disabled={!urlInput.trim()}>
           + Thêm

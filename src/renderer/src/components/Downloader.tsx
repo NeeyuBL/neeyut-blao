@@ -12,6 +12,7 @@ import type {
 } from '../../../shared/types'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
 import { usePersistedState } from '../lib/persist'
+import LinkInput from './LinkInput'
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'opus', 'flac', 'wav']
 // Do phan giai muc tieu (lay ban tot nhat <= gia tri nay)
@@ -758,12 +759,12 @@ export default function Downloader({
 
       {/* Them URL vao hang doi */}
       <div className="url-row">
-        <input
-          className="url-input"
-          placeholder="Dán 1 hoặc nhiều liên kết (cách nhau bằng khoảng trắng / xuống dòng)"
+        <LinkInput
+          placeholder="Dán 1 hoặc nhiều liên kết — Enter để thêm, Shift+Enter để xuống dòng"
           value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && addUrls()}
+          onChange={setUrlInput}
+          onSubmit={addUrls}
+          disabled={probing}
         />
         <button className="btn primary" onClick={addUrls} disabled={!urlInput.trim() || probing}>
           {probing ? 'Đang phân tích…' : '+ Thêm'}

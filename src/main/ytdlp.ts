@@ -16,6 +16,14 @@ import {
 
 const isWin = process.platform === 'win32'
 
+// Ep yt-dlp xuat UTF-8 -> ten file (co ky tu dac biet: ｜, tieng Viet, tieng Trung…)
+// trong output khop dung file that. Neu khong, Windows dung cp1252 lam sai ten -> mo file loi.
+const utf8Env = (): NodeJS.ProcessEnv => ({
+  ...process.env,
+  PYTHONUTF8: '1',
+  PYTHONIOENCODING: 'utf-8'
+})
+
 async function fileExists(p: string): Promise<boolean> {
   try {
     await access(p, constants.F_OK)
@@ -49,7 +57,7 @@ function secondsToString(s: number | null): string | null {
 /** Chay yt-dlp, gom stdout. */
 function run(cmd: string, args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { windowsHide: true })
+    const child = spawn(cmd, args, { windowsHide: true, env: utf8Env() })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d) => (stdout += d.toString()))
@@ -247,7 +255,7 @@ function runYtdlpDownload(
   onProgress: (p: DownloadProgress) => void
 ): Promise<DownloadResult> {
   return new Promise<DownloadResult>((resolve) => {
-    const child = spawn(cmd, args, { windowsHide: true })
+    const child = spawn(cmd, args, { windowsHide: true, env: utf8Env() })
     let destFile: string | null = null
     let errBuf = ''
     let stdoutBuf = ''
