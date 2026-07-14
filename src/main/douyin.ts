@@ -13,7 +13,7 @@ const isMac = process.platform === 'darwin'
 
 // TODO: thay bang URL Release that khi phat hanh engine (Buoc phat hanh).
 // Moi OS 1 file: dy-engine.exe (Windows) / dy-engine-macos (macOS) — dong goi rieng tren tung may.
-const DY_ENGINE_BASE = 'https://github.com/NeeyuBL/t-blao/releases/latest/download'
+const DY_ENGINE_BASE = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download'
 function engineAsset(): string {
   return isWin ? 'dy-engine.exe' : isMac ? 'dy-engine-macos' : 'dy-engine-linux'
 }
