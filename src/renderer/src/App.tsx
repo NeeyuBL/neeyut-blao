@@ -138,10 +138,13 @@ export default function App(): JSX.Element {
           </div>
         </header>
         <div className="content-body">
-          {tab === 'download' && (
+          {/* Giu 2 tab tai luon SONG (khong unmount) de chay song song, khong mat hang doi/tien do */}
+          <div style={{ display: tab === 'download' ? 'block' : 'none' }}>
             <Downloader outputDir={outputDir} setOutputDir={updateOutputDir} />
-          )}
-          {tab === 'douyin' && <Douyin outputDir={outputDir} setOutputDir={updateOutputDir} />}
+          </div>
+          <div style={{ display: tab === 'douyin' ? 'block' : 'none' }}>
+            <Douyin outputDir={outputDir} setOutputDir={updateOutputDir} />
+          </div>
           {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>
