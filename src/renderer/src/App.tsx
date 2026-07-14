@@ -6,6 +6,7 @@ import Douyin from './components/Douyin'
 import License from './components/License'
 import Logs from './components/Logs'
 import { usePersistedState } from './lib/persist'
+import type { UpdateStatus } from '../../shared/types'
 
 type Stage = 'checking' | 'setup' | 'ready'
 type TabKey = 'download' | 'douyin' | 'logs' | 'license'
@@ -58,6 +59,7 @@ export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
   const [tab, setTab] = usePersistedState<TabKey>('tblao.tab', 'download')
   const [version, setVersion] = useState('')
+  const [update, setUpdate] = useState<UpdateStatus | null>(null)
   // Thu muc luu dung CHUNG cho moi tab; nho qua cac lan mo app
   const [outputDir, setOutputDir] = useState('')
 
@@ -82,6 +84,8 @@ export default function App(): JSX.Element {
     const saved = localStorage.getItem('tblao.outputDir')
     if (saved) setOutputDir(saved)
     else void window.api.downloadsDir().then(setOutputDir)
+    const offUpd = window.api.onUpdateStatus(setUpdate)
+    return offUpd
   }, [])
 
   if (stage === 'checking') {
@@ -128,6 +132,22 @@ export default function App(): JSX.Element {
         <div className="side-bottom">
           {BOTTOM_TABS.map(renderTab)}
           <div className="side-version">Phiên bản {version || '…'}</div>
+
+          {update?.state === 'downloaded' && (
+            <button
+              className="side-update ready"
+              onClick={() => window.api.installAppUpdate()}
+              title="Khởi động lại để cài bản mới"
+            >
+              🎉 Có bản mới {update.version} — Cập nhật ngay
+            </button>
+          )}
+          {update?.state === 'downloading' && (
+            <div className="side-update">Đang tải bản mới… {update.percent ?? 0}%</div>
+          )}
+          {update?.state === 'available' && (
+            <div className="side-update">Đã có bản {update.version}, đang tải…</div>
+          )}
         </div>
       </aside>
 

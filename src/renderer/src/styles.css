@@ -113,6 +113,27 @@ select {
   color: var(--muted-2, var(--muted));
   font-variant-numeric: tabular-nums;
 }
+.side-update {
+  margin: 4px 10px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.side-update.ready {
+  cursor: pointer;
+  color: var(--done, #35c77a);
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--done, #35c77a) 45%, transparent);
+  background: color-mix(in srgb, var(--done, #35c77a) 12%, transparent);
+  width: calc(100% - 20px);
+}
+.side-update.ready:hover {
+  background: color-mix(in srgb, var(--done, #35c77a) 20%, transparent);
+}
 
 .content {
   flex: 1;

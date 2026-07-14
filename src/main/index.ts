@@ -11,6 +11,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fetchInfo, fetchPlaylist, download } from './ytdlp'
 import { captureCookies, clearCookies, cookieStatus } from './cookies'
 import { testProxy } from './proxy'
+import { initAutoUpdate, checkForUpdates, quitAndInstall } from './updater'
 import { dyEngineStatus, installDyEngine, downloadDouyin, getChannels, removeChannel } from './douyin'
 import {
   captureDyCookies,
@@ -97,6 +98,7 @@ app.whenReady().then(() => {
   logInfo(`T-blao ${app.getVersion()} khởi động · ${process.platform}`)
   createWindow()
   void maybeAutoUpdateYtDlp()
+  initAutoUpdate(() => mainWindow)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -190,6 +192,10 @@ function registerIpc(): void {
 
   // Phien ban ung dung
   ipcMain.handle('app:version', async () => app.getVersion())
+
+  // Tu cap nhat app
+  ipcMain.handle('update:check', async () => checkForUpdates())
+  ipcMain.handle('update:install', async () => quitAndInstall())
 
   // Cong cu tai: phien ban + cap nhat thu cong
   ipcMain.handle('ytdlp:version', async () => ytDlpVersion())

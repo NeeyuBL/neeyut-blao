@@ -24,3 +24,9 @@ mac:
   icon: build/icon.png
   category: public.app-category.utilities
   artifactName: ${productName}-${version}.${ext}
+# Nguon phat hanh cho electron-updater (app tu cap nhat tu GitHub Releases).
+# LUU Y: owner/repo phai TRUNG repo that ma ban up Release len.
+publish:
+  provider: github
+  owner: NeeyuBL
+  repo: T-blao

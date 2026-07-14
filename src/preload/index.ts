@@ -17,6 +17,7 @@ import {
   PlaylistProbe,
   ProxyTestResult,
   SetupProgress,
+  UpdateStatus,
   VideoInfo
 } from '../shared/types'
 
@@ -49,6 +50,16 @@ const api = {
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
   downloadsDir: (): Promise<string> => ipcRenderer.invoke('app:downloadsDir'),
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+
+  // Tu cap nhat app
+  checkAppUpdate: (): Promise<void> => ipcRenderer.invoke('update:check'),
+  installAppUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (cb: (s: UpdateStatus) => void): (() => void) => {
+    const listener = (_e: unknown, s: UpdateStatus): void => cb(s)
+    ipcRenderer.on('update:status', listener)
+    return () => ipcRenderer.removeListener('update:status', listener)
+  },
+
   ytdlpVersion: (): Promise<string | null> => ipcRenderer.invoke('ytdlp:version'),
   ytdlpUpdate: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('ytdlp:update'),

@@ -96,6 +96,14 @@ export interface ProxyTestResult {
   message: string
 }
 
+// Tu cap nhat app
+export interface UpdateStatus {
+  state: 'checking' | 'available' | 'none' | 'downloading' | 'downloaded' | 'error'
+  version?: string
+  percent?: number
+  message?: string
+}
+
 // ---- Douyin ----
 export type DyMode = 'all' | 'batch' | 'new' // kieu tai (chi cho link kenh)
 
