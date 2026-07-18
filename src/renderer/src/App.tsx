@@ -11,7 +11,7 @@ import qrImg from './assets/qr.jpg'
 import type { UpdateStatus } from '../../shared/types'
 
 const REPO_URL = 'https://github.com/NeeyuBL/neeyut-blao'
-const LIEN_HE_URL = 'https://t.me/ttqtbl'
+const LIEN_HE_URL = 'https://t.me/neeyutblao'
 
 type Stage = 'checking' | 'setup' | 'ready'
 type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'logs' | 'license'

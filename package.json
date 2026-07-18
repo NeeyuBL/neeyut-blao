@@ -1,6 +1,6 @@
 {
   "name": "t-blao",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "T-blao - Trinh tai video/audio da nen tang",
   "main": "./out/main/index.js",
   "author": "NeeyuBL",
