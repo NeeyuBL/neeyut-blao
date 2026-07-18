@@ -47,48 +47,131 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`
 
 interface ThirdParty {
+  group: string
   name: string
-  role: string
   license: string
   link: string | null
   copyright?: string
   notice?: string
 }
 
+// Giay phep lay tu sieu du lieu goi / the model, KHONG suy doan.
+// Xem ban day du o THIRD-PARTY-NOTICES.txt trong kho ma nguon.
+const G_TOOL = 'Công cụ tải về khi cần'
+const G_LIB = 'Thư viện xử lý âm thanh'
+const G_MODEL = 'Model AI'
+const G_GPU = 'Tăng tốc GPU (chỉ máy NVIDIA)'
+
 const THIRD_PARTY: ThirdParty[] = [
   {
+    group: G_TOOL,
     name: 'ffmpeg',
-    role: 'Xử lý & ghép âm thanh/video, đổi định dạng, nhúng phụ đề.',
     license: 'LGPL / GPL',
     link: 'https://ffmpeg.org/legal.html'
   },
   {
+    group: G_TOOL,
     name: 'Bộ tải xuống mã nguồn mở',
-    role: 'Công cụ tải nội dung từ các nền tảng.',
     license: 'Unlicense (phạm vi công cộng)',
     link: null
   },
   {
+    group: G_TOOL,
     name: 'Bộ tải Douyin',
-    role: 'Tải video & kênh từ Douyin (không watermark).',
     license: 'MIT',
     link: null,
     copyright: 'Copyright (c) 2026 jiji262',
     notice: DOUYIN_MIT
+  },
+
+  {
+    group: G_LIB,
+    name: 'faster-whisper',
+    license: 'MIT',
+    link: 'https://github.com/SYSTRAN/faster-whisper',
+    copyright: 'SYSTRAN'
+  },
+  {
+    group: G_LIB,
+    name: 'CTranslate2',
+    license: 'MIT',
+    link: 'https://github.com/OpenNMT/CTranslate2',
+    copyright: 'OpenNMT'
+  },
+  {
+    group: G_LIB,
+    name: 'ONNX Runtime',
+    license: 'MIT',
+    link: 'https://github.com/microsoft/onnxruntime',
+    copyright: 'Microsoft Corporation'
+  },
+  {
+    group: G_LIB,
+    name: 'Tokenizers',
+    license: 'Apache-2.0',
+    link: 'https://github.com/huggingface/tokenizers',
+    copyright: 'Hugging Face'
+  },
+  {
+    group: G_LIB,
+    name: 'PyAV · NumPy · Protocol Buffers',
+    license: 'BSD 3-Clause',
+    link: 'https://opensource.org/licenses/BSD-3-Clause'
+  },
+  {
+    group: G_LIB,
+    name: 'FlatBuffers · huggingface_hub',
+    license: 'Apache-2.0',
+    link: 'https://www.apache.org/licenses/LICENSE-2.0'
+  },
+  {
+    group: G_LIB,
+    name: 'tqdm',
+    license: 'MPL-2.0 và MIT',
+    link: 'https://github.com/tqdm/tqdm'
+  },
+
+  {
+    group: G_MODEL,
+    name: 'Whisper',
+    license: 'MIT',
+    link: 'https://huggingface.co/openai/whisper-small',
+    copyright: 'OpenAI · SYSTRAN'
+  },
+  {
+    group: G_MODEL,
+    name: 'pyannote segmentation 3.0',
+    license: 'MIT',
+    link: 'https://huggingface.co/pyannote/segmentation-3.0',
+    copyright: 'Hervé Bredin và cộng sự — dự án pyannote.audio'
+  },
+  {
+    group: G_MODEL,
+    name: 'CAM++ / 3D-Speaker',
+    license: 'Apache-2.0',
+    link: 'https://github.com/modelscope/3D-Speaker',
+    copyright: 'ModelScope / 3D-Speaker'
+  },
+  {
+    group: G_GPU,
+    name: 'NVIDIA cuBLAS & cuDNN',
+    license: 'NVIDIA CUDA EULA / cuDNN SLA',
+    link: 'https://docs.nvidia.com/cuda/eula/',
+    copyright: 'NVIDIA Corporation'
   }
 ]
+
+const GROUPS = [G_TOOL, G_LIB, G_MODEL, G_GPU]
 
 /** 1 o giay phep dang accordion: bam vao tieu de moi so ra noi dung. */
 function LicCard({
   title,
   badge,
-  role,
   children,
   defaultOpen = false
 }: {
   title: string
   badge: string
-  role?: string
   children: JSX.Element
   defaultOpen?: boolean
 }): JSX.Element {
@@ -98,7 +181,6 @@ function LicCard({
       <button className="lic-card-head" onClick={() => setOpen((o) => !o)}>
         <span className="lic-name">{title}</span>
         <span className="lic-badge">{badge}</span>
-        {role && <span className="lic-role muted small">{role}</span>}
         <span className="lic-caret">{open ? '▴' : '▾'}</span>
       </button>
       {open && <div className="lic-card-body">{children}</div>}
@@ -124,7 +206,7 @@ export default function License(): JSX.Element {
         <p className="muted small">
           T-blao là phần mềm mã nguồn mở. Bấm để xem chi tiết giấy phép.
         </p>
-        <LicCard title="T-blao" badge="MIT" role="Giấy phép ứng dụng">
+        <LicCard title="T-blao" badge="MIT">
           <pre className="license-text">{MIT_LICENSE}</pre>
         </LicCard>
       </section>
@@ -133,25 +215,29 @@ export default function License(): JSX.Element {
       <section className="lic-section">
         <h3>Thành phần bên thứ ba</h3>
         <p className="muted small">
-          T-blao sử dụng các công cụ mã nguồn mở dưới đây (tải về khi cần). Bấm từng mục để xem giấy
-          phép.
+          T-blao được dựng trên các công trình mã nguồn mở dưới đây. Bản quyền thuộc về tác giả gốc.
+          Bấm từng mục để xem chi tiết.
         </p>
-        <div className="lic-list">
-          {THIRD_PARTY.map((t) => (
-            <LicCard key={t.name} title={t.name} badge={t.license} role={t.role}>
-              <>
-                {t.copyright && <div className="lic-copyright small">{t.copyright}</div>}
-                {t.notice && <pre className="license-text lic-notice">{t.notice}</pre>}
-                {!t.notice && <p className="muted small">{t.role}</p>}
-                {t.link && (
-                  <button className="lic-link" onClick={() => window.api.openExternal(t.link!)}>
-                    {t.link}
-                  </button>
-                )}
-              </>
-            </LicCard>
-          ))}
-        </div>
+        {GROUPS.map((g) => (
+          <div key={g} className="lic-group">
+            <div className="lic-group-title small">{g}</div>
+            <div className="lic-list">
+              {THIRD_PARTY.filter((t) => t.group === g).map((t) => (
+                <LicCard key={t.name} title={t.name} badge={t.license}>
+                  <>
+                    {t.copyright && <div className="lic-copyright small">{t.copyright}</div>}
+                    {t.notice && <pre className="license-text lic-notice">{t.notice}</pre>}
+                    {t.link && (
+                      <button className="lic-link" onClick={() => window.api.openExternal(t.link!)}>
+                        {t.link}
+                      </button>
+                    )}
+                  </>
+                </LicCard>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       <p className="lic-foot muted small">

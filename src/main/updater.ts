@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from 'electron'
 import updaterPkg from 'electron-updater'
-import { logError, logInfo } from './logger'
+import { debugRaw, errLabel, logError, logInfo } from './logger'
 import { UpdateStatus } from '../shared/types'
 
 const { autoUpdater } = updaterPkg
@@ -37,8 +37,10 @@ export function initAutoUpdate(getWindow: () => BrowserWindow | null): void {
     send({ state: 'downloaded', version: info.version })
   })
   autoUpdater.on('error', (err) => {
-    logError(`Lỗi tự cập nhật app: ${err.message}`)
-    send({ state: 'error', message: err.message })
+    debugRaw('updater', err)
+    const nhan = errLabel(err)
+    logError(`Lỗi tự cập nhật app: ${nhan}`)
+    send({ state: 'error', message: nhan })
   })
 
   void autoUpdater.checkForUpdates().catch(() => {})

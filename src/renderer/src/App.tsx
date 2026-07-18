@@ -3,13 +3,18 @@ import { useEffect, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
 import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
+import AudioText from './components/AudioText'
+import ScreenText from './components/ScreenText'
 import License from './components/License'
 import Logs from './components/Logs'
-import { usePersistedState } from './lib/persist'
+import qrImg from './assets/qr.jpg'
 import type { UpdateStatus } from '../../shared/types'
 
+const REPO_URL = 'https://github.com/NeeyuBL/neeyut-blao'
+const LIEN_HE_URL = 'https://t.me/ttqtbl'
+
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'douyin' | 'logs' | 'license'
+type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'logs' | 'license'
 
 interface Tab {
   key: TabKey
@@ -34,6 +39,22 @@ const TABS: Tab[] = [
     icon: '🎬',
     title: 'Tải Douyin',
     subtitle: 'Video & kênh Douyin (không watermark)'
+  },
+  {
+    key: 'audiotext',
+    label: 'Phụ đề',
+    icon: '📝',
+    title: 'Audio → Text',
+    subtitle: 'Tạo phụ đề .srt từ giọng nói bằng AI'
+  },
+  {
+    key: 'screen',
+    label: 'Dịch màn hình',
+    icon: '🔍',
+    title: 'Dịch màn hình',
+    // Anh em voi tab Phu de: mot ben tu TIENG, mot ben tu HINH.
+    // Danh cho video chi co chu chay, khong co tieng -> tab Phu de bo tay.
+    subtitle: 'Đọc chữ chạy trên video → tạo phụ đề .srt'
   }
 ]
 
@@ -57,11 +78,21 @@ const BOTTOM_TABS: Tab[] = [
 
 export default function App(): JSX.Element {
   const [stage, setStage] = useState<Stage>('checking')
-  const [tab, setTab] = usePersistedState<TabKey>('tblao.tab', 'download')
+  // KHONG nho tab cuoi — moi lan mo app deu ve tab mac dinh (Tai xuong).
+  // Chi nho cau hinh user setup cho tung tab (qua usePersistedState trong moi component).
+  const [tab, setTab] = useState<TabKey>('download')
   const [version, setVersion] = useState('')
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   // Thu muc luu dung CHUNG cho moi tab; nho qua cac lan mo app
   const [outputDir, setOutputDir] = useState('')
+  // "Hop thu" gui file tu tab Tai xuong sang tab Audio->Text (nut "Lay sub")
+  const [subInbox, setSubInbox] = useState<{ path: string; id: string } | null>(null)
+  const [hienQr, setHienQr] = useState(false) // bang QR ung ho (nut Cafe)
+
+  const sendToSub = (filePath: string): void => {
+    setSubInbox({ path: filePath, id: crypto.randomUUID() })
+    setTab('audiotext')
+  }
 
   const updateOutputDir = (d: string): void => {
     setOutputDir(d)
@@ -87,6 +118,16 @@ export default function App(): JSX.Element {
     const offUpd = window.api.onUpdateStatus(setUpdate)
     return offUpd
   }, [])
+
+  // Bam Esc dong bang QR
+  useEffect(() => {
+    if (!hienQr) return
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setHienQr(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [hienQr])
 
   if (stage === 'checking') {
     return (
@@ -131,6 +172,20 @@ export default function App(): JSX.Element {
 
         <div className="side-bottom">
           {BOTTOM_TABS.map(renderTab)}
+
+          {/* Lien ket: GitHub / Lien he / Cafe (ung ho) — duoi muc Giay phep */}
+          <div className="side-links">
+            <button className="side-link" onClick={() => window.api.openExternal(REPO_URL)}>
+              <span className="side-link-ico">🐙</span> GitHub
+            </button>
+            <button className="side-link" onClick={() => window.api.openExternal(LIEN_HE_URL)}>
+              <span className="side-link-ico">✈️</span> Liên hệ
+            </button>
+            <button className="side-link" onClick={() => setHienQr(true)}>
+              <span className="side-link-ico">☕</span> Cafe
+            </button>
+          </div>
+
           <div className="side-version">Phiên bản {version || '…'}</div>
 
           {update?.state === 'downloaded' && (
@@ -161,15 +216,50 @@ export default function App(): JSX.Element {
         <div className="content-body">
           {/* Giu 2 tab tai luon SONG (khong unmount) de chay song song, khong mat hang doi/tien do */}
           <div className={`tab-pane ${tab === 'download' ? '' : 'hidden'}`}>
-            <Downloader outputDir={outputDir} setOutputDir={updateOutputDir} />
+            <Downloader
+              outputDir={outputDir}
+              setOutputDir={updateOutputDir}
+              onGetSub={sendToSub}
+            />
           </div>
           <div className={`tab-pane ${tab === 'douyin' ? '' : 'hidden'}`}>
             <Douyin outputDir={outputDir} setOutputDir={updateOutputDir} />
+          </div>
+          <div className={`tab-pane ${tab === 'audiotext' ? '' : 'hidden'}`}>
+            <AudioText
+              outputDir={outputDir}
+              setOutputDir={updateOutputDir}
+              subInbox={subInbox}
+            />
+          </div>
+          {/* GIU SONG (khong unmount): user chon video + keo khung xong ma qua
+              tab khac mot cai la mat sach, phai lam lai tu dau. Nho toi khi tat
+              app — dung y user chot. */}
+          <div className={`tab-pane ${tab === 'screen' ? '' : 'hidden'}`}>
+            <ScreenText outputDir={outputDir} setOutputDir={updateOutputDir} />
           </div>
           {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>
       </main>
+
+      {/* Bang QR ung ho (nut Cafe) — bam ra ngoai / X / Esc de dong */}
+      {hienQr && (
+        <div className="modal-nen" onClick={() => setHienQr(false)}>
+          <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <span className="modal-title">☕ Mời mình một ly cafe</span>
+              <button className="modal-x" onClick={() => setHienQr(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body qr-body">
+              <img src={qrImg} alt="Mã QR ủng hộ" className="qr-img" />
+              <p className="muted small">Cảm ơn bạn đã ủng hộ T-blao 💛</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

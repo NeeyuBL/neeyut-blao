@@ -154,6 +154,121 @@ export interface DyChannel {
   count: number // tong so video da tai tu kenh
 }
 
+// ---- Audio -> Text (whisper) ----
+export type WhisperTask = 'transcribe' | 'translate'
+
+export type WhisperDevice = 'cpu' | 'cuda'
+
+export interface WhisperRequest {
+  input: string // duong dan file audio/video
+  outputDir: string
+  model: string // 'base' | 'small' | 'medium'
+  language: string // 'auto' | 'vi' | 'en' ...
+  task: WhisperTask
+  formats: string[] // ['srt','txt','vtt']
+  device: WhisperDevice // 'cuda' neu user bat GPU va da co goi tang toc
+  diarize: boolean // nhan dien ai noi luc nao (gan nhan [SPEAKER_xx])
+  speakers: number // so nguoi noi (0 = tu doan)
+}
+
+export interface WhisperCudaStatus {
+  has: boolean // da tai + giai nen goi tang toc CUDA chua
+}
+
+export interface WhisperProgress {
+  id: string
+  status: 'preparing' | 'transcribing' | 'finished' | 'error'
+  percent: number // 0..100, -1 neu chua biet
+  language: string | null
+  line: string | null // doan text vua nhan / thong bao
+}
+
+export interface WhisperResult {
+  id: string
+  ok: boolean
+  outputs: string[] // duong dan cac file .srt/.txt/.vtt
+  segments: number
+  speakers: number // so nguoi noi nhan dien duoc (0 neu khong bat diarize)
+  error: string | null
+}
+
+export interface WhisperEngineStatus {
+  has: boolean
+}
+
+// ---- Tab Dich man hinh (doc chu chay tren video) ----
+export interface OcrEngineStatus {
+  has: boolean
+}
+export interface OcrProgress {
+  percent: number // -1 = chua tinh duoc (dang tach khung)
+  text: string
+}
+export interface OcrResult {
+  ok: boolean
+  output?: string
+  count?: number
+  error?: string
+  // Dai chu goc (pixel video) — buoc ghep video dung de che phu de cung san co.
+  bandTop?: number | null
+  bandBot?: number | null
+}
+
+// ---- Ghep phu de vao video (buoc phu cua tab Dich man hinh) ----
+export interface BurnReq {
+  video: string
+  srt: string
+  outputDir: string
+  mode: 'burn' | 'soft' // dot chet (dang lai) | ghep mem (ranh sub, xem may)
+  // Dai chu goc de che bang thanh den (chi khi dot chet). null -> khong che.
+  bandTop?: number | null
+  bandBot?: number | null
+  // Co chu: null/undefined = TU DONG theo khung; so = ti le so voi chieu cao video
+  // (vd 0.035 = 3.5%). burn.ts van chan trong [2%, 5.5%].
+  fontScale?: number | null
+}
+export interface BurnProgress {
+  percent: number // -1 = chua tinh duoc
+}
+export interface BurnResult {
+  ok: boolean
+  output?: string
+  error?: string
+}
+
+/** Ket qua kiem tra API key. `message` di THANG len UI — khong duoc mang chi
+ *  tiet ky thuat nao. */
+export interface GeminiStatus {
+  ok: boolean
+  message: string
+}
+
+/** 1 khoi phu de: moc thoi gian + chu. Moc thoi gian KHONG bao gio gui cho AI. */
+export interface SrtBlock {
+  time: string
+  text: string
+}
+
+/** Dich phu de sang tieng nao. AI dich duoc moi thu — day chi la danh sach goi y. */
+export const DICH_LANGS = [
+  { code: 'vi', label: 'Tiếng Việt' },
+  { code: 'en', label: 'Tiếng Anh' },
+  { code: 'zh', label: 'Tiếng Trung' },
+  { code: 'ja', label: 'Tiếng Nhật' },
+  { code: 'ko', label: 'Tiếng Hàn' }
+] as const
+
+// Ket qua quet GPU (buoc an toan truoc khi cho tai goi tang toc CUDA)
+export interface GpuInfo {
+  hasNvidia: boolean // may co GPU NVIDIA + driver (nvidia-smi chay duoc) khong
+  name: string | null // vd 'NVIDIA GeForce GTX 1050 Ti'
+  driverVersion: string | null // vd '582.28'
+  cudaVersion: string | null // CUDA toi da driver ganh duoc, vd '13.0'
+  cudaMajor: number | null // phan nguyen, vd 13
+  canAccelerate: boolean // du dieu kien tang toc (NVIDIA + CUDA >= 12)
+  reason: string | null // ly do KHONG tang toc duoc (de bao user)
+}
+
 export type DownloadStatus = 'preparing' | 'downloading' | 'postprocessing' | 'finished' | 'error'
 
 export interface DownloadProgress {

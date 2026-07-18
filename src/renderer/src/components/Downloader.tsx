@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type {
   CookieStatus,
   DownloadKind,
@@ -12,7 +12,9 @@ import type {
 } from '../../../shared/types'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
 import { usePersistedState } from '../lib/persist'
+import { useQueueRunner } from '../lib/useQueueRunner'
 import LinkInput from './LinkInput'
+import RunControls from './RunControls'
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'opus', 'flac', 'wav']
 // Do phan giai muc tieu (lay ban tot nhat <= gia tri nay)
@@ -84,10 +86,12 @@ function buildFormatChoice(f: VideoFormat): { selector: string; label: string } 
 
 export default function Downloader({
   outputDir,
-  setOutputDir
+  setOutputDir,
+  onGetSub
 }: {
   outputDir: string
   setOutputDir: (d: string) => void
+  onGetSub: (filePath: string) => void
 }): JSX.Element {
   // Tuy chon chung ap dung cho ca hang doi (tu nho qua cac lan mo app)
   const [kind, setKind] = usePersistedState<DownloadKind>('tblao.dl.kind', 'video')
@@ -126,8 +130,7 @@ export default function Downloader({
 
   const [urlInput, setUrlInput] = useState('')
   const [items, setItems] = useState<QueueItem[]>([])
-  const [running, setRunning] = useState(false)
-  const runningRef = useRef(false)
+  const runner = useQueueRunner<QueueItem>()
 
   // Playlist
   const [probing, setProbing] = useState(false)
@@ -403,31 +406,27 @@ export default function Downloader({
     proxy: proxyArg()
   })
 
-  const downloadAll = async (): Promise<void> => {
-    if (runningRef.current || !outputDir) return
-    runningRef.current = true
-    setRunning(true)
+  const runItem = async (it: QueueItem): Promise<void> => {
+    patch(it.id, { status: 'downloading', progress: null, result: null, error: null })
+    const result = await window.api.download(it.id, buildReq(it))
+    patch(it.id, {
+      status: result.ok ? 'done' : 'error',
+      result,
+      error: result.ok ? null : result.error
+    })
+  }
 
+  const startRun = (): void => {
+    if (!outputDir) return
     const queue = items.filter((it) => it.status === 'ready' || it.status === 'error')
-    for (const it of queue) {
-      patch(it.id, { status: 'downloading', progress: null, result: null, error: null })
-      const result = await window.api.download(it.id, buildReq(it))
-      patch(it.id, {
-        status: result.ok ? 'done' : 'error',
-        result,
-        error: result.ok ? null : result.error
-      })
-    }
-
-    runningRef.current = false
-    setRunning(false)
+    void runner.run(queue, runItem)
   }
 
   const removeItem = (id: string): void => {
     setItems((prev) => prev.filter((it) => it.id !== id))
   }
   const clearAll = (): void => {
-    if (running) return
+    if (runner.active) return
     setItems([])
   }
 
@@ -436,7 +435,10 @@ export default function Downloader({
   const failed = items.filter((it) => it.status === 'error').length
 
   return (
-    <div className="downloader">
+    <div className="lam-viec">
+      {/* ---------- COT GIUA: tuy chon + dan link ---------- */}
+      <div className="cot-cauhinh">
+        <div className="cot-tieude">Tùy chọn &amp; liên kết</div>
       {/* Tuy chon chung */}
       <div className="card options-card">
         <div className="options">
@@ -775,6 +777,11 @@ export default function Downloader({
         💡 Link <b>video</b> → thêm vào hàng đợi, mỗi video có nút <b>⚙</b> để chọn định dạng chi
         tiết. &nbsp; Link <b>playlist</b> → hiện bảng chọn video để tải.
       </p>
+      </div>
+
+      {/* ---------- COT PHAI: hang doi ---------- */}
+      <div className="cot-ketqua cot-hangdoi">
+        <div className="cot-tieude">Hàng đợi</div>
 
       {/* Hang doi */}
       {items.length > 0 && (
@@ -784,16 +791,18 @@ export default function Downloader({
               {items.length} mục · {done} xong{failed > 0 ? ` · ${failed} lỗi` : ''}
             </div>
             <div className="queue-actions">
-              <button className="btn" onClick={clearAll} disabled={running}>
+              <button className="btn" onClick={clearAll} disabled={runner.active}>
                 Xóa hết
               </button>
-              <button
-                className="btn primary"
-                onClick={downloadAll}
-                disabled={running || pending === 0 || !outputDir}
-              >
-                {running ? 'Đang tải…' : `⬇ Tải tất cả (${pending})`}
-              </button>
+              <RunControls
+                runState={runner.runState}
+                startLabel={`Tải tất cả (${pending})`}
+                canStart={pending > 0 && !!outputDir}
+                onStart={startRun}
+                onPause={runner.pause}
+                onResume={runner.resume}
+                onStop={runner.stop}
+              />
             </div>
           </div>
 
@@ -808,6 +817,7 @@ export default function Downloader({
                 onRemove={() => removeItem(it.id)}
                 onPickFormat={() => openFormatPicker(it)}
                 onClearFormat={() => clearFormat(it.id)}
+                onGetSub={onGetSub}
               />
             ))}
           </div>
@@ -825,6 +835,7 @@ export default function Downloader({
           </div>
         </div>
       )}
+      </div>
 
       {/* Bang chon danh sach con (tab kenh / nhieu playlist) */}
       {subChooser.open && (
@@ -1144,7 +1155,8 @@ function QueueRow({
   folderMode,
   onRemove,
   onPickFormat,
-  onClearFormat
+  onClearFormat,
+  onGetSub
 }: {
   item: QueueItem
   selKind: DownloadKind
@@ -1153,6 +1165,7 @@ function QueueRow({
   onRemove: () => void
   onPickFormat: () => void
   onClearFormat: () => void
+  onGetSub: (filePath: string) => void
 }): JSX.Element {
   const p = item.progress
   const pct = p ? Math.round(p.percent) : 0
@@ -1265,6 +1278,13 @@ function QueueRow({
                 onClick={() => window.api.showItem(item.result!.file!)}
               >
                 📂
+              </button>
+              <button
+                className="ibtn"
+                title="Lấy phụ đề (Audio → Text)"
+                onClick={() => onGetSub(item.result!.file!)}
+              >
+                📝
               </button>
             </>
           )}

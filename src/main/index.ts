@@ -1,5 +1,33 @@
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'node:path'
+import { app, shell, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { basename, extname, join } from 'node:path'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { Readable } from 'node:stream'
+
+// Kieu tep cho giao thuc tblao: — thieu Content-Type thi trinh phat doan mo, de sai.
+const KIEU_MEDIA: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mkv': 'video/x-matroska',
+  '.mov': 'video/quicktime',
+  '.avi': 'video/x-msvideo',
+  '.m4v': 'video/mp4',
+  '.ts': 'video/mp2t',
+  '.flv': 'video/x-flv'
+}
+
+// Giao thuc rieng de trinh phat doc duoc video TREN DIA CUA USER.
+// Vi sao khong dung thang file:// — trang chay o http://localhost:5173 (dev)
+// nen file:// la KHAC NGUON: vua bi CSP chan, vua bi webSecurity chan. Tat
+// webSecurity thi chua duoc nhung mo toang ca app -> KHONG.
+// stream:true la BAT BUOC — thieu no thi video khong tua duoc (khong ho tro
+// range request), user keo thanh thoi gian se dung hinh.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'tblao',
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true }
+  }
+])
 import {
   checkDependencies,
   runSetup,
@@ -14,13 +42,26 @@ import { testProxy } from './proxy'
 import { initAutoUpdate, checkForUpdates, quitAndInstall } from './updater'
 import { dyEngineStatus, installDyEngine, downloadDouyin, getChannels, removeChannel } from './douyin'
 import {
+  whisperEngineStatus,
+  installWhisperEngine,
+  transcribeAudio,
+  whisperCudaStatus,
+  installCudaPack
+} from './whisper'
+import { detectGpu } from './gpu'
+import { checkKey, hasKey, saveKey, translateSrt } from './gemini'
+import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
+import { burnSubtitle, cancelBurn } from './burn'
+import {
   captureDyCookies,
   clearDyCookies,
   dyCookieStatus
 } from './douyinCookies'
-import { DouyinRequest } from '../shared/types'
+import { DouyinRequest, WhisperRequest } from '../shared/types'
 import {
   clearLogs,
+  debugRaw,
+  errLabel,
   getLogs,
   logEmitter,
   logError,
@@ -28,16 +69,26 @@ import {
   logInfo,
   wipeLogFileSync
 } from './logger'
+
+/** Nhat ky khong can biet user vao trang NAO — chi can biet tu dau. */
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return '(liên kết)'
+  }
+}
 import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
+import type { BurnReq } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1040,
-    height: 740,
-    minWidth: 860,
-    minHeight: 580,
+    width: 1320,
+    height: 820,
+    minWidth: 1040,
+    minHeight: 620,
     show: false,
     autoHideMenuBar: true,
     title: 'T-blao',
@@ -94,6 +145,46 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
 }
 
 app.whenReady().then(() => {
+  // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
+  // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
+  //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
+  //    `tblao:///D:/phim/a.mp4` bi bien thanh `tblao://d/phim/a.mp4` — nuot mat
+  //    o dia, handler nhan duong dan cut -> ERR_FILE_NOT_FOUND, ma trinh phat
+  //    lai bao "Format error" nghe nhu video hong. Base64 con mien nhiem voi
+  //    ten tep co dau cach, ngoac, dau tieng Viet, '#', '?'.
+  //
+  // !! PHAI tu tra lai 206 theo Range. Co `stream:true` chi la CHO PHEP doc theo
+  //    doan, khong tu lam thay. Da do thuc te tren GENZ.mp4 (155MB): trinh phat
+  //    doi `bytes=155353088-` (khuc cuoi tep — cho de bang muc luc cua MP4), neu
+  //    cu tra 200 tu byte 0 thi no nhan nham du lieu dau tep -> hong giai ma ->
+  //    "Khong mo duoc video nay". Video nho nap tron 1 phat nen KHONG dinh loi,
+  //    chi tep lon moi lo. Khong co 206 thi cung KHONG TUA duoc (nhay ve 0).
+  protocol.handle('tblao', async (req) => {
+    const ma = decodeURIComponent(new URL(req.url).pathname).replace(/^\//, '')
+    const p = Buffer.from(ma, 'base64url').toString('utf8')
+    const co = (await stat(p)).size
+    const kieu = KIEU_MEDIA[extname(p).toLowerCase()] ?? 'application/octet-stream'
+    const dau = req.headers.get('Range')
+
+    if (!dau) {
+      return new Response(Readable.toWeb(createReadStream(p)) as ReadableStream, {
+        status: 200,
+        headers: { 'Content-Type': kieu, 'Content-Length': String(co), 'Accept-Ranges': 'bytes' }
+      })
+    }
+    const m = /bytes=(\d*)-(\d*)/.exec(dau)
+    const b = m?.[1] ? Number(m[1]) : 0
+    const k = m?.[2] ? Number(m[2]) : co - 1
+    return new Response(Readable.toWeb(createReadStream(p, { start: b, end: k })) as ReadableStream, {
+      status: 206,
+      headers: {
+        'Content-Type': kieu,
+        'Content-Length': String(k - b + 1),
+        'Content-Range': `bytes ${b}-${k}/${co}`,
+        'Accept-Ranges': 'bytes'
+      }
+    })
+  })
   registerIpc()
   logInfo(`T-blao ${app.getVersion()} khởi động · ${process.platform}`)
   createWindow()
@@ -151,7 +242,8 @@ function registerIpc(): void {
     return clearCookies()
   })
   ipcMain.handle('cookies:capture', async (event, url: string) => {
-    logInfo(`Mở cửa sổ đăng nhập lấy cookie: ${url || '(trống)'}`)
+    // Chi ghi TEN MIEN — nhat ky khong can biet user dang nhap vao trang nao cu the
+    logInfo(`Mở cửa sổ đăng nhập lấy cookie${url ? ` (${domainOf(url)})` : ''}…`)
     const res = await captureCookies(url, (e) => event.sender.send('cookies:capture-event', e))
     if (res.ok) logInfo(`Đã lưu ${res.count} cookie.`)
     else logError(`Lấy cookie thất bại: ${res.error ?? ''}`)
@@ -185,6 +277,38 @@ function registerIpc(): void {
       properties: ['openDirectory', 'createDirectory']
     })
     return res.canceled ? null : res.filePaths[0]
+  })
+
+  // Chon file audio/video (cho tab Audio->Text)
+  ipcMain.handle('dialog:chooseFiles', async () => {
+    if (!mainWindow) return []
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        {
+          name: 'Âm thanh / Video',
+          extensions: [
+            'mp3', 'm4a', 'wav', 'flac', 'ogg', 'opus', 'aac', 'wma',
+            'mp4', 'mkv', 'webm', 'mov', 'avi', 'flv', 'ts', 'm4v'
+          ]
+        },
+        { name: 'Tất cả', extensions: ['*'] }
+      ]
+    })
+    return res.canceled ? [] : res.filePaths
+  })
+
+  // Chon 1 tep phu de .srt co san (de ghep vao video ma khong can OCR)
+  ipcMain.handle('dialog:chooseSrt', async () => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Phụ đề', extensions: ['srt'] },
+        { name: 'Tất cả', extensions: ['*'] }
+      ]
+    })
+    return res.canceled || !res.filePaths.length ? null : res.filePaths[0]
   })
 
   // Thu muc mac dinh (Downloads)
@@ -233,6 +357,73 @@ function registerIpc(): void {
   })
   ipcMain.handle('douyin:channels', async () => getChannels())
   ipcMain.handle('douyin:removeChannel', async (_e, url: string) => removeChannel(url))
+
+  // ---- Audio -> Text (whisper) ----
+  ipcMain.handle('whisper:engineStatus', async () => whisperEngineStatus())
+  ipcMain.handle('whisper:installEngine', async (event) => {
+    try {
+      await installWhisperEngine((percent) => event.sender.send('whisper:install-progress', percent))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+  ipcMain.handle('whisper:transcribe', async (event, id: string, req: WhisperRequest) =>
+    transcribeAudio(id, req, (p) => event.sender.send('whisper:progress', p))
+  )
+  ipcMain.handle('whisper:detectGpu', async () => {
+    const g = await detectGpu()
+    logInfo(
+      `Quét GPU: ${g.hasNvidia ? `${g.name} · CUDA ${g.cudaVersion ?? '?'} · tăng tốc=${g.canAccelerate ? 'được' : 'không'}` : 'không có NVIDIA'}`
+    )
+    return g
+  })
+  // ---- Dich man hinh (doc chu chay tren video) ----
+  ipcMain.handle('ocr:engineStatus', async () => ocrEngineStatus())
+  ipcMain.handle('ocr:installEngine', async (event) => {
+    try {
+      await installOcrEngine((p) => event.sender.send('ocr:install-progress', p))
+      return { ok: true }
+    } catch (err) {
+      debugRaw('ocr install', err)
+      return { ok: false, error: errLabel(err) }
+    }
+  })
+  ipcMain.handle(
+    'ocr:video',
+    async (event, input: string, outputDir: string, y0: number, y1: number) =>
+      ocrVideo(input, outputDir, y0, y1, (p) => event.sender.send('ocr:progress', p))
+  )
+  ipcMain.handle('ocr:cancel', async () => cancelOcr())
+
+  // ---- Ghep phu de vao video (buoc phu tab Dich man hinh) ----
+  ipcMain.handle('burn:start', async (event, req: BurnReq) =>
+    burnSubtitle(req, (p) => event.sender.send('burn:progress', p))
+  )
+  ipcMain.handle('burn:cancel', async () => cancelBurn())
+
+  // ---- Dich phu de bang API key cua user ----
+  ipcMain.handle('gemini:hasKey', async () => hasKey())
+  ipcMain.handle('gemini:saveKey', async (_e, key: string) => saveKey(key))
+  ipcMain.handle('gemini:checkKey', async (_e, key: string) => checkKey(key))
+  ipcMain.handle(
+    'gemini:translateSrt',
+    async (event, srtPath: string, outPath: string, dich: string) =>
+      translateSrt(srtPath, outPath, dich, (d, t) =>
+        event.sender.send('gemini:progress', { done: d, total: t })
+      )
+  )
+
+
+  ipcMain.handle('whisper:cudaStatus', async () => whisperCudaStatus())
+  ipcMain.handle('whisper:installCuda', async (event) => {
+    try {
+      await installCudaPack((percent) => event.sender.send('whisper:cuda-progress', percent))
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
 
   // Nhat ky hoat dong
   ipcMain.handle('logs:get', async () => getLogs())

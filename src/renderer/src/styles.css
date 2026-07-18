@@ -17,6 +17,47 @@
   box-sizing: border-box;
 }
 
+/* ---- Thanh cuon hien dai: mong, bo tron, TRONG SUOT khi ranh ----
+   Chi hien thumb khi di chuot vao vung cuon (hover) -> giao dien gon,
+   cot cau hinh khong bi thanh cuon xam chiem cho. Rong 10px nhung track
+   trong suot nen nhin nhu khong co gutter.
+   !! Ap cho tung vung cuon, KHONG dung `*:hover` (moi to tien deu :hover ->
+   lo ca thanh cuon vung ngoai). Dung selector cu the ben duoi. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent; /* an mac dinh */
+  border: 3px solid transparent; /* vien trong -> thumb thon lai giua rong */
+  border-radius: 999px;
+  background-clip: padding-box;
+  transition: background-color 0.2s;
+}
+/* Rung chuot vao vung cuon -> lo thumb ra */
+.cot-cauhinh:hover::-webkit-scrollbar-thumb,
+.cot-ketqua:hover::-webkit-scrollbar-thumb,
+.lam-viec:hover::-webkit-scrollbar-thumb,
+.downloader:hover::-webkit-scrollbar-thumb,
+.modal-list:hover::-webkit-scrollbar-thumb,
+.modal-body:hover::-webkit-scrollbar-thumb,
+.logs-list:hover::-webkit-scrollbar-thumb,
+.license-page:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  background-clip: padding-box;
+}
+/* Ke ca khi di thang len thanh cuon -> dam hon, biet dang keo duoc */
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.34) !important;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 body {
   margin: 0;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -235,11 +276,19 @@ select {
 .btn.primary:hover:not(:disabled) {
   background: var(--primary-hover);
 }
-.btn.big {
-  width: 100%;
-  padding: 13px;
-  font-size: 15px;
-  margin-top: 6px;
+.btn.danger {
+  color: #ff6b6b;
+  border-color: #5a2a2a;
+}
+.btn.danger:hover:not(:disabled) {
+  background: #3a2020;
+  border-color: #7a3535;
+}
+/* Nhom nut dieu khien hang doi: Tam dung/Tiep tuc/Dung */
+.run-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .muted {
@@ -270,6 +319,94 @@ select {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
+}
+
+/* ---- Khu lam viec 2 cot: GIUA = cau hinh, PHAI = ket qua ----
+   (cot thu 3 la sidebar ben ngoai). Dung chung cho ca 5 tab chinh. */
+.lam-viec {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 32%) 1fr;
+  /* !! grid-template-rows la CHO CHET, khong phai min-height cua o.
+     Mac dinh hang luoi la `auto` = cao bang noi dung, nen luoi cu phinh dai ra
+     chu KHONG o nao bi tran -> khong dau moc thanh cuon, lan chuot cung dung im.
+     minmax(0, 1fr) ep hang dung bang chieu cao khung -> luc do o moi tran va cuon. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
+  padding: 20px 24px;
+}
+.cot-cauhinh,
+.cot-ketqua {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+/* !! flex-shrink:0 la BAT BUOC cho MOI the trong cot.
+   Mac dinh the con trong cot flex TU CO LAI cho vua khung -> khong co gi tran ra
+   nen khong moc thanh cuon (lan chuot chet), dong thoi the bi bop thap hon noi
+   dung ben trong -> chu trao ra de len the duoi. Do that: 6 the x160px = 960px
+   bi bop con 596px. Giu nguyen chieu cao that thi moi tran va cuon duoc. */
+.cot-cauhinh > *,
+.cot-ketqua > * {
+  flex-shrink: 0;
+}
+/* Rieng san video thi VAN duoc gian/co de an het cho trong cot phai */
+.cot-ketqua.cot-video .ocr-sanh {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Chi gop lai 1 cot khi that su qua hep. Nguong phai THAP hon be rong cua so
+   thuc te cua user (~1000px) — de cao qua thi 3 cot khong bao gio hien ra. */
+@media (max-width: 800px) {
+  /* Bo han LUOI, xep doc tu nhien. Do that: giu grid roi doi grid-template-rows
+     sang auto van hong — hang bi ep con 290px trong khi noi dung 1060px, chu
+     trao ra de len cot duoi. Cot doc + flex:none thi the giu dung chieu cao
+     that, ca khu tu cuon. */
+  .lam-viec {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .cot-cauhinh,
+  .cot-ketqua,
+  .cot-ketqua.cot-video {
+    overflow: visible;
+    flex: none;
+  }
+  /* Gop cot roi thi video khong con "an het cho" nua — cho lai chieu cao co dinh */
+  .cot-ketqua.cot-video .ocr-sanh {
+    flex: none;
+    height: 52vh;
+  }
+}
+
+/* Tieu de nho dat dau moi cot */
+.cot-tieude {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+/* Cot ket qua cua tab Dich man hinh: video an het cho, KHONG cuon */
+.cot-ketqua.cot-video {
+  overflow: hidden;
+}
+
+/* Cot phai tab Tai xuong = hang doi. Thanh dieu khien (so luong + Tai tat ca)
+   ghim tren dau khi cuon danh sach dai, luon voi tay toi duoc. */
+.cot-hangdoi .queue-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+  padding: 2px 0 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .url-row {
@@ -336,6 +473,300 @@ select {
   align-items: center;
   gap: 16px;
 }
+/* O nhap API key dich phu de */
+.gk {
+  padding: 0;
+  /* !! KHONG dat `overflow: hidden` o day. Cha (.downloader) la flex COT:
+     flex item mac dinh co min-height:auto (khong co nho hon noi dung), nhung
+     `overflow:hidden` NGAM doi thanh min-height:0 -> the nay mat san chong co,
+     cac the khac con -> khi noi dung dai hon khung thi CHI MINH NO bi ep bep
+     xuong 0, chi con duong vien. Bo goc thi dung clip-path/border-radius tren
+     con, dung dung overflow. */
+  flex-shrink: 0;
+}
+.gk-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.gk-title {
+  font-weight: 600;
+  flex: 1;
+}
+.gk-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.gk-badge.ok {
+  border-color: #2f6b3a;
+  background: rgba(60, 160, 90, 0.14);
+  color: #7fd39a;
+}
+.gk-caret {
+  color: var(--muted);
+}
+.gk-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gk-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gk-row input {
+  flex: 1 1 260px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+}
+.gk-kq.ok {
+  color: #7fd39a;
+}
+.gk-kq.err {
+  color: #ef8a8a;
+}
+/* Dong nay LUON hien duoi nut kiem tra */
+.gk-note {
+  padding: 7px 10px;
+  border-left: 2px solid var(--border);
+  background: var(--panel-2);
+  border-radius: 0 6px 6px 0;
+}
+.gk-field {
+  max-width: 240px;
+  margin-top: 2px;
+}
+.gk-row2 {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Tab Dich man hinh: trinh phat + khung khoanh vung */
+/* San chua video — an het chieu cao con lai cua cot phai */
+.ocr-sanh {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0d11;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+}
+/* Khung bao video: position:relative de khung khoanh (absolute) bam theo.
+   !! Bo bao PHAI om KHIT lay video, khong duoc rong/cao hon: khung khoanh vung
+      dat inset:0 theo bo bao, lech mot chut la user keo trung cho khac. Vi the
+      dung max-height/max-width (om theo video) chu KHONG dung
+      height:100% + object-fit (se sinh vien den hai ben, bo bao != video). */
+.ocr-video {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-height: 100%;
+  max-width: 100%;
+}
+.ocr-video video {
+  display: block;
+  max-height: 100%;
+  max-width: 100%;
+  border-radius: 4px;
+}
+.ocr-toado {
+  font-variant-numeric: tabular-nums;
+}
+/* Ten tep dai -> cat bot, dung de no day rong ca cot cau hinh */
+.ocr-ten {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ocr-dong {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+  min-height: 20px;
+}
+
+/* Khung khoanh vung chu — de len video, keo/co gian duoc */
+.rbox-lop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* chi cac phan tu con moi bat chuot */
+}
+/* Phu mo phan NGOAI vung -> mat tu nhin vao dung cho can nhin */
+.rbox-mo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.55);
+}
+.rbox {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+  cursor: move;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+}
+/* Vung se bi lam mo khi ghep video: lam mo THAT video ben duoi (backdrop-filter)
+   -> user xem truoc chinh xac vung + hieu ung. Ranh gioi = VIEN CAM (crisp).
+   2 dai xanh gay roi truoc day la tay-nam-keo (da cho trong suot), khong phai
+   mep cua vung mo. */
+.rbox-lammo {
+  border-color: #e8a13c;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.rbox-lammo .rbox-nhan {
+  background: #e8a13c;
+}
+.rbox-nhan {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: #fff;
+  background: var(--primary);
+  padding: 0 6px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+/* Tay nam co gian: cao 12px, de o mep — de trung chuot. TRONG SUOT san (khong
+   tao 2 dai xanh gay roi); chi hien nhe khi ro chuot vao de biet cho keo. */
+.rbox-tay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  background: transparent;
+}
+.rbox-tay:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+.rbox-tren {
+  top: -6px;
+}
+.rbox-duoi {
+  bottom: -6px;
+}
+
+/* Bang huong dan lay key */
+.modal-nen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  width: min(560px, 100%);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title {
+  font-weight: 600;
+  flex: 1;
+}
+.modal-x {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.modal-x:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.modal-body {
+  padding: 16px;
+  overflow-y: auto; /* chi CON nay cuon — modal la fixed nen khong dinh bay flex */
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hd-step {
+  display: flex;
+  gap: 12px;
+}
+.hd-step p {
+  margin: 4px 0 8px;
+}
+.hd-num {
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hd-canh-bao {
+  padding: 10px 12px;
+  border: 1px solid #6b5a1e;
+  border-radius: 8px;
+  background: rgba(210, 170, 40, 0.1);
+  color: #e2c86a;
+}
+.hd-canh-bao p {
+  margin: 6px 0 0;
+}
+
+/* Trang Giay phep: gom thanh phan theo nhom cho de doc */
+.lic-group {
+  margin-top: 14px;
+}
+.lic-group-title {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
 .seg {
   display: flex;
   border: 1px solid var(--border);
@@ -361,6 +792,20 @@ select {
   gap: 4px;
   font-size: 12px;
   color: var(--muted);
+}
+/* Hang checkbox (vd: lam mo phu de goc) */
+.gk-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.gk-check input {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 .field select {
   padding: 8px 10px;
@@ -847,12 +1292,7 @@ select {
 }
 .lic-card-head .lic-name {
   font-weight: 600;
-}
-.lic-card-head .lic-role {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 1; /* day dau xo ve sat mep phai */
 }
 .lic-caret {
   color: var(--muted);
@@ -892,6 +1332,53 @@ select {
 }
 .lic-foot {
   margin-top: 4px;
+}
+
+/* 3 nut lien ket o cuoi sidebar (duoi muc Giay phep): GitHub / Lien he / Cafe */
+.side-links {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px 4px;
+}
+.side-link {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.side-link:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+}
+.side-link-ico {
+  font-size: 16px;
+  line-height: 1;
+}
+/* Bang QR ung ho */
+.qr-modal {
+  width: min(360px, 100%);
+}
+.qr-body {
+  align-items: center;
+  text-align: center;
+}
+.qr-img {
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
 }
 
 /* ---- Cookie panel ---- */

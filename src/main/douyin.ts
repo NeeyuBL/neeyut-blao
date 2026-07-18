@@ -5,7 +5,7 @@ import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { binDir, downloadFile } from './deps'
 import { readDyCookies } from './douyinCookies'
-import { logError, logInfo } from './logger'
+import { debugRaw, errLabel, logError, logInfo } from './logger'
 import { DouyinProgress, DouyinRequest, DouyinResult, DyChannel, DyEngineStatus } from '../shared/types'
 
 const isWin = process.platform === 'win32'
@@ -120,7 +120,8 @@ export async function downloadDouyin(
 
   const cookies = await readDyCookies()
   const cfgPath = await writeConfig(req, cookies)
-  logInfo(`Douyin: bắt đầu tải ${req.url} (kiểu: ${req.mode})`)
+  // Khong ghi URL — nhat ky khong can biet user tai kenh/video nao
+  logInfo(`Douyin: bắt đầu tải (kiểu: ${req.mode})`)
 
   return new Promise<DouyinResult>((resolve) => {
     const child = spawn(engine, ['-c', cfgPath, '--verbose'], {
@@ -185,8 +186,10 @@ export async function downloadDouyin(
     child.stderr.on('data', (d) => feed(d.toString(), true))
 
     child.on('error', (err) => {
-      logError(`Douyin: không chạy được engine: ${err.message}`)
-      resolve({ id, ok: false, total, success, failed, skipped, error: err.message })
+      debugRaw('douyin spawn', err)
+      const nhan = errLabel(err)
+      logError(`Douyin: ${nhan}`)
+      resolve({ id, ok: false, total, success, failed, skipped, error: nhan })
     })
 
     child.on('close', (code) => {
@@ -198,10 +201,12 @@ export async function downloadDouyin(
         if (req.isChannel) void recordChannel(req.url, req.outputDir, success)
         resolve({ id, ok: true, total: total || success, success, failed, skipped, error: null })
       } else {
-        const err = errTail || errBuf.trim().split(/\r?\n/).slice(-2).join(' ') || `Thoát mã ${code}`
-        logError(`Douyin: lỗi tải — ${err.slice(0, 400)}`)
-        onProgress({ id, status: 'error', line: err, lastFile, success })
-        resolve({ id, ok: false, total, success, failed, skipped, error: err.slice(0, 400) })
+        const raw = errTail || errBuf.trim().split(/\r?\n/).slice(-2).join(' ') || `code ${code}`
+        debugRaw('douyin close', raw)
+        const nhan = errLabel(raw)
+        logError(`Douyin: ${nhan}`)
+        onProgress({ id, status: 'error', line: nhan, lastFile, success })
+        resolve({ id, ok: false, total, success, failed, skipped, error: nhan })
       }
     })
   })

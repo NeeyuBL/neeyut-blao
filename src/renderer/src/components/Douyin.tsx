@@ -1,8 +1,10 @@
 import type { JSX } from 'react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DouyinRequest, DyChannel, DyCookieStatus, DyMode } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
+import { useQueueRunner } from '../lib/useQueueRunner'
 import LinkInput from './LinkInput'
+import RunControls from './RunControls'
 
 type ItemStatus = 'queued' | 'downloading' | 'done' | 'error'
 
@@ -46,8 +48,7 @@ export default function Douyin({
   const [batchSize, setBatchSize] = usePersistedState('tblao.dy.batchSize', 15)
 
   const [items, setItems] = useState<DyItem[]>([])
-  const [running, setRunning] = useState(false)
-  const runningRef = useRef(false)
+  const runner = useQueueRunner<DyItem>()
 
   const [channels, setChannels] = useState<DyChannel[]>([])
 
@@ -168,15 +169,10 @@ export default function Douyin({
     )
   }
 
-  const downloadAll = async (): Promise<void> => {
-    if (runningRef.current || !outputDir) return
-    runningRef.current = true
-    setRunning(true)
+  const startRun = (): void => {
+    if (!outputDir) return
     const queue = items.filter((it) => it.status === 'queued' || it.status === 'error')
-    for (const it of queue) await runItem(it)
-    runningRef.current = false
-    setRunning(false)
-    refreshChannels()
+    void runner.run(queue, runItem).then(refreshChannels)
   }
 
   const addChannelUpdate = (ch: DyChannel): void => {
@@ -198,6 +194,10 @@ export default function Douyin({
   }
 
   const removeItem = (id: string): void => setItems((prev) => prev.filter((x) => x.id !== id))
+  const clearAll = (): void => {
+    if (runner.active) return
+    setItems([])
+  }
   const pending = items.filter((it) => it.status === 'queued' || it.status === 'error').length
 
   // ----- Man cai engine -----
@@ -231,7 +231,10 @@ export default function Douyin({
   const activeIsChannel = isChannelUrl(urlInput)
 
   return (
-    <div className="downloader">
+    <div className="lam-viec">
+      {/* ---------- COT GIUA: cau hinh + dan link ---------- */}
+      <div className="cot-cauhinh">
+        <div className="cot-tieude">Tùy chọn &amp; liên kết</div>
       {/* Cookie Douyin */}
       <div className="card cookie-card">
         <div className="cookie-head">
@@ -360,19 +363,31 @@ export default function Douyin({
         💡 Link <b>kênh</b> (có <code>/user/</code>) → hiện Kiểu tải. Link <b>video</b> → tải video
         đó.
       </p>
+      </div>
+
+      {/* ---------- COT PHAI: hang doi + thu vien kenh ---------- */}
+      <div className="cot-ketqua cot-hangdoi">
+        <div className="cot-tieude">Hàng đợi &amp; thư viện</div>
 
       {/* Hang doi */}
       {items.length > 0 && (
         <>
           <div className="queue-bar">
             <div className="queue-summary muted small">{items.length} mục</div>
-            <button
-              className="btn primary"
-              onClick={downloadAll}
-              disabled={running || pending === 0 || !outputDir}
-            >
-              {running ? 'Đang tải…' : `⬇ Tải tất cả (${pending})`}
-            </button>
+            <div className="queue-actions">
+              <button className="btn" onClick={clearAll} disabled={runner.active}>
+                Xóa hết
+              </button>
+              <RunControls
+                runState={runner.runState}
+                startLabel={`Tải tất cả (${pending})`}
+                canStart={pending > 0 && !!outputDir}
+                onStart={startRun}
+                onPause={runner.pause}
+                onResume={runner.resume}
+                onStop={runner.stop}
+              />
+            </div>
           </div>
           <div className="queue-list">
             {items.map((it) => (
@@ -467,6 +482,7 @@ export default function Douyin({
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   )

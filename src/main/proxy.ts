@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { resolveYtDlp } from './deps'
+import { debugRaw, errLabel } from './logger'
 import type { ProxyTestResult } from '../shared/types'
 
 // Chap nhan: http(s)://  socks4://  socks5://  socks5h://  (co the kem user:pass@)
@@ -73,15 +74,8 @@ export async function testProxy(proxy: string): Promise<ProxyTestResult> {
     return { ok: true, message: 'Proxy hoạt động ✓ (đã kết nối ra internet qua proxy)' }
   }
 
-  const firstErr =
-    stderr
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .find((l) => /error/i.test(l)) ||
-    stderr.split(/\r?\n/)[0] ||
-    ''
-  return {
-    ok: false,
-    message: 'Không kết nối được proxy: ' + firstErr.replace(/^ERROR:\s*/i, '').slice(0, 220)
-  }
+  // stderr THO cua cong cu tai lo chinh TEN cong cu — thu tab Giay phep co tinh
+  // giau. Message nay di thang len UI lan nhat ky, nen chi duoc mang NHAN.
+  debugRaw('proxy test', stderr)
+  return { ok: false, message: 'Không kết nối được proxy: ' + errLabel(stderr) }
 }

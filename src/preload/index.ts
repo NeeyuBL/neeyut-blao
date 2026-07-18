@@ -7,18 +7,31 @@ import {
   DouyinProgress,
   DouyinRequest,
   DouyinResult,
+  GpuInfo,
   DownloadProgress,
   DownloadRequest,
   DownloadResult,
   DyChannel,
   DyCookieStatus,
   DyEngineStatus,
+  BurnProgress,
+  BurnReq,
+  BurnResult,
+  GeminiStatus,
   LogEntry,
+  OcrEngineStatus,
+  OcrProgress,
+  OcrResult,
   PlaylistProbe,
   ProxyTestResult,
   SetupProgress,
   UpdateStatus,
-  VideoInfo
+  VideoInfo,
+  WhisperCudaStatus,
+  WhisperEngineStatus,
+  WhisperProgress,
+  WhisperRequest,
+  WhisperResult
 } from '../shared/types'
 
 const api = {
@@ -48,6 +61,8 @@ const api = {
   testProxy: (proxy: string): Promise<ProxyTestResult> => ipcRenderer.invoke('proxy:test', proxy),
 
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
+  chooseFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:chooseFiles'),
+  chooseSrt: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseSrt'),
   downloadsDir: (): Promise<string> => ipcRenderer.invoke('app:downloadsDir'),
   appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
 
@@ -103,6 +118,77 @@ const api = {
   dyChannels: (): Promise<DyChannel[]> => ipcRenderer.invoke('douyin:channels'),
   dyRemoveChannel: (url: string): Promise<DyChannel[]> =>
     ipcRenderer.invoke('douyin:removeChannel', url),
+
+  // ---- Audio -> Text (whisper) ----
+  whisperEngineStatus: (): Promise<WhisperEngineStatus> =>
+    ipcRenderer.invoke('whisper:engineStatus'),
+  whisperInstallEngine: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('whisper:installEngine'),
+  onWhisperInstallProgress: (cb: (percent: number) => void): (() => void) => {
+    const listener = (_e: unknown, p: number): void => cb(p)
+    ipcRenderer.on('whisper:install-progress', listener)
+    return () => ipcRenderer.removeListener('whisper:install-progress', listener)
+  },
+  whisperTranscribe: (id: string, req: WhisperRequest): Promise<WhisperResult> =>
+    ipcRenderer.invoke('whisper:transcribe', id, req),
+  whisperDetectGpu: (): Promise<GpuInfo> => ipcRenderer.invoke('whisper:detectGpu'),
+
+  // ---- Dich man hinh (doc chu chay tren video) ----
+  ocrEngineStatus: (): Promise<OcrEngineStatus> => ipcRenderer.invoke('ocr:engineStatus'),
+  ocrInstallEngine: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('ocr:installEngine'),
+  onOcrInstallProgress: (cb: (percent: number) => void): (() => void) => {
+    const listener = (_e: unknown, p: number): void => cb(p)
+    ipcRenderer.on('ocr:install-progress', listener)
+    return () => ipcRenderer.removeListener('ocr:install-progress', listener)
+  },
+  ocrVideo: (input: string, outputDir: string, y0: number, y1: number): Promise<OcrResult> =>
+    ipcRenderer.invoke('ocr:video', input, outputDir, y0, y1),
+  ocrCancel: (): Promise<void> => ipcRenderer.invoke('ocr:cancel'),
+  onOcrProgress: (cb: (p: OcrProgress) => void): (() => void) => {
+    const listener = (_e: unknown, p: OcrProgress): void => cb(p)
+    ipcRenderer.on('ocr:progress', listener)
+    return () => ipcRenderer.removeListener('ocr:progress', listener)
+  },
+
+  // ---- Ghep phu de vao video ----
+  burnStart: (req: BurnReq): Promise<BurnResult> => ipcRenderer.invoke('burn:start', req),
+  burnCancel: (): Promise<void> => ipcRenderer.invoke('burn:cancel'),
+  onBurnProgress: (cb: (p: BurnProgress) => void): (() => void) => {
+    const listener = (_e: unknown, p: BurnProgress): void => cb(p)
+    ipcRenderer.on('burn:progress', listener)
+    return () => ipcRenderer.removeListener('burn:progress', listener)
+  },
+
+  // ---- Dich phu de bang API key cua user ----
+  geminiHasKey: (): Promise<boolean> => ipcRenderer.invoke('gemini:hasKey'),
+  geminiSaveKey: (key: string): Promise<void> => ipcRenderer.invoke('gemini:saveKey', key),
+  geminiCheckKey: (key: string): Promise<GeminiStatus> => ipcRenderer.invoke('gemini:checkKey', key),
+  geminiTranslateSrt: (
+    srtPath: string,
+    outPath: string,
+    dich: string
+  ): Promise<{ ok: boolean; error?: string; count?: number }> =>
+    ipcRenderer.invoke('gemini:translateSrt', srtPath, outPath, dich),
+  onGeminiProgress: (cb: (p: { done: number; total: number }) => void): (() => void) => {
+    const listener = (_e: unknown, p: { done: number; total: number }): void => cb(p)
+    ipcRenderer.on('gemini:progress', listener)
+    return () => ipcRenderer.removeListener('gemini:progress', listener)
+  },
+
+  whisperCudaStatus: (): Promise<WhisperCudaStatus> => ipcRenderer.invoke('whisper:cudaStatus'),
+  whisperInstallCuda: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('whisper:installCuda'),
+  onWhisperCudaProgress: (cb: (percent: number) => void): (() => void) => {
+    const listener = (_e: unknown, p: number): void => cb(p)
+    ipcRenderer.on('whisper:cuda-progress', listener)
+    return () => ipcRenderer.removeListener('whisper:cuda-progress', listener)
+  },
+  onWhisperProgress: (cb: (p: WhisperProgress) => void): (() => void) => {
+    const listener = (_e: unknown, p: WhisperProgress): void => cb(p)
+    ipcRenderer.on('whisper:progress', listener)
+    return () => ipcRenderer.removeListener('whisper:progress', listener)
+  },
 
   // ---- Nhat ky hoat dong ----
   getLogs: (): Promise<LogEntry[]> => ipcRenderer.invoke('logs:get'),

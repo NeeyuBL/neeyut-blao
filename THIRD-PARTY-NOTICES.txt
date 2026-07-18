@@ -2,10 +2,26 @@ T-blao — Third-Party Notices
 ============================
 
 T-blao sử dụng các thành phần mã nguồn mở sau. Bản quyền và giấy phép của
-từng thành phần thuộc về tác giả gốc.
+từng thành phần thuộc về tác giả gốc. T-blao không chỉnh sửa mã nguồn của
+các thành phần này, trừ khi có ghi chú riêng.
+
+Giấy phép dưới đây được lấy từ chính siêu dữ liệu của gói / thẻ model tại
+thời điểm phát hành, không phải từ suy đoán.
+
+MỤC LỤC
+  A. Công cụ tải về khi cần
+  B. Thư viện trong bộ xử lý âm thanh
+  C. Model nhận dạng & tách người nói
+  D. Gói tăng tốc GPU (chỉ máy NVIDIA)
+  E. Toàn văn giấy phép
+
+
+==========================================================================
+A. CÔNG CỤ TẢI VỀ KHI CẦN
+==========================================================================
 
 --------------------------------------------------------------------------
-1) ffmpeg
+A1) ffmpeg
 --------------------------------------------------------------------------
 Vai trò: xử lý/ghép âm thanh–video, đổi định dạng, nhúng phụ đề.
 Giấy phép: LGPL / GPL.
@@ -13,17 +29,136 @@ Chi tiết: https://ffmpeg.org/legal.html
 Được tải về khi cần, không chỉnh sửa mã nguồn.
 
 --------------------------------------------------------------------------
-2) Bộ tải xuống đa nền tảng (mã nguồn mở)
+A2) Bộ tải xuống đa nền tảng (mã nguồn mở)
 --------------------------------------------------------------------------
 Vai trò: tải nội dung từ các nền tảng.
 Giấy phép: The Unlicense (phạm vi công cộng / public domain).
 
 --------------------------------------------------------------------------
-3) Bộ tải Douyin
+A3) Bộ tải Douyin
 --------------------------------------------------------------------------
 Vai trò: tải video & kênh từ Douyin (không watermark).
-Giấy phép: MIT License.
+Giấy phép: MIT License. Copyright (c) 2026 jiji262.
+Toàn văn: xem mục E1.
 
+
+==========================================================================
+B. THƯ VIỆN TRONG BỘ XỬ LÝ ÂM THANH
+==========================================================================
+Các thư viện sau được đóng gói sẵn trong bộ xử lý âm thanh của T-blao.
+
+--------------------------------------------------------------------------
+B1) faster-whisper — MIT License
+--------------------------------------------------------------------------
+Vai trò: nhận dạng giọng nói từ tệp (tab Phụ đề).
+Bản quyền: SYSTRAN.
+Chi tiết: https://github.com/SYSTRAN/faster-whisper
+
+--------------------------------------------------------------------------
+B2) CTranslate2 — MIT License
+--------------------------------------------------------------------------
+Vai trò: động cơ chạy model nhận dạng giọng nói.
+Bản quyền: OpenNMT.
+Chi tiết: https://github.com/OpenNMT/CTranslate2
+
+--------------------------------------------------------------------------
+B3) ONNX Runtime — MIT License
+--------------------------------------------------------------------------
+Vai trò: chạy model dạng ONNX (đọc chữ trên video).
+Bản quyền: Microsoft Corporation.
+Chi tiết: https://github.com/microsoft/onnxruntime
+
+--------------------------------------------------------------------------
+B4) Tokenizers — Apache License 2.0
+--------------------------------------------------------------------------
+Vai trò: tách từ cho model nhận dạng giọng nói.
+Bản quyền: Hugging Face.
+Chi tiết: https://github.com/huggingface/tokenizers
+
+--------------------------------------------------------------------------
+B5) huggingface_hub — Apache License 2.0
+--------------------------------------------------------------------------
+Vai trò: nạp model từ thư mục cục bộ.
+Bản quyền: Hugging Face.
+
+--------------------------------------------------------------------------
+B6) PyAV — BSD 3-Clause License
+--------------------------------------------------------------------------
+Vai trò: đọc/giải mã âm thanh từ tệp video.
+Chi tiết: https://github.com/PyAV-Org/PyAV
+
+--------------------------------------------------------------------------
+B7) NumPy — BSD 3-Clause License
+--------------------------------------------------------------------------
+Vai trò: xử lý dữ liệu số.
+Chi tiết: https://numpy.org
+
+--------------------------------------------------------------------------
+B8) Protocol Buffers — BSD 3-Clause License
+--------------------------------------------------------------------------
+Bản quyền: Google LLC.
+
+--------------------------------------------------------------------------
+B9) FlatBuffers — Apache License 2.0
+--------------------------------------------------------------------------
+Bản quyền: Google LLC.
+
+--------------------------------------------------------------------------
+B10) tqdm — MPL-2.0 và MIT License
+--------------------------------------------------------------------------
+Vai trò: thanh tiến trình nội bộ.
+Chi tiết: https://github.com/tqdm/tqdm
+
+
+==========================================================================
+C. MODEL NHẬN DẠNG & TÁCH NGƯỜI NÓI
+==========================================================================
+
+--------------------------------------------------------------------------
+C1) Whisper (bản chuyển đổi của SYSTRAN) — MIT License
+--------------------------------------------------------------------------
+Vai trò: nhận dạng giọng nói từ tệp (tab Phụ đề).
+Model gốc: openai/whisper-* (OpenAI) — MIT License.
+Bản chuyển đổi sang CTranslate2: Systran/faster-whisper-*.
+Được tải về khi cần.
+
+--------------------------------------------------------------------------
+C2) pyannote segmentation 3.0 — MIT License
+--------------------------------------------------------------------------
+Vai trò: phát hiện đoạn có người nói (tính năng tách người nói).
+Bản quyền: Hervé Bredin và cộng sự, dự án pyannote.audio.
+Chi tiết: https://huggingface.co/pyannote/segmentation-3.0
+
+--------------------------------------------------------------------------
+C3) CAM++ / 3D-Speaker — Apache License 2.0
+--------------------------------------------------------------------------
+Vai trò: nhận diện đặc trưng giọng để phân biệt người nói.
+Bản quyền: ModelScope / 3D-Speaker.
+Chi tiết: https://github.com/modelscope/3D-Speaker
+
+
+==========================================================================
+D. GÓI TĂNG TỐC GPU  (chỉ tải trên máy NVIDIA)
+==========================================================================
+
+--------------------------------------------------------------------------
+D1) Thư viện NVIDIA cuBLAS và cuDNN
+--------------------------------------------------------------------------
+Vai trò: tăng tốc nhận dạng giọng nói bằng GPU NVIDIA.
+Bản quyền: NVIDIA Corporation.
+Giấy phép: NVIDIA CUDA Toolkit EULA / NVIDIA cuDNN SLA — phân phối lại
+theo điều khoản của NVIDIA dành cho thư viện chạy kèm ứng dụng.
+Chi tiết: https://docs.nvidia.com/cuda/eula/
+          https://docs.nvidia.com/deeplearning/cudnn/sla/
+
+
+==========================================================================
+E. TOÀN VĂN GIẤY PHÉP
+==========================================================================
+
+--------------------------------------------------------------------------
+E1) MIT License — Bộ tải Douyin
+--------------------------------------------------------------------------
 MIT License
 
 Copyright (c) 2026 jiji262
@@ -45,3 +180,51 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------
+E2) Apache License 2.0
+--------------------------------------------------------------------------
+Các thành phần B4 (Tokenizers), B5 (huggingface_hub), B9 (FlatBuffers),
+C3 (CAM++ / 3D-Speaker) dùng Apache License phiên bản 2.0.
+Toàn văn: http://www.apache.org/licenses/LICENSE-2.0
+
+Theo mục 4 của giấy phép này, T-blao ghi nhận: các tệp nêu trên được phân
+phối "AS IS", không kèm bảo đảm dưới bất kỳ hình thức nào; bản quyền thuộc
+về tác giả gốc đã liệt kê; T-blao không chỉnh sửa mã nguồn của chúng.
+
+--------------------------------------------------------------------------
+E3) MIT License — các thành phần MIT khác
+--------------------------------------------------------------------------
+Các thành phần B1 (SYSTRAN), B2 (OpenNMT), B3 (Microsoft), C1 (OpenAI /
+SYSTRAN), C2 (pyannote.audio) dùng MIT License với nội dung như mục E1,
+bản quyền thuộc về tác giả tương ứng.
+
+--------------------------------------------------------------------------
+E4) BSD 3-Clause License
+--------------------------------------------------------------------------
+Các thành phần B6 (PyAV), B7 (NumPy), B8 (Protocol Buffers) dùng BSD 3-Clause
+License. Toàn văn: https://opensource.org/licenses/BSD-3-Clause
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+3. Neither the name of the copyright holder nor the names of its contributors
+   may be used to endorse or promote products derived from this software
+   without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.

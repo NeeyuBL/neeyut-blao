@@ -2,9 +2,18 @@ import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { access } from 'node:fs/promises'
 import { constants } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { binDir, resolveYtDlp } from './deps'
-import { logError, logInfo } from './logger'
+import { debugRaw, errLabel, logError, logInfo } from './logger'
+
+/** Nhat ky khong can biet user tai video NAO — chi can biet tu dau. */
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return '(liên kết)'
+  }
+}
 import {
   DownloadProgress,
   DownloadRequest,
@@ -78,11 +87,14 @@ export async function fetchInfo(
   if (cookiesFile) args.push('--cookies', cookiesFile)
   if (proxy) args.push('--proxy', proxy)
   args.push(url)
-  logInfo(`Lấy thông tin video: ${url}`)
+  logInfo(`Lấy thông tin video từ ${domainOf(url)}…`)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
-    logError(`Lỗi lấy thông tin (${url}): ${stderr.trim().slice(0, 400)}`)
-    throw new Error(stderr.trim() || 'Không lấy được thông tin. Kiểm tra lại đường dẫn.')
+    // stderr THO lo ten cong cu tai (thu tab Giay phep co tinh giau) + URL user
+    debugRaw('ytdlp info', stderr)
+    const nhan = errLabel(stderr)
+    logError(`Lấy thông tin thất bại: ${nhan}`)
+    throw new Error(nhan)
   }
   const data = JSON.parse(stdout)
 
@@ -138,11 +150,13 @@ export async function fetchPlaylist(
   if (cookiesFile) args.push('--cookies', cookiesFile)
   if (proxy) args.push('--proxy', proxy)
   args.push(url)
-  logInfo(`Phân tích danh sách: ${url}`)
+  logInfo(`Phân tích danh sách từ ${domainOf(url)}…`)
   const { code, stdout, stderr } = await run(cmd, args)
   if (code !== 0) {
-    logError(`Lỗi phân tích danh sách (${url}): ${stderr.trim().slice(0, 400)}`)
-    throw new Error(stderr.trim() || 'Không lấy được danh sách.')
+    debugRaw('ytdlp playlist', stderr)
+    const nhan = errLabel(stderr)
+    logError(`Phân tích danh sách thất bại: ${nhan}`)
+    throw new Error(nhan)
   }
   const data = JSON.parse(stdout)
 
@@ -326,20 +340,23 @@ function runYtdlpDownload(
     child.stderr.on('data', (d) => (errBuf += d.toString()))
 
     child.on('error', (err) => {
-      logError(`Không chạy được bộ tải xuống: ${err.message}`)
-      resolve({ id, ok: false, file: null, error: err.message })
+      debugRaw('ytdlp spawn', err)
+      const nhan = errLabel(err)
+      logError(`Tải xuống: ${nhan}`)
+      resolve({ id, ok: false, file: null, error: nhan })
     })
 
     child.on('close', (code) => {
       if (stdoutBuf) handleLine(stdoutBuf)
       if (code === 0) {
         emit({ status: 'finished', percent: 100 })
-        logInfo(`Hoàn tất: ${destFile ?? req.url}`)
+        logInfo(`Hoàn tất: ${destFile ? basename(destFile) : domainOf(req.url)}`)
         resolve({ id, ok: true, file: destFile, error: null })
       } else {
-        const error = errBuf.trim() || `Bộ tải xuống thoát với mã ${code}`
-        logError(`Lỗi tải (${req.url}): ${error.slice(0, 600)}`)
-        resolve({ id, ok: false, file: null, error })
+        debugRaw('ytdlp close', errBuf)
+        const nhan = errLabel(errBuf || `code ${code}`)
+        logError(`Tải xuống thất bại: ${nhan}`)
+        resolve({ id, ok: false, file: null, error: nhan })
       }
     })
   })
@@ -353,9 +370,11 @@ export async function download(
 ): Promise<DownloadResult> {
   const cmd = await ytdlpCmd()
   const ffLoc = await ffmpegLocation()
-  logInfo(`Bắt đầu tải: ${req.url}`)
+  logInfo(`Bắt đầu tải từ ${domainOf(req.url)}…`)
   const args = buildArgs(req, ffLoc)
-  logInfo(`Lệnh: ${cmd} ${args.join(' ')}`)
+  // Dong lenh day du lo: duong dan cong cu, TEN cong cu (thu tab Giay phep co
+  // tinh giau), duong dan file cookie, proxy, URL. Chi cho console luc dev.
+  debugRaw('ytdlp cmd', `${cmd} ${args.join(' ')}`)
   let result = await runYtdlpDownload(cmd, args, id, req, onProgress)
 
   // YouTube: cookie dang nhap thuong gay 403 cho video cong khai (thieu PO token).

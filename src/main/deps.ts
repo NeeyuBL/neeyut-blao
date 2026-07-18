@@ -111,7 +111,7 @@ export async function downloadFile(
 }
 
 /** Giai nen zip: Windows dung Expand-Archive, macOS/Linux dung unzip (co san). */
-function extractZip(zipPath: string, destDir: string): Promise<void> {
+export function extractZip(zipPath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = isWin
       ? spawn(
@@ -167,8 +167,13 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
 
   if (isWin) {
     const tmpZip = join(binDir(), 'ffmpeg.zip')
-    const url =
-      'https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+    // KHONG dung yt-dlp/FFmpeg-Builds "latest" (master): no doi nv-codec-headers
+    // MOI NHAT -> nvenc yeu cau driver rat moi (vd 610) ma DA SO may chua co ->
+    // nvenc chet, ghep phu de chi chay CPU. Da do that: ban 2026-05-18 (gyan,
+    // nv-codec-headers cu hon) nvenc CHAY tren driver 581 -> GPU 18s vs CPU 62s.
+    // Host tren release rieng (github NeeyuBL/neeyut-blao) de KHOA phien ban ffmpeg
+    // tuong thich rong, khong bi day len bleeding-edge. -> PHAI upload ffmpeg-win.zip.
+    const url = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download/ffmpeg-win.zip'
     await downloadFile(url, tmpZip, (p) =>
       onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ffmpeg… ${p}%`, percent: p })
     )
