@@ -51,6 +51,8 @@ export default function ScreenText({
   const [loi, setLoi] = useState<string | null>(null)
 
   // Buoc phu: ghep phu de vao video de dang lai
+  const [videoGiay, setVideoGiay] = useState(0) // thoi luong video (canh bao srt lech)
+  const [srtGiay, setSrtGiay] = useState(0) // thoi luong file .srt dang chon
   const [ghepSrt, setGhepSrt] = useState('')
   const [srtNgoai, setSrtNgoai] = useState('') // .srt user tu chon (khong qua OCR)
   const [lamMo, setLamMo] = useState(true) // lam mo phu de goc trong video
@@ -76,6 +78,29 @@ export default function ScreenText({
     void window.api.ocrEngineStatus().then((s) => setHasEngine(s.has))
   }, [])
 
+  // Do do dai file .srt dang chon -> so voi video de canh bao chon nham file
+  useEffect(() => {
+    if (!ghepSrt) {
+      setSrtGiay(0)
+      return
+    }
+    let huy = false
+    // Boc trong Promise.resolve() de loi NEM THANG (vd preload cu chua co ham
+    // nay luc dang dev) bien thanh promise bi tu choi -> .catch nuot gon.
+    // Truoc day nem thang trong useEffect lam React sap TRANG CA APP.
+    void Promise.resolve()
+      .then(() => window.api.srtGiay(ghepSrt))
+      .then((s) => {
+        if (!huy) setSrtGiay(s || 0)
+      })
+      .catch(() => {
+        if (!huy) setSrtGiay(0) // khong do duoc thi thoi, chi mat canh bao
+      })
+    return () => {
+      huy = true
+    }
+  }, [ghepSrt])
+
   const caiCongCu = async (): Promise<void> => {
     setInstalling(true)
     setInstallErr(null)
@@ -95,6 +120,7 @@ export default function ScreenText({
     setVideoH(v.videoHeight)
     setVideoW(v.videoWidth)
     setBoxH(v.clientHeight)
+    setVideoGiay(Number.isFinite(v.duration) ? v.duration : 0)
     setVung({ y0: Math.round(v.videoHeight * 0.75), y1: v.videoHeight })
   }
 
@@ -203,9 +229,10 @@ export default function ScreenText({
     setGhepLoi(null)
   }
 
-  // Ghep phu de vao video. Dot chet + lam mo phu de goc (mac dinh), hoac ghep
-  // mem (ranh sub). nvenc hong thi burn.ts tu tut libx264.
-  // Dai lam mo = VUNG user dang khoanh (WYSIWYG: khop dung khung xem truoc).
+  // Ghep phu de vao video. Dot chet, hoac ghep mem (ranh sub). nvenc hong thi
+  // burn.ts tu tut libx264.
+  // KHUNG user khoanh = NOI DAT CHU (chu can giua quanh tam khung), gui KE CA
+  // khi khong lam mo. Tick lam mo chi THEM nen mo vao dung vung do.
   // Sau OCR, khung da tu nhay ve dai chu that engine do (xem `chay`), user chinh
   // them duoc. Srt ngoai thi dung nguyen vung user ve.
   const ghepVideo = async (): Promise<void> => {
@@ -214,18 +241,21 @@ export default function ScreenText({
     setGhepPct(0)
     setGhepLoi(null)
 
-    const che = ghepMode === 'burn' && lamMo && vung.y1 > vung.y0
+    const coKhung = ghepMode === 'burn' && vung.y1 > vung.y0
     const off = window.api.onBurnProgress((p) => setGhepPct(p.percent < 0 ? 0 : p.percent))
     const r = await window.api.burnStart({
       video,
       srt: ghepSrt,
       outputDir,
       mode: ghepMode,
-      bandTop: che ? vung.y0 : null,
-      bandBot: che ? vung.y1 : null,
+      bandTop: coKhung ? vung.y0 : null,
+      bandBot: coKhung ? vung.y1 : null,
+      lamMo: coKhung && lamMo,
       // Gui MUC, khong gui ti le: thang co chu video ngang/doc khac nhau, main
       // tu chon bo tham so theo huong video (ffprobe).
-      coChu: coChu as CoChu
+      coChu: coChu as CoChu,
+      // Chi cat khi da canh bao lech (srt dai hon video) ma user van bam ghep
+      catSrt: lechSrt === 'dai'
     })
     off()
     if (!r.ok) {
@@ -284,6 +314,22 @@ export default function ScreenText({
   if (srtNgoai && !ketQua.includes(srtNgoai)) {
     dsSrt.push({ path: srtNgoai, nhan: 'Có sẵn — ' })
   }
+
+  // Canh bao khi .srt lech han so voi video (hay gap voi luong "chon file co san":
+  // chon nham file cua video khac). Chi canh bao, VAN cho ghep — co truong hop
+  // co y (vd chi lam phu de cho doan dau).
+  const phut = (s: number): string => {
+    const t = Math.round(s)
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+  }
+  const lechSrt: 'dai' | 'ngan' | null =
+    videoGiay > 0 && srtGiay > 0
+      ? srtGiay > videoGiay + 30
+        ? 'dai'
+        : srtGiay < videoGiay * 0.5
+          ? 'ngan'
+          : null
+      : null
 
   // Xem truoc vung lam mo tren khung: chi khi da co phu de de ghep + dang bat
   // lam mo (dot chet). Khong bat luc dang khoanh vung DE DOC (can thay chu de canh).
@@ -401,6 +447,21 @@ export default function ScreenText({
                   </label>
                 )}
 
+                {lechSrt && (
+                  <div className="qwarn small">
+                    ⚠ File phụ đề dài <b>{phut(srtGiay)}</b>, video dài <b>{phut(videoGiay)}</b>
+                    {lechSrt === 'dai'
+                      ? ' — phần phụ đề vượt quá thời lượng video sẽ không hiện.'
+                      : ' — phụ đề chỉ phủ được phần đầu video.'}{' '}
+                    Có thể bạn chọn nhầm file?
+                    {lechSrt === 'dai' && ghepMode === 'soft' && (
+                      <div className="muted small" style={{ marginTop: 4 }}>
+                        Nếu vẫn ghép, phần phụ đề thừa sẽ được <b>cắt bỏ</b> cho vừa video.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <label className="field">
                   <span className="muted small">Cách gắn phụ đề</span>
                   <select
@@ -428,9 +489,13 @@ export default function ScreenText({
                       <input type="checkbox" checked={lamMo} onChange={(e) => setLamMo(e.target.checked)} />
                       <span>
                         Làm mờ phụ đề gốc{' '}
-                        <span className="muted small">(làm mờ đúng khung cam bên phải)</span>
+                        <span className="muted small">(thêm nền mờ vào đúng khung bên phải)</span>
                       </span>
                     </label>
+                    <div className="muted small">
+                      💡 <b>Khung bên phải là chỗ đặt chữ</b> — kéo khung tới đâu, phụ đề mới nằm
+                      giữa đó. Ô trên chỉ quyết định có làm mờ nền hay không.
+                    </div>
                   </>
                 )}
 
@@ -484,7 +549,13 @@ export default function ScreenText({
               khung (logo, tiêu đề, watermark) sẽ bị bỏ qua.
             </div>
             <div className="ocr-sanh">
-              <div className="ocr-video">
+              {/* aspect-ratio = ti le THAT cua video -> khung tu co vua o xem,
+                  video doc khong con tran ra ngoai. Chua biet kich thuoc (chua
+                  nap xong) thi de trong, khoi nhay giat. */}
+              <div
+                className="ocr-video"
+                style={videoW > 0 && videoH > 0 ? { aspectRatio: `${videoW} / ${videoH}` } : undefined}
+              >
                 <video
                   ref={vidRef}
                   src={srcVideo(video)}

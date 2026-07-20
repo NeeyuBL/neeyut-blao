@@ -51,7 +51,7 @@ import {
 import { detectGpu } from './gpu'
 import { checkKey, hasKey, saveKey, translateSrt } from './gemini'
 import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
-import { burnSubtitle, cancelBurn } from './burn'
+import { burnSubtitle, cancelBurn, srtGiay } from './burn'
 import {
   captureDyCookies,
   clearDyCookies,
@@ -401,6 +401,8 @@ function registerIpc(): void {
     burnSubtitle(req, (p) => event.sender.send('burn:progress', p))
   )
   ipcMain.handle('burn:cancel', async () => cancelBurn())
+  // Do do dai file .srt -> renderer canh bao khi lech han so voi video
+  ipcMain.handle('burn:srtGiay', async (_e, duong: string) => srtGiay(duong))
 
   // ---- Dich phu de bang API key cua user ----
   ipcMain.handle('gemini:hasKey', async () => hasKey())

@@ -220,13 +220,21 @@ export interface BurnReq {
   srt: string
   outputDir: string
   mode: 'burn' | 'soft' // dot chet (dang lai) | ghep mem (ranh sub, xem may)
-  // Dai chu goc de che bang thanh den (chi khi dot chet). null -> khong che.
+  // VUNG DAT CHU (pixel video, chi khi dot chet): chu se can giua quanh tam
+  // vung nay. null -> khong co vung, chu ve vi tri phu de tieu chuan (sat day).
+  // LUU Y: gui vung NAY KE CA khi khong lam mo — keo khung = chon cho dat chu.
   bandTop?: number | null
   bandBot?: number | null
+  // Co lam mo vung do khong (che phu de goc). Doc lap voi vi tri dat chu.
+  lamMo?: boolean
   // Co chu: 'auto' = tu dong theo khung. KHONG gui ti le cung nua — thang co chu
   // cua video NGANG va DOC khac nhau (doc lay moc theo be rong), burn.ts tu chon
   // bo tham so theo huong video do ffprobe.
   coChu?: CoChu
+  // Cat phu de cho vua thoi luong video (chi che do 'soft'). UI bat co nay khi
+  // da canh bao .srt dai hon video ma user van bam ghep. Che do 'burn' khong
+  // can: het khung hinh la chu tu dung, khong co gi de cat.
+  catSrt?: boolean
 }
 /** Muc co chu user chon o tab Dich man hinh. */
 export type CoChu = 'auto' | 'nho' | 'vua' | 'lon' | 'ratlon'
