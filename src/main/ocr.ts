@@ -2,13 +2,13 @@ import { spawn, ChildProcess } from 'node:child_process'
 import { access, mkdir, readdir } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
-import { binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
+import { ASSET_BASE, binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
 import { debugRaw, errLabel, logInfo } from './logger'
 import type { OcrEngineStatus, OcrProgress, OcrResult } from '../shared/types'
 
 const isWin = process.platform === 'win32'
 const isMac = process.platform === 'darwin'
-const BASE = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download'
+const BASE = ASSET_BASE
 
 // Engine RIENG (~232MB) — chi tab Dich man hinh tai.
 // Vi sao khong gop vao whisper-engine: opencv 118MB la MA, bi dong bang thang

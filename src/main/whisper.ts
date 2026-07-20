@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { access, chmod, mkdir, readdir, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
-import { binDir, downloadFile, extractZip } from './deps'
+import { ASSET_BASE, binDir, downloadFile, extractZip } from './deps'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import {
   WhisperCudaStatus,
@@ -18,7 +18,7 @@ const isMac = process.platform === 'darwin'
 
 // Engine (faster-whisper freeze PyInstaller --onedir) nen chay CPU.
 // Ban GPU se tai them CUDA libs khi phat hien NVIDIA (giai doan B5).
-const WHISPER_ENGINE_BASE = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download'
+const WHISPER_ENGINE_BASE = ASSET_BASE
 function engineAsset(): string {
   return isWin
     ? 'whisper-engine-win.zip'

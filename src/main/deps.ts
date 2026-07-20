@@ -10,6 +10,21 @@ import { DepStatus, SetupProgress } from '../shared/types'
 const isWin = process.platform === 'win32'
 const isMac = process.platform === 'darwin'
 
+/**
+ * NGUON TAI CAC GOI LON (engine OCR / Audio-Text / ffmpeg / GPU / dy-engine).
+ *
+ * !! TRO VE MOT TAG CO DINH, TUYET DOI KHONG dung `releases/latest/download`.
+ * Da dinh that: voi `latest`, MOI ban app moi (ke ca sua 1 dong chu) deu bat
+ * buoc up lai DU ~1.3GB asset len release do, khong thi link thanh 404 va cac
+ * tab Douyin / Phu de / Dich man hinh chet ngay.
+ * Voi tag co dinh: ban va app chi can setup.exe + blockmap + latest.yml.
+ *
+ * Khi nao doi engine -> tao release moi `assets-v2` roi sua DUY NHAT dong duoi.
+ * Release asset nen de dang PRERELEASE cho khoi tranh "latest" cua auto-update.
+ */
+export const ASSET_TAG = 'assets-v1'
+export const ASSET_BASE = `https://github.com/NeeyuBL/neeyut-blao/releases/download/${ASSET_TAG}`
+
 /** Thu muc luu binaries tai ve, nam trong userData (khong can quyen admin). */
 export function binDir(): string {
   return join(app.getPath('userData'), 'bin')
@@ -173,7 +188,7 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     // nv-codec-headers cu hon) nvenc CHAY tren driver 581 -> GPU 18s vs CPU 62s.
     // Host tren release rieng (github NeeyuBL/neeyut-blao) de KHOA phien ban ffmpeg
     // tuong thich rong, khong bi day len bleeding-edge. -> PHAI upload ffmpeg-win.zip.
-    const url = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download/ffmpeg-win.zip'
+    const url = `${ASSET_BASE}/ffmpeg-win.zip`
     await downloadFile(url, tmpZip, (p) =>
       onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ffmpeg… ${p}%`, percent: p })
     )

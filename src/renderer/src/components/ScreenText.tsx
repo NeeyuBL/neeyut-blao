@@ -69,8 +69,32 @@ export default function ScreenText({
   const [ghepOut, setGhepOut] = useState('')
   const [ghepLoi, setGhepLoi] = useState<string | null>(null)
 
+  // Cong cu OCR tai rieng (~230MB). PHAI co man hinh tai nhu tab Douyin/Phu de,
+  // khong thi user bam "Bat dau doc chu" chi thay bao do "Chua co cong cu" ma
+  // KHONG co duong nao tai -> tab chet.
+  const [hasEngine, setHasEngine] = useState<boolean | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const [installPct, setInstallPct] = useState(0)
+  const [installErr, setInstallErr] = useState<string | null>(null)
+
   const vidRef = useRef<HTMLVideoElement | null>(null)
   const unlocked = hasFeature('ocr')
+
+  useEffect(() => {
+    void window.api.ocrEngineStatus().then((s) => setHasEngine(s.has))
+  }, [])
+
+  const caiCongCu = async (): Promise<void> => {
+    setInstalling(true)
+    setInstallErr(null)
+    setInstallPct(0)
+    const off = window.api.onOcrInstallProgress(setInstallPct)
+    const res = await window.api.ocrInstallEngine()
+    off()
+    setInstalling(false)
+    if (res.ok) setHasEngine(true)
+    else setInstallErr(res.error ?? 'Tải công cụ Dịch màn hình thất bại.')
+  }
 
   // Video vua nap xong -> biet kich thuoc that -> dat vung mac dinh 1/4 duoi
   const onMeta = (): void => {
@@ -224,6 +248,34 @@ export default function ScreenText({
   }
 
   if (!unlocked) return <div className="card muted">Tính năng đang khoá.</div>
+
+  // ----- Man cai cong cu (giong tab Douyin / Phu de) -----
+  if (hasEngine === false) {
+    return (
+      <div className="dy-setup">
+        <div className="card dy-install-card">
+          <div className="dy-install-title">🔍 Cần tải công cụ Dịch màn hình</div>
+          <p className="muted">
+            Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b> (không cần mạng sau khi tải,
+            không gửi dữ liệu đi đâu). Bấm để tải một lần (~230MB), sau đó dùng thoải mái.
+          </p>
+          {installing ? (
+            <>
+              <div className="bar">
+                <div className="bar-fill" style={{ width: `${installPct}%` }} />
+              </div>
+              <div className="muted small">Đang tải công cụ… {installPct}%</div>
+            </>
+          ) : (
+            <button className="btn primary" onClick={caiCongCu}>
+              Tải công cụ Dịch màn hình
+            </button>
+          )}
+          {installErr && <div className="dy-err small">{installErr}</div>}
+        </div>
+      </div>
+    )
+  }
 
   const dangChay = buoc === 'doc' || buoc === 'dich'
 

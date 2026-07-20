@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
-import { binDir, downloadFile } from './deps'
+import { ASSET_BASE, binDir, downloadFile } from './deps'
 import { readDyCookies } from './douyinCookies'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import { DouyinProgress, DouyinRequest, DouyinResult, DyChannel, DyEngineStatus } from '../shared/types'
@@ -13,7 +13,7 @@ const isMac = process.platform === 'darwin'
 
 // TODO: thay bang URL Release that khi phat hanh engine (Buoc phat hanh).
 // Moi OS 1 file: dy-engine.exe (Windows) / dy-engine-macos (macOS) — dong goi rieng tren tung may.
-const DY_ENGINE_BASE = 'https://github.com/NeeyuBL/neeyut-blao/releases/latest/download'
+const DY_ENGINE_BASE = ASSET_BASE
 function engineAsset(): string {
   return isWin ? 'dy-engine.exe' : isMac ? 'dy-engine-macos' : 'dy-engine-linux'
 }

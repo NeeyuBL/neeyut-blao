@@ -68,6 +68,7 @@ interface BoCuc {
   fontSize: number // co chu (PIXEL VIDEO — nho .ass co PlayResY = chieu cao video)
   vien: number // do day vien
   marginV: number // le duoi (pixel video)
+  marginH: number // le trai/phai (pixel video)
 }
 
 /**
@@ -83,13 +84,22 @@ function boCuc(
   fontScale?: number | null
 ): BoCuc {
   const co = meta.h > 0 ? meta.h : 720
-  // Chan co chu: min 2% (con doc duoc khi xem), max 5.5% (khong to lo) chieu cao.
+  const rong = meta.w > 0 ? meta.w : 1280
+  // Le trai/phai 4% be rong (cu 2% — video doc rat de tran ra mep).
+  const marginH = Math.round(rong * 0.04)
+  // !! CHAN CO CHU THEO CA BE RONG, khong chi chieu cao.
+  // Video doc 9:16 (vd 1080x1920): tinh theo chieu cao thi chu ~80px trong khi
+  // khung chi rong 1080 -> mot dong phu de binh thuong tran het ra ngoai.
+  // Lay muc "1 dong vua ~20 ky tu" (Arial rong trung binh ~0.5em).
+  const fRong = Math.max(8, Math.round((rong - 2 * marginH) / 20))
+  // Chan co chu: min 2% (con doc duoc khi xem), max 5.5% chieu cao NHUNG khong
+  // vuot muc be rong cho phep.
   const fMin = Math.round(co * 0.02)
-  const fMax = Math.round(co * 0.055)
+  const fMax = Math.max(fMin, Math.min(Math.round(co * 0.055), fRong))
   const chan = (px: number): number => Math.max(fMin, Math.min(fMax, Math.round(px)))
   // Co chu user ep tay (fontScale) hay tu dong. Tu dong khi KHONG che = 4.2%.
   const tay = fontScale != null && fontScale > 0
-  let fontSize = tay ? chan(co * fontScale) : Math.round(co * 0.042)
+  let fontSize = tay ? chan(co * fontScale) : chan(co * 0.042)
   let che = false
   let y = 0
   let bh = 0
@@ -106,7 +116,7 @@ function boCuc(
     marginV = Math.max(2, Math.round(co - (y + bh / 2) - cao1Dong / 2))
   }
   const vien = Math.max(1, Math.round(fontSize * 0.12)) // vien ti le co chu
-  return { che, y, bh, sigma: Math.max(8, Math.round(co * 0.03)), fontSize, vien, marginV }
+  return { che, y, bh, sigma: Math.max(8, Math.round(co * 0.03)), fontSize, vien, marginV, marginH }
 }
 
 /** Doi mot moc thoi gian .srt "HH:MM:SS,mmm" -> .ass "H:MM:SS.cc". */
@@ -128,7 +138,7 @@ function taoAss(srtRaw: string, meta: Meta, bc: BoCuc): string {
   const h = meta.h > 0 ? meta.h : 720
   const style =
     `Style: D,Arial,${bc.fontSize},&H00FFFFFF,&H00000000,&H00000000,` +
-    `0,0,0,0,100,100,0,0,1,${bc.vien},0,2,${Math.round(w * 0.02)},${Math.round(w * 0.02)},${bc.marginV},1`
+    `0,0,0,0,100,100,0,0,1,${bc.vien},0,2,${bc.marginH},${bc.marginH},${bc.marginV},1`
 
   const events: string[] = []
   // Tach khoi .srt: moi khoi = so thu tu / moc "a --> b" / cac dong chu.
@@ -151,7 +161,10 @@ function taoAss(srtRaw: string, meta: Meta, bc: BoCuc): string {
     'ScriptType: v4.00+',
     `PlayResX: ${w}`,
     `PlayResY: ${h}`,
-    'WrapStyle: 2',
+    // 0 = tu xuong dong thong minh (cac dong deu nhau). PHAI la 0: truoc dung 2
+    // (= TAT tu xuong dong) nen cau dai chay thang ra ngoai khung, video doc 9:16
+    // tran nang nhat. \N trong text van xuong dong nhu cu.
+    'WrapStyle: 0',
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
