@@ -223,10 +223,13 @@ export interface BurnReq {
   // Dai chu goc de che bang thanh den (chi khi dot chet). null -> khong che.
   bandTop?: number | null
   bandBot?: number | null
-  // Co chu: null/undefined = TU DONG theo khung; so = ti le so voi chieu cao video
-  // (vd 0.035 = 3.5%). burn.ts van chan trong [2%, 5.5%].
-  fontScale?: number | null
+  // Co chu: 'auto' = tu dong theo khung. KHONG gui ti le cung nua — thang co chu
+  // cua video NGANG va DOC khac nhau (doc lay moc theo be rong), burn.ts tu chon
+  // bo tham so theo huong video do ffprobe.
+  coChu?: CoChu
 }
+/** Muc co chu user chon o tab Dich man hinh. */
+export type CoChu = 'auto' | 'nho' | 'vua' | 'lon' | 'ratlon'
 export interface BurnProgress {
   percent: number // -1 = chua tinh duoc
 }

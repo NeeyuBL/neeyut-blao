@@ -1,20 +1,12 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
+import type { CoChu } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
 import { hasFeature } from '../lib/license'
 import RegionBox, { type Region } from './RegionBox'
 import GeminiKey from './GeminiKey'
 
 const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
-
-// Co chu -> ti le so voi chieu cao video. 'auto' = tu dong theo khung (null).
-const FONT_FRAC: Record<string, number | null> = {
-  auto: null,
-  nho: 0.025,
-  vua: 0.035,
-  lon: 0.045,
-  ratlon: 0.055
-}
 
 /**
  * Duong dan tren dia -> URL trinh phat doc duoc (giao thuc `tblao:` dang ky ben main).
@@ -231,7 +223,9 @@ export default function ScreenText({
       mode: ghepMode,
       bandTop: che ? vung.y0 : null,
       bandBot: che ? vung.y1 : null,
-      fontScale: FONT_FRAC[coChu] ?? null
+      // Gui MUC, khong gui ti le: thang co chu video ngang/doc khac nhau, main
+      // tu chon bo tham so theo huong video (ffprobe).
+      coChu: coChu as CoChu
     })
     off()
     if (!r.ok) {

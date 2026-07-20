@@ -4,7 +4,7 @@ import { mkdir, copyFile, readFile, writeFile, stat, rm } from 'node:fs/promises
 import { tmpdir } from 'node:os'
 import { resolveFfmpeg } from './deps'
 import { debugRaw, errLabel, logInfo } from './logger'
-import type { BurnReq, BurnProgress, BurnResult } from '../shared/types'
+import type { BurnReq, BurnProgress, BurnResult, CoChu } from '../shared/types'
 
 let child: ChildProcess | null = null
 let daHuy = false
@@ -72,51 +72,155 @@ interface BoCuc {
 }
 
 /**
+ * Bo tham so bo cuc — video NGANG va DOC dung 2 bo KHAC NHAU.
+ * Vi sao phai tach: video doc (9:16) co chieu cao rat lon nhung khung hep, ma
+ * thang co chu lai tinh theo chieu cao -> 3.5%/4.5%/5.5% cua 1920 deu vuot xa
+ * muc be rong cho phep, bi chan het ve cung MOT so (user doi Vua/Lon/Rat lon ma
+ * chu khong nhuc nhich). Voi video doc phai lay moc theo BE RONG.
+ */
+interface ThamSo {
+  theoCao: boolean // moc tinh co chu: chieu cao (ngang) hay be rong (doc)
+  tuDong: number // co chu tu dong khi KHONG co khung mo
+  thang: Record<'nho' | 'vua' | 'lon' | 'ratlon', number>
+  min: number
+  max: number
+  le: number // le trai/phai (ti le be rong)
+}
+// Ngang: GIU NGUYEN so cu (dang chay tot, khong dung vao).
+const NGANG: ThamSo = {
+  theoCao: true,
+  tuDong: 0.042,
+  thang: { nho: 0.025, vua: 0.035, lon: 0.045, ratlon: 0.055 },
+  min: 0.02,
+  max: 0.055,
+  le: 0.04
+}
+// Doc: moc theo be rong, chu to hon va cho phep 2-3 dong (kieu TikTok/Reels).
+// Thang trai deu tu min den max nen khong con canh 3 muc ra cung mot co.
+const DOC: ThamSo = {
+  theoCao: false,
+  tuDong: 0.045,
+  thang: { nho: 0.035, vua: 0.045, lon: 0.055, ratlon: 0.065 },
+  min: 0.035,
+  max: 0.065,
+  le: 0.05
+}
+
+/**
+ * Uoc so dong sau khi TU XUONG DONG, de biet dai mo phai cao bao nhieu.
+ * Arial: mot ky tu rong trung binh ~0.5 co chu (do that: 42 ky tu vua 994px o
+ * co chu 50 -> 0.47). Lay 0.5 cho hoi du -> uoc THUA dong, dai mo rong hon mot
+ * chut: sai theo huong an toan (chu luon co nen mo phia sau).
+ */
+function demDong(cues: Cue[], fontSize: number, rongDung: number): number {
+  const moiDong = Math.max(8, Math.floor(rongDung / (fontSize * 0.5)))
+  let max = 1
+  for (const c of cues) {
+    let n = 0
+    for (const doan of c.chu.split('\\N')) n += Math.max(1, Math.ceil(doan.length / moiDong))
+    if (n > max) max = n
+  }
+  return Math.min(max, 4) // chan 4 dong keo mo ca man hinh
+}
+
+/**
  * Tinh bo cuc dot chu tu kich thuoc video + dai chu goc.
  * Che phu de goc kieu BLUR (kinh mo, giong CapCut) — do that dep hon thanh den
- * cung, va chu Trung tan han vao dai mo (khong con doc duoc). Font/co/le scale
- * theo chieu cao video.
+ * cung. Huong video (ngang/doc) lay tu ffprobe -> chon bo tham so tuong ung.
  */
-function boCuc(
+export function boCuc(
   meta: Meta,
+  cues: Cue[],
   bandTop?: number | null,
   bandBot?: number | null,
-  fontScale?: number | null
+  coChu?: CoChu
 ): BoCuc {
   const co = meta.h > 0 ? meta.h : 720
   const rong = meta.w > 0 ? meta.w : 1280
-  // Le trai/phai 4% be rong (cu 2% — video doc rat de tran ra mep).
-  const marginH = Math.round(rong * 0.04)
-  // !! CHAN CO CHU THEO CA BE RONG, khong chi chieu cao.
-  // Video doc 9:16 (vd 1080x1920): tinh theo chieu cao thi chu ~80px trong khi
-  // khung chi rong 1080 -> mot dong phu de binh thuong tran het ra ngoai.
-  // Lay muc "1 dong vua ~20 ky tu" (Arial rong trung binh ~0.5em).
-  const fRong = Math.max(8, Math.round((rong - 2 * marginH) / 20))
-  // Chan co chu: min 2% (con doc duoc khi xem), max 5.5% chieu cao NHUNG khong
-  // vuot muc be rong cho phep.
-  const fMin = Math.round(co * 0.02)
-  const fMax = Math.max(fMin, Math.min(Math.round(co * 0.055), fRong))
+  // Vuong (1:1) tinh la DOC -> moc theo be rong, dung y do.
+  const ts = rong < co ? DOC : NGANG
+  const moc = ts.theoCao ? co : rong
+  const marginH = Math.round(rong * ts.le)
+  const fMin = Math.round(moc * ts.min)
+  const fMax = Math.max(fMin, Math.round(moc * ts.max))
   const chan = (px: number): number => Math.max(fMin, Math.min(fMax, Math.round(px)))
-  // Co chu user ep tay (fontScale) hay tu dong. Tu dong khi KHONG che = 4.2%.
-  const tay = fontScale != null && fontScale > 0
-  let fontSize = tay ? chan(co * fontScale) : chan(co * 0.042)
+  // KHONG con chan theo be rong nua: tu xuong dong (WrapStyle 0) da lo chuyen
+  // tran ngang, nen chan them chi lam thang co chu bi bop lai.
+  const tay = coChu && coChu !== 'auto' ? ts.thang[coChu] : null
+
+  let fontSize = tay ? chan(moc * tay) : chan(moc * ts.tuDong)
   let che = false
   let y = 0
   let bh = 0
   let marginV = Math.round(co * 0.04)
+
   if (bandTop != null && bandBot != null && bandBot > bandTop) {
     che = true
     y = Math.max(0, bandTop)
-    bh = Math.min(co - y, bandBot - bandTop) // dai mo = DUNG khung user (WYSIWYG)
-    // Co chu: user ep tay -> theo fontScale; else TU DONG theo chieu cao khung.
-    // Khung min (RegionBox) da = 1 dong chu nen chu tu dong luon vua.
-    fontSize = tay ? chan(co * fontScale) : chan(bh * 0.5)
-    const cao1Dong = Math.round(fontSize * 1.5)
-    // Canh GIUA doc: day chu = giua_khung + nua_dong (Alignment=2 do le tu day khung)
-    marginV = Math.max(2, Math.round(co - (y + bh / 2) - cao1Dong / 2))
+    bh = Math.min(co - y, bandBot - bandTop)
+    // Tu dong khi CO khung: theo chieu cao khung user keo (1 dong vua khung).
+    fontSize = tay ? chan(moc * tay) : chan(bh * 0.5)
   }
+
+  const cao1Dong = Math.round(fontSize * 1.5)
+
+  if (che) {
+    // Dong CUOI can giua khung user keo (Alignment=2 do le tu day khung hinh).
+    marginV = Math.max(2, Math.round(co - (y + bh / 2) - cao1Dong / 2))
+    // !! NOI DAI MO CHO DU SO DONG THAT.
+    // Chu neo mep DUOI roi moc NGUOC LEN, nen khi xuong 2-3 dong thi cac dong
+    // tren troi ra ngoai dai mo, nam tren video con net (va co the de len phan
+    // phu de goc chua duoc che). Dai mo phai trum ca khung user LAN khoi chu.
+    const soDong = demDong(cues, fontSize, rong - 2 * marginH)
+    const day = co - marginV // day khoi chu
+    const tren = day - soDong * cao1Dong // dinh khoi chu
+    const dem = Math.round(cao1Dong * 0.15)
+    let t = Math.max(0, Math.min(y, tren - dem))
+    const d = Math.min(co, Math.max(y + bh, day + dem))
+    const toiDa = Math.round(co * 0.3) // khong mo qua 30% khung hinh
+    if (d - t > toiDa) t = d - toiDa
+    y = t
+    bh = Math.max(2, d - t)
+  }
+  // crop/overlay tren yuv420p: toa do va kich thuoc le se lam ffmpeg vo.
+  y -= y % 2
+  bh -= bh % 2
+  if (bh < 2) bh = 2
+  if (y + bh > co) bh = Math.max(2, co - y - ((co - y) % 2))
   const vien = Math.max(1, Math.round(fontSize * 0.12)) // vien ti le co chu
   return { che, y, bh, sigma: Math.max(8, Math.round(co * 0.03)), fontSize, vien, marginV, marginH }
+}
+
+/** Mot cau phu de da tach khoi .srt. */
+interface Cue {
+  a: string // moc bat dau
+  b: string // moc ket thuc
+  chu: string // noi dung (nhieu dong noi bang \N)
+}
+
+/**
+ * Tach .srt thanh danh sach cau. Tach RIENG (khong nam trong taoAss) vi phan
+ * tinh bo cuc cung can dem so ky tu de biet chu se xuong may dong.
+ */
+export function docSrt(srtRaw: string): Cue[] {
+  const out: Cue[] = []
+  // Moi khoi = so thu tu / moc "a --> b" / cac dong chu.
+  for (const k of srtRaw.replace(/^﻿/, '').split(/\r?\n\r?\n+/)) {
+    const dong = k
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const iMoc = dong.findIndex((d) => d.includes('-->'))
+    if (iMoc < 0) continue
+    const [a, b] = dong[iMoc].split('-->')
+    const chu = dong
+      .slice(iMoc + 1)
+      .join('\\N')
+      .replace(/[{}]/g, '') // { } la ky tu dieu khien cua .ass -> bo di
+    if (!chu) continue
+    out.push({ a, b, chu })
+  }
+  return out
 }
 
 /** Doi mot moc thoi gian .srt "HH:MM:SS,mmm" -> .ass "H:MM:SS.cc". */
@@ -133,28 +237,16 @@ function gioAss(t: string): string {
  * FontSize/MarginV (tinh theo pixel video) bi phong ~2.5x va DAT SAI CHO -> chu
  * khong nam trong dai mo. Da do that. Voi PlayRes = video thi moi so la pixel that.
  */
-function taoAss(srtRaw: string, meta: Meta, bc: BoCuc): string {
+export function taoAss(cues: Cue[], meta: Meta, bc: BoCuc): string {
   const w = meta.w > 0 ? meta.w : 1280
   const h = meta.h > 0 ? meta.h : 720
   const style =
     `Style: D,Arial,${bc.fontSize},&H00FFFFFF,&H00000000,&H00000000,` +
     `0,0,0,0,100,100,0,0,1,${bc.vien},0,2,${bc.marginH},${bc.marginH},${bc.marginV},1`
 
-  const events: string[] = []
-  // Tach khoi .srt: moi khoi = so thu tu / moc "a --> b" / cac dong chu.
-  const khoi = srtRaw.replace(/^﻿/, '').split(/\r?\n\r?\n+/)
-  for (const k of khoi) {
-    const dong = k.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
-    const iMoc = dong.findIndex((d) => d.includes('-->'))
-    if (iMoc < 0) continue
-    const [a, b] = dong[iMoc].split('-->')
-    const chu = dong
-      .slice(iMoc + 1)
-      .join('\\N')
-      .replace(/[{}]/g, '') // { } la ky tu dieu khien cua .ass -> bo di
-    if (!chu) continue
-    events.push(`Dialogue: 0,${gioAss(a)},${gioAss(b)},D,,0,0,0,,${chu}`)
-  }
+  const events = cues.map(
+    (c) => `Dialogue: 0,${gioAss(c.a)},${gioAss(c.b)},D,,0,0,0,,${c.chu}`
+  )
 
   return [
     '[Script Info]',
@@ -282,10 +374,12 @@ export async function burnSubtitle(
 
   // ---- Dot chet ----
   const meta = await doVideo(duongFfprobe(ff), req.video)
-  const bc = boCuc(meta, req.bandTop, req.bandBot, req.fontScale)
-  // Doi .srt -> .ass (PlayRes = video) de dat phu de DUNG PIXEL, khop dai mo.
+  // Doc .srt TRUOC: bo cuc can dem so ky tu de biet chu xuong may dong -> noi
+  // dai mo cho du. Roi doi sang .ass (PlayRes = video) de dat dung pixel.
   const srtRaw = await readFile(srtTam, 'utf8')
-  await writeFile(join(tam, 'sub.ass'), taoAss(srtRaw, meta, bc), 'utf8')
+  const cues = docSrt(srtRaw)
+  const bc = boCuc(meta, cues, req.bandTop, req.bandBot, req.coChu)
+  await writeFile(join(tam, 'sub.ass'), taoAss(cues, meta, bc), 'utf8')
   const filterArgs = argsFilter('sub.ass', bc)
   logInfo(`Dịch màn hình: ghép phụ đề vào ${basename(req.video)}…`)
 
