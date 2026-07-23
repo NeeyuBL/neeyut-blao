@@ -74,7 +74,7 @@ jobs:
           tag_name: assets-v1
           name: "Assets Release v1"
           prerelease: true
-          allowUpdates: true
+          overwrite_files: true
           fail_on_unmatched_files: false
           files: |
             engines/douyin-engine/dist/dy-engine-macos
