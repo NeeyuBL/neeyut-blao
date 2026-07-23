@@ -1,0 +1,131 @@
+ 📦 Bước 1: Cài Python
+
+1. Vào **https://www.python.org/downloads/windows/**
+2. Nhấn **"Download Python 3.x.x"** (bản mới nhất)
+3. Mở file `.exe` vừa tải về
+4. ⚠️ **QUAN TRỌNG:** Tích vào ô **"Add python.exe to PATH"** trước khi nhấn Install
+
+   *(Nếu quên bước này, Python sẽ không chạy được từ CMD)*
+5. Nhấn **"Install Now"** → chờ xong → **Close**
+
+**Kiểm tra:** Nhấn `Windows + R` → gõ `cmd` → Enter → gõ:
+```
+python --version
+```
+✅ Nếu hiện `Python 3.x.x` là OK
+
+---
+
+### 📥 Bước 2: Tải code về máy
+
+1. Vào **https://github.com/jiji262/douyin-downloader**
+2. Nhấn nút **`<> Code`** (màu xanh lá)
+3. Chọn **"Download ZIP"**
+4. Giải nén ZIP ra, ví dụ vào `C:\douyin-downloader`
+
+---
+
+### ⚙️ Bước 3: Mở CMD trong thư mục đó
+
+1. Mở thư mục `douyin-downloader` vừa giải nén bằng File Explorer
+2. Nhấn chuột vào **thanh địa chỉ** trên cùng (chỗ hiện đường dẫn)
+3. Xóa hết, gõ **`cmd`** rồi nhấn **Enter**
+4. Cửa sổ CMD sẽ tự mở đúng thư mục đó ✅
+
+---
+
+### 📚 Bước 4: Cài thư viện
+
+Trong cửa sổ CMD vừa mở, gõ lần lượt từng lệnh:
+
+```
+pip install -r requirements.txt
+```
+*(Chờ tải xong, khoảng 1-2 phút)*
+
+```
+pip install playwright
+```
+
+```
+python -m playwright install chromium
+```
+*(Lệnh này tải trình duyệt Chromium, có thể mất vài phút)*
+
+---
+
+### 📄 Bước 5: Tạo file cấu hình
+
+1. Trong thư mục `douyin-downloader`, tìm file **`config.example.yml`**
+2. **Copy** file đó (Ctrl+C)
+3. **Paste** vào cùng thư mục (Ctrl+V)
+4. Đổi tên bản copy thành **`config.yml`**
+
+---
+
+### 🍪 Bước 6: Lấy Cookies (đăng nhập Douyin)
+
+Trong CMD, gõ:
+```
+python -m tools.cookie_fetcher --config config.yml
+```
+
+- Trình duyệt Chrome sẽ tự mở ra trang Douyin
+- Bạn **đăng nhập vào tài khoản Douyin** của mình
+- Sau khi đăng nhập xong, quay lại cửa sổ CMD
+- Nhấn **Enter**
+- Cookies sẽ tự động được lưu vào `config.yml` ✅
+
+---
+
+### ▶️ Bước 7: Chạy và tải video
+
+**Cách 1 — Tải 1 video nhanh (không cần sửa config):**
+```
+python run.py -c config.yml -u "LINK_VIDEO_DOUYIN"
+```
+Ví dụ:
+```
+python run.py -c config.yml -u "https://www.douyin.com/video/7604129988555574538"
+```
+
+---
+
+**Cách 2 — Tải toàn bộ video của 1 tác giả:**
+
+Mở file `config.yml` bằng Notepad, tìm phần `link:` và sửa thành link trang cá nhân:
+```yaml
+link:
+  - https://www.douyin.com/user/MS4wLjABAAAAxxxx
+
+mode:
+  - post
+
+number:
+  post: 0    # 0 = tải tất cả
+```
+Rồi chạy:
+```
+python run.py -c config.yml
+```
+
+---
+
+### 📁 Video tải về ở đâu?
+
+Tất cả file sẽ nằm trong thư mục **`Downloaded\`** bên trong `douyin-downloader`.
+
+---
+
+### ❓ Lỗi thường gặp
+
+| Lỗi | Cách xử lý |
+|-----|-----------|
+| `python không được nhận dạng` | Cài lại Python, nhớ tích **Add to PATH** |
+| `pip không được nhận dạng` | Đóng CMD, mở lại và thử lại |
+| Chỉ tải được ~20 video | Bình thường — Douyin chặn. Làm theo hướng dẫn trên màn hình (giải CAPTCHA thủ công) |
+| Cookies hết hạn | Chạy lại `python -m tools.cookie_fetcher --config config.yml` |
+
+---
+
+Bạn đang bước nào rồi? Nếu gặp lỗi cứ paste nội dung lỗi vào đây mình giúp tiếp! 😊
