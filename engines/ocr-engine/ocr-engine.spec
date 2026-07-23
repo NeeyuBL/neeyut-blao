@@ -4,10 +4,12 @@ from PyInstaller.utils.hooks import collect_all
 datas = []
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('rapidocr_onnxruntime')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('onnxruntime')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+for _m in ('rapidocr_onnxruntime', 'onnxruntime', 'cv2'):
+    try:
+        tmp_ret = collect_all(_m)
+        datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+    except Exception:
+        pass
 
 
 a = Analysis(

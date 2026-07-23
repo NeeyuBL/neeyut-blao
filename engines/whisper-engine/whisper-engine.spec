@@ -1,28 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('dia-models', 'dia-models')]
+import os
+
+datas = [('dia-models', 'dia-models')] if os.path.exists('dia-models') else []
 binaries = []
-hiddenimports = ['wtpsplit_lite', 'tokenizers']
-for _m in ('tokenizers', 'wtpsplit_lite', 'huggingface_hub'):
-    _r = collect_all(_m)
-    datas += _r[0]; binaries += _r[1]; hiddenimports += _r[2]
-tmp_ret = collect_all('faster_whisper')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('ctranslate2')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('av')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('onnxruntime')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('tokenizers')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('huggingface_hub')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('sherpa_onnx')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('sentencepiece')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+hiddenimports = ['tokenizers']
+
+for _m in ('tokenizers', 'wtpsplit_lite', 'huggingface_hub', 'faster_whisper', 'ctranslate2', 'av', 'onnxruntime', 'sherpa_onnx', 'sentencepiece'):
+    try:
+        _r = collect_all(_m)
+        datas += _r[0]; binaries += _r[1]; hiddenimports += _r[2]
+    except Exception:
+        pass
 
 
 a = Analysis(

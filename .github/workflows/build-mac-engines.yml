@@ -75,6 +75,7 @@ jobs:
           name: "Assets Release v1"
           prerelease: true
           allowUpdates: true
+          fail_on_unmatched_files: false
           files: |
             engines/douyin-engine/dist/dy-engine-macos
             engines/whisper-engine/dist/whisper-engine-macos.zip
