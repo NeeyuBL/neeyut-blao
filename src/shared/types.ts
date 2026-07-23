@@ -204,9 +204,26 @@ export interface OcrProgress {
   percent: number // -1 = chua tinh duoc (dang tach khung)
   text: string
 }
+export interface Region {
+  y0: number // mep TREN, tinh theo PIXEL CUA VIDEO GOC
+  y1: number // mep DUOI
+  x0: number // mep TRAI
+  x1: number // mep PHAI
+}
+
+export interface BlurRegion {
+  id: string
+  x0: number
+  x1: number
+  y0: number
+  y1: number
+  color: string
+}
+
 export interface OcrResult {
   ok: boolean
   output?: string
+  outputs?: string[]
   count?: number
   error?: string
   // Dai chu goc (pixel video) — buoc ghep video dung de che phu de cung san co.
@@ -217,7 +234,7 @@ export interface OcrResult {
 // ---- Ghep phu de vao video (buoc phu cua tab Dich man hinh) ----
 export interface BurnReq {
   video: string
-  srt: string
+  srt?: string | null
   outputDir: string
   mode: 'burn' | 'soft' // dot chet (dang lai) | ghep mem (ranh sub, xem may)
   // VUNG DAT CHU (pixel video, chi khi dot chet): chu se can giua quanh tam
@@ -225,19 +242,21 @@ export interface BurnReq {
   // LUU Y: gui vung NAY KE CA khi khong lam mo — keo khung = chon cho dat chu.
   bandTop?: number | null
   bandBot?: number | null
+  bandLeft?: number | null
+  bandRight?: number | null
+  blurRegions?: BlurRegion[]
   // Co lam mo vung do khong (che phu de goc). Doc lap voi vi tri dat chu.
   lamMo?: boolean
-  // Co chu: 'auto' = tu dong theo khung. KHONG gui ti le cung nua — thang co chu
-  // cua video NGANG va DOC khac nhau (doc lay moc theo be rong), burn.ts tu chon
-  // bo tham so theo huong video do ffprobe.
-  coChu?: CoChu
+  // Khung vi tri & co chu phu de (pixel video goc). User khoanh/keo gian khung phu de.
+  subRegion?: { x0: number; y0: number; x1: number; y1: number }
   // Cat phu de cho vua thoi luong video (chi che do 'soft'). UI bat co nay khi
   // da canh bao .srt dai hon video ma user van bam ghep. Che do 'burn' khong
   // can: het khung hinh la chu tu dung, khong co gi de cat.
   catSrt?: boolean
+  batAmThanh?: boolean
+  amThanhFile?: string | null
+  amLuongGoc?: number
 }
-/** Muc co chu user chon o tab Dich man hinh. */
-export type CoChu = 'auto' | 'nho' | 'vua' | 'lon' | 'ratlon'
 export interface BurnProgress {
   percent: number // -1 = chua tinh duoc
 }

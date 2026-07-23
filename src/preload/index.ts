@@ -61,10 +61,11 @@ const api = {
   testProxy: (proxy: string): Promise<ProxyTestResult> => ipcRenderer.invoke('proxy:test', proxy),
 
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
-  chooseFiles: (): Promise<string[]> => ipcRenderer.invoke('dialog:chooseFiles'),
-  chooseSrt: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseSrt'),
-  downloadsDir: (): Promise<string> => ipcRenderer.invoke('app:downloadsDir'),
-  appVersion: (): Promise<string> => ipcRenderer.invoke('app:version'),
+  chooseFiles: () => ipcRenderer.invoke('dialog:chooseFiles'),
+  chooseSrt: () => ipcRenderer.invoke('dialog:chooseSrt'),
+  chooseAudio: () => ipcRenderer.invoke('dialog:chooseAudio'),
+  downloadsDir: () => ipcRenderer.invoke('app:downloadsDir'),
+  appVersion: () => ipcRenderer.invoke('app:version'),
 
   // Tu cap nhat app
   checkAppUpdate: (): Promise<void> => ipcRenderer.invoke('update:check'),
@@ -142,8 +143,16 @@ const api = {
     ipcRenderer.on('ocr:install-progress', listener)
     return () => ipcRenderer.removeListener('ocr:install-progress', listener)
   },
-  ocrVideo: (input: string, outputDir: string, y0: number, y1: number): Promise<OcrResult> =>
-    ipcRenderer.invoke('ocr:video', input, outputDir, y0, y1),
+  ocrVideo: (
+    input: string,
+    outputDir: string,
+    y0: number,
+    y1: number,
+    x0: number,
+    x1: number,
+    formats: string[]
+  ): Promise<OcrResult> =>
+    ipcRenderer.invoke('ocr:video', input, outputDir, y0, y1, x0, x1, formats),
   ocrCancel: (): Promise<void> => ipcRenderer.invoke('ocr:cancel'),
   onOcrProgress: (cb: (p: OcrProgress) => void): (() => void) => {
     const listener = (_e: unknown, p: OcrProgress): void => cb(p)

@@ -137,9 +137,9 @@ export function extractZip(zipPath: string, destDir: string): Promise<void> {
             '-Command',
             `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${destDir}" -Force`
           ],
-          { windowsHide: true }
+          { windowsHide: true, stdio: 'ignore' }
         )
-      : spawn('unzip', ['-o', zipPath, '-d', destDir])
+      : spawn('unzip', ['-q', '-o', zipPath, '-d', destDir], { stdio: 'ignore' })
     child.on('error', reject)
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error('Giải nén thất bại'))))
   })

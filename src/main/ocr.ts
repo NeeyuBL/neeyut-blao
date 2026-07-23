@@ -1,5 +1,5 @@
-import { spawn, ChildProcess } from 'node:child_process'
-import { access, mkdir, readdir } from 'node:fs/promises'
+import { spawn, type ChildProcess } from 'node:child_process'
+import { access, chmod, mkdir, readdir, readFile, writeFile, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
 import { ASSET_BASE, binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
@@ -46,6 +46,9 @@ export async function installOcrEngine(onProgress: (p: number) => void): Promise
   await extractZip(zip, binDir())
   const { rm } = await import('node:fs/promises')
   await rm(zip, { force: true })
+  if (!isWin && (await exists(enginePath()))) {
+    await chmod(enginePath(), 0o755)
+  }
   logInfo('Dịch màn hình: đã cài xong công cụ.')
 }
 
@@ -66,11 +69,69 @@ export function cancelOcr(): void {
  * Doc chu chay tren video -> .srt.
  * y0/y1 la PIXEL CUA VIDEO GOC (giao dien da quy doi san).
  */
+interface SrtCue {
+  id: number
+  start: string
+  end: string
+  text: string
+}
+
+function parseSrt(content: string): SrtCue[] {
+  const blocks = content.trim().split(/\r?\n\r?\n/)
+  const cues: SrtCue[] = []
+  for (const block of blocks) {
+    const lines = block.split(/\r?\n/)
+    if (lines.length >= 3) {
+      const id = parseInt(lines[0].trim(), 10)
+      const timeLine = lines[1].trim()
+      const text = lines.slice(2).join('\n').trim()
+      const timeParts = timeLine.split(' --> ')
+      if (timeParts.length === 2) {
+        cues.push({
+          id,
+          start: timeParts[0],
+          end: timeParts[1],
+          text
+        })
+      }
+    }
+  }
+  return cues
+}
+
+function convertToVtt(cues: SrtCue[]): string {
+  const lines = ['WEBVTT', '']
+  for (const cue of cues) {
+    const start = cue.start.replace(',', '.')
+    const end = cue.end.replace(',', '.')
+    lines.push(`${cue.id}`)
+    lines.push(`${start} --> ${end}`)
+    lines.push(cue.text)
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
+function convertToTxt(cues: SrtCue[]): string {
+  return cues.map((c) => c.text).join('\n')
+}
+
+function convertToJson(cues: SrtCue[]): string {
+  return JSON.stringify(cues, null, 2)
+}
+
+/**
+ * Doc chu chay tren video -> .srt.
+ * y0/y1 la PIXEL CUA VIDEO GOC (giao dien da quy doi san).
+ */
 export async function ocrVideo(
   input: string,
   outputDir: string,
   y0: number,
   y1: number,
+  x0: number,
+  x1: number,
+  formats: string[],
   onProgress: (p: OcrProgress) => void
 ): Promise<OcrResult> {
   if (child) return { ok: false, error: 'Đang xử lý một video khác.' }
@@ -86,6 +147,8 @@ export async function ocrVideo(
     '--output', out,
     '--y0', String(y0),
     '--y1', String(y1),
+    '--x0', String(x0),
+    '--x1', String(x1),
     '--ffmpeg', ff
   ]
   logInfo(`Dịch màn hình: bắt đầu đọc ${basename(input)}…`)
@@ -152,11 +215,47 @@ export async function ocrVideo(
       resolve({ ok: false, error: errLabel(err) })
     })
 
-    p.on('close', (code) => {
+    p.on('close', async (code) => {
       child = null
       if (doneOut) {
         logInfo(`Dịch màn hình: xong ${count} câu.`)
-        resolve({ ok: true, output: doneOut, count, bandTop, bandBot })
+
+        const outputs: string[] = []
+        try {
+          const srtContent = await readFile(doneOut, 'utf8')
+          const cues = parseSrt(srtContent)
+
+          const txtPath = doneOut.replace(/\.srt$/i, '.txt')
+          const vttPath = doneOut.replace(/\.srt$/i, '.vtt')
+          const jsonPath = doneOut.replace(/\.srt$/i, '.json')
+
+          if (formats.includes('.srt')) {
+            outputs.push(doneOut)
+          }
+          if (formats.includes('.txt')) {
+            await writeFile(txtPath, convertToTxt(cues), 'utf8')
+            outputs.push(txtPath)
+          }
+          if (formats.includes('.vtt')) {
+            await writeFile(vttPath, convertToVtt(cues), 'utf8')
+            outputs.push(vttPath)
+          }
+          if (formats.includes('.json')) {
+            await writeFile(jsonPath, convertToJson(cues), 'utf8')
+            outputs.push(jsonPath)
+          }
+
+          if (!formats.includes('.srt')) {
+            await rm(doneOut, { force: true })
+          }
+        } catch (err) {
+          debugRaw('ocr format conversion error', err)
+          if (outputs.length === 0) {
+            outputs.push(doneOut)
+          }
+        }
+
+        resolve({ ok: true, output: outputs[0] || doneOut, outputs, count, bandTop, bandBot })
         return
       }
       // Bi huy giua chung -> khong phai loi

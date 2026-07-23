@@ -12,16 +12,8 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
     message: 'Thiếu thành phần cần thiết để tải và xử lý video.',
     percent: 0
   })
-  const [running, setRunning] = useState(false)
+  const [running, setRunning] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    const off = window.api.onSetupProgress((p) => {
-      setProgress(p)
-      if (p.phase === 'error') setError(p.message)
-    })
-    return off
-  }, [])
 
   const start = async (): Promise<void> => {
     setError(null)
@@ -34,6 +26,15 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
       setError(res.error)
     }
   }
+
+  useEffect(() => {
+    const off = window.api.onSetupProgress((p) => {
+      setProgress(p)
+      if (p.phase === 'error') setError(p.message)
+    })
+    void start()
+    return off
+  }, [])
 
   const indeterminate = progress.percent < 0
 

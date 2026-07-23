@@ -1,0 +1,56 @@
+name: Build & Release App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Build & Release (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build and Package App
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            npm run package:win
+          else
+            npm run package:mac
+          fi
+        shell: bash
+
+      - name: Publish Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body_path: RELEASE_NOTES.md
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/latest.yml
+            dist/latest-mac.yml
+            dist/*.blockmap
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

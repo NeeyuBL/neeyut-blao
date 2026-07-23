@@ -311,6 +311,19 @@ function registerIpc(): void {
     return res.canceled || !res.filePaths.length ? null : res.filePaths[0]
   })
 
+  // Chon 1 tep am thanh
+  ipcMain.handle('dialog:chooseAudio', async () => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile'],
+      filters: [
+        { name: 'Âm thanh', extensions: ['mp3', 'wav', 'aac', 'm4a', 'ogg', 'flac', 'opus'] },
+        { name: 'Tất cả', extensions: ['*'] }
+      ]
+    })
+    return res.canceled || !res.filePaths.length ? null : res.filePaths[0]
+  })
+
   // Thu muc mac dinh (Downloads)
   ipcMain.handle('app:downloadsDir', async () => app.getPath('downloads'))
 
@@ -391,8 +404,8 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     'ocr:video',
-    async (event, input: string, outputDir: string, y0: number, y1: number) =>
-      ocrVideo(input, outputDir, y0, y1, (p) => event.sender.send('ocr:progress', p))
+    async (event, input: string, outputDir: string, y0: number, y1: number, x0: number, x1: number, formats: string[]) =>
+      ocrVideo(input, outputDir, y0, y1, x0, x1, formats, (p) => event.sender.send('ocr:progress', p))
   )
   ipcMain.handle('ocr:cancel', async () => cancelOcr())
 

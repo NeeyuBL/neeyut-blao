@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { CoChu } from '../../../shared/types'
+import type { BlurRegion } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
 import { hasFeature } from '../lib/license'
 import RegionBox, { type Region } from './RegionBox'
@@ -8,17 +8,6 @@ import GeminiKey from './GeminiKey'
 
 const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
 
-/**
- * Duong dan tren dia -> URL trinh phat doc duoc (giao thuc `tblao:` dang ky ben main).
- * KHONG dung file:// — trang chay o http://localhost (dev) nen file:// la khac
- * nguon, bi CSP + webSecurity chan, video ra o den.
- *
- * !! Duong dan di qua BASE64, va host "b64" KHONG duoc bo. Da do thuc te:
- *    `tblao:///D:/phim/a.mp4` bi Chromium hieu "D:" la TEN MIEN -> handler nhan
- *    duong dan cut mat o dia -> trinh phat bao "Format error" (nghe nhu video
- *    hong, that ra la sai duong dan). Base64 cung mien nhiem voi ten tep co dau
- *    cach, ngoac, dau tieng Viet.
- */
 const srcVideo = (p: string): string => {
   const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(p)))
     .replace(/\+/g, '-')
@@ -26,6 +15,17 @@ const srcVideo = (p: string): string => {
     .replace(/=+$/, '')
   return `tblao://b64/${b64}`
 }
+
+const PALETTE = [
+  '#e8a13c',
+  '#3b82f6',
+  '#10b981',
+  '#ec4899',
+  '#8b5cf6',
+  '#f59e0b',
+  '#06b6d4',
+  '#a855f7'
+]
 
 type Buoc = 'idle' | 'doc' | 'dich' | 'xong' | 'loi'
 
@@ -40,7 +40,6 @@ export default function ScreenText({
   const [videoH, setVideoH] = useState(0)
   const [videoW, setVideoW] = useState(0)
   const [boxH, setBoxH] = useState(0)
-  const [vung, setVung] = useState<Region>({ y0: 0, y1: 0 })
 
   const [dich, setDich] = usePersistedState('tblao.ocr.dich', 'none')
   const [buoc, setBuoc] = useState<Buoc>('idle')
@@ -50,22 +49,32 @@ export default function ScreenText({
   const [ketQua, setKetQua] = useState<string[]>([])
   const [loi, setLoi] = useState<string | null>(null)
 
-  // Buoc phu: ghep phu de vao video de dang lai
-  const [videoGiay, setVideoGiay] = useState(0) // thoi luong video (canh bao srt lech)
-  const [srtGiay, setSrtGiay] = useState(0) // thoi luong file .srt dang chon
+  const [batLamMo, setBatLamMo] = useState(true)
+  const [batPhuDe, setBatPhuDe] = useState(false)
+  const [blurRegions, setBlurRegions] = useState<BlurRegion[]>([])
+  const [activeBlurId, setActiveBlurId] = useState<string | null>(null)
+
+  const [videoGiay, setVideoGiay] = useState(0)
+  const [srtGiay, setSrtGiay] = useState(0)
   const [ghepSrt, setGhepSrt] = useState('')
-  const [srtNgoai, setSrtNgoai] = useState('') // .srt user tu chon (khong qua OCR)
-  const [lamMo, setLamMo] = useState(true) // lam mo phu de goc trong video
-  const [coChu, setCoChu] = usePersistedState('tblao.ocr.cochu', 'auto') // co chu phu de
+  const [subRegion, setSubRegion] = useState<Region | undefined>(undefined)
   const [ghepMode, setGhepMode] = useState<'burn' | 'soft'>('burn')
   const [ghep, setGhep] = useState<'idle' | 'chay' | 'xong' | 'loi'>('idle')
   const [ghepPct, setGhepPct] = useState(0)
   const [ghepOut, setGhepOut] = useState('')
   const [ghepLoi, setGhepLoi] = useState<string | null>(null)
 
-  // Cong cu OCR tai rieng (~230MB). PHAI co man hinh tai nhu tab Douyin/Phu de,
-  // khong thi user bam "Bat dau doc chu" chi thay bao do "Chua co cong cu" ma
-  // KHONG co duong nao tai -> tab chet.
+  const [batOcrBox, setBatOcrBox] = useState(false)
+  const [ocrRegion, setOcrRegion] = useState<Region | undefined>(undefined)
+  const [fmtSrt, setFmtSrt] = usePersistedState('tblao.ocr.fmt.srt', true)
+  const [fmtTxt, setFmtTxt] = usePersistedState('tblao.ocr.fmt.txt', false)
+  const [fmtVtt, setFmtVtt] = usePersistedState('tblao.ocr.fmt.vtt', false)
+  const [fmtJson, setFmtJson] = usePersistedState('tblao.ocr.fmt.json', false)
+
+  const [batAmThanh, setBatAmThanh] = useState(false)
+  const [amThanhFile, setAmThanhFile] = useState('')
+  const [amLuongGoc, setAmLuongGoc] = useState(100)
+
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)
@@ -78,23 +87,19 @@ export default function ScreenText({
     void window.api.ocrEngineStatus().then((s) => setHasEngine(s.has))
   }, [])
 
-  // Do do dai file .srt dang chon -> so voi video de canh bao chon nham file
   useEffect(() => {
     if (!ghepSrt) {
       setSrtGiay(0)
       return
     }
     let huy = false
-    // Boc trong Promise.resolve() de loi NEM THANG (vd preload cu chua co ham
-    // nay luc dang dev) bien thanh promise bi tu choi -> .catch nuot gon.
-    // Truoc day nem thang trong useEffect lam React sap TRANG CA APP.
     void Promise.resolve()
       .then(() => window.api.srtGiay(ghepSrt))
       .then((s) => {
         if (!huy) setSrtGiay(s || 0)
       })
       .catch(() => {
-        if (!huy) setSrtGiay(0) // khong do duoc thi thoi, chi mat canh bao
+        if (!huy) setSrtGiay(0)
       })
     return () => {
       huy = true
@@ -113,7 +118,37 @@ export default function ScreenText({
     else setInstallErr(res.error ?? 'Tải công cụ Dịch màn hình thất bại.')
   }
 
-  // Video vua nap xong -> biet kich thuoc that -> dat vung mac dinh 1/4 duoi
+  const addBlurRegion = (): void => {
+    if (videoH <= 0 || videoW <= 0) return
+    const id = String(Date.now())
+    const idx = blurRegions.length
+    const color = PALETTE[idx % PALETTE.length]
+    const newRegion: BlurRegion = {
+      id,
+      x0: Math.round(videoW * 0.15),
+      x1: Math.round(videoW * 0.85),
+      y0: Math.round(videoH * 0.75),
+      y1: videoH,
+      color
+    }
+    setBlurRegions((prev) => [...prev, newRegion])
+    setActiveBlurId(id)
+  }
+
+  const updateBlurRegion = (r: BlurRegion): void => {
+    setBlurRegions((prev) => prev.map((item) => (item.id === r.id ? r : item)))
+  }
+
+  const removeBlurRegion = (id: string): void => {
+    setBlurRegions((prev) => {
+      const next = prev.filter((item) => item.id !== id)
+      if (activeBlurId === id && next.length > 0) {
+        setActiveBlurId(next[0].id)
+      }
+      return next
+    })
+  }
+
   const onMeta = (): void => {
     const v = vidRef.current
     if (!v) return
@@ -121,53 +156,87 @@ export default function ScreenText({
     setVideoW(v.videoWidth)
     setBoxH(v.clientHeight)
     setVideoGiay(Number.isFinite(v.duration) ? v.duration : 0)
-    setVung({ y0: Math.round(v.videoHeight * 0.75), y1: v.videoHeight })
+    if (blurRegions.length === 0) {
+      const defId = 'def-1'
+      setBlurRegions([
+        {
+          id: defId,
+          x0: Math.round(v.videoWidth * 0.15),
+          x1: Math.round(v.videoWidth * 0.85),
+          y0: Math.round(v.videoHeight * 0.75),
+          y1: v.videoHeight,
+          color: PALETTE[0]
+        }
+      ])
+      setActiveBlurId(defId)
+    }
+    if (!subRegion && v.videoWidth > 0 && v.videoHeight > 0) {
+      setSubRegion({
+        x0: Math.round(v.videoWidth * 0.1),
+        x1: Math.round(v.videoWidth * 0.9),
+        y0: Math.round(v.videoHeight * 0.82),
+        y1: Math.round(v.videoHeight * 0.94)
+      })
+    }
+    if (!ocrRegion && v.videoWidth > 0 && v.videoHeight > 0) {
+      setOcrRegion({
+        x0: Math.round(v.videoWidth * 0.15),
+        x1: Math.round(v.videoWidth * 0.85),
+        y0: Math.round(v.videoHeight * 0.75),
+        y1: v.videoHeight
+      })
+    }
   }
 
-  // Khung hien thi doi kich thuoc -> phai do lai he so quy doi, khong thi keo
-  // khung se lech.
-  // !! Dung ResizeObserver chu KHONG phai window.resize: tab nay duoc GIU SONG
-  //    (an bang display:none) de khong mat video khi user qua tab khac. Luc an
-  //    thi clientHeight = 0 -> he so quy doi sai. ResizeObserver bat duoc ca luc
-  //    tab HIEN LAI (0 -> kich thuoc that), window.resize thi khong.
   useEffect(() => {
     const el = vidRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => {
-      const h = el.clientHeight
-      if (h > 0) setBoxH(h) // an tab -> h=0 -> giu so cu, dung ghi de
-    })
+    const ro = new ResizeObserver(() => setBoxH(el.clientHeight))
     ro.observe(el)
     return () => ro.disconnect()
   }, [video])
 
   const chonVideo = async (): Promise<void> => {
-    const paths = await window.api.chooseFiles()
-    if (!paths.length) return
-    setVideo(paths[0])
+    const files = await window.api.chooseFiles()
+    if (!files.length) return
+    setVideo(files[0])
     setBuoc('idle')
     setKetQua([])
     setLoi(null)
-    // reset buoc ghep cho video moi
-    setSrtNgoai('')
-    setGhepSrt('')
     setGhep('idle')
     setGhepOut('')
     setGhepLoi(null)
   }
 
-  // Nguoi dung bam Dung -> bao main giet tien trinh engine.
-  // Da do that: child.kill() giet luon ca ffmpeg ma engine goi ben trong (khong
-  // de lai tien trinh mo coi), va engine thoat voi ma null -> main tra ve
-  // 'Da huy.'. KHONG doi sang taskkill /T: no lam engine thoat ma 1, main se
-  // hieu nham la LOI va bao do len man hinh.
-  const dung = async (): Promise<void> => {
-    setDangDung(true)
-    await window.api.ocrCancel()
+  const chonSrt = async (): Promise<void> => {
+    const file = await window.api.chooseSrt()
+    if (file) {
+      setGhepSrt(file)
+    }
+  }
+
+  const chonAmThanh = async (): Promise<void> => {
+    const file = await window.api.chooseAudio()
+    if (file) {
+      setAmThanhFile(file)
+    }
   }
 
   const chay = async (): Promise<void> => {
     if (!video || !outputDir) return
+
+    const formats: string[] = []
+    if (fmtSrt) formats.push('.srt')
+    if (fmtTxt) formats.push('.txt')
+    if (fmtVtt) formats.push('.vtt')
+    if (fmtJson) formats.push('.json')
+
+    if (formats.length === 0) {
+      setLoi('Vui lòng chọn ít nhất một định dạng xuất file.')
+      setBuoc('loi')
+      return
+    }
+
     setBuoc('doc')
     setPct(0)
     setLoi(null)
@@ -175,16 +244,20 @@ export default function ScreenText({
     setDongChu('')
     setDangDung(false)
 
+    const y0 = batOcrBox && ocrRegion ? ocrRegion.y0 : -1
+    const y1 = batOcrBox && ocrRegion ? ocrRegion.y1 : -1
+    const x0 = batOcrBox && ocrRegion ? ocrRegion.x0 : -1
+    const x1 = batOcrBox && ocrRegion ? ocrRegion.x1 : -1
+
     const off = window.api.onOcrProgress((p) => {
       setPct(p.percent)
       if (p.text) setDongChu(p.text)
     })
-    const r = await window.api.ocrVideo(video, outputDir, vung.y0, vung.y1)
+    const r = await window.api.ocrVideo(video, outputDir, y0, y1, x0, x1, formats)
     off()
     setDangDung(false)
 
     if (!r.ok) {
-      // Tu bam Dung thi khong phai loi — dung to do len lam user tuong hong
       if (r.error === 'Đã huỷ.') {
         setBuoc('idle')
         setDongChu('')
@@ -194,76 +267,76 @@ export default function ScreenText({
       setBuoc('loi')
       return
     }
-    const ra = [r.output!]
+    const ra = r.outputs || (r.output ? [r.output] : [])
 
-    if (dich !== 'none') {
+    if (dich !== 'none' && r.output) {
       setBuoc('dich')
-      const out = r.output!.replace(/\.srt$/i, `.${dich}.srt`)
-      const t = await window.api.geminiTranslateSrt(r.output!, out, dich)
+      const out = r.output.replace(/\.srt$/i, `.${dich}.srt`)
+      const t = await window.api.geminiTranslateSrt(r.output, out, dich)
       if (t.ok) ra.push(out)
       else setLoi(`Dịch: ${t.error}`)
     }
     setKetQua(ra)
-    // Chuan bi buoc ghep. Mac dinh ghep BAN DICH (cuoi mang).
-    // Nhay khung khoanh ve dai chu THAT engine do -> khung xem-truoc lam mo khop
-    // dung, user chinh them duoc (WYSIWYG).
-    if (r.bandTop != null && r.bandBot != null && r.bandBot > r.bandTop) {
-      const pad = Math.round(videoH * 0.012)
-      setVung({ y0: Math.max(0, r.bandTop - pad), y1: Math.min(videoH, r.bandBot + pad) })
+    const srtOutput = r.outputs?.find(o => o.endsWith('.srt')) || r.output
+    if (srtOutput) {
+      setGhepSrt(srtOutput)
     }
-    setGhepSrt(ra[ra.length - 1])
-    setGhep('idle')
-    setGhepOut('')
-    setGhepLoi(null)
     setBuoc('xong')
   }
 
-  // Chon 1 file .srt co san (khong qua OCR) de ghep thang vao video.
-  const chonSrt = async (): Promise<void> => {
-    const p = await window.api.chooseSrt()
-    if (!p) return
-    setSrtNgoai(p)
-    setGhepSrt(p)
-    setGhep('idle')
-    setGhepOut('')
-    setGhepLoi(null)
+  const dung = async (): Promise<void> => {
+    setDangDung(true)
+    await window.api.ocrCancel()
   }
 
-  // Ghep phu de vao video. Dot chet, hoac ghep mem (ranh sub). nvenc hong thi
-  // burn.ts tu tut libx264.
-  // KHUNG user khoanh = NOI DAT CHU (chu can giua quanh tam khung), gui KE CA
-  // khi khong lam mo. Tick lam mo chi THEM nen mo vao dung vung do.
-  // Sau OCR, khung da tu nhay ve dai chu that engine do (xem `chay`), user chinh
-  // them duoc. Srt ngoai thi dung nguyen vung user ve.
-  const ghepVideo = async (): Promise<void> => {
-    if (!video || !ghepSrt || !outputDir) return
+  const xuLyVideo = async (): Promise<void> => {
+    if (!video || !outputDir) return
+
+    if (!batLamMo && !batPhuDe && !batAmThanh) {
+      setGhepLoi('Vui lòng bật ít nhất 1 tính năng (Làm mờ, Thêm phụ đề hoặc Cấu hình âm thanh).')
+      setGhep('loi')
+      return
+    }
+
+    if (batPhuDe && !ghepSrt) {
+      setGhepLoi('Vui lòng chọn tệp phụ đề (.srt).')
+      setGhep('loi')
+      return
+    }
+
+    if (batLamMo && blurRegions.length === 0) {
+      setGhepLoi('Vui lòng thêm ít nhất 1 vùng làm mờ.')
+      setGhep('loi')
+      return
+    }
+
+
+
     setGhep('chay')
     setGhepPct(0)
     setGhepLoi(null)
 
-    const coKhung = ghepMode === 'burn' && vung.y1 > vung.y0
     const off = window.api.onBurnProgress((p) => setGhepPct(p.percent < 0 ? 0 : p.percent))
     const r = await window.api.burnStart({
       video,
-      srt: ghepSrt,
+      srt: batPhuDe ? ghepSrt : null,
       outputDir,
       mode: ghepMode,
-      bandTop: coKhung ? vung.y0 : null,
-      bandBot: coKhung ? vung.y1 : null,
-      lamMo: coKhung && lamMo,
-      // Gui MUC, khong gui ti le: thang co chu video ngang/doc khac nhau, main
-      // tu chon bo tham so theo huong video (ffprobe).
-      coChu: coChu as CoChu,
-      // Chi cat khi da canh bao lech (srt dai hon video) ma user van bam ghep
-      catSrt: lechSrt === 'dai'
+      blurRegions: batLamMo ? blurRegions : [],
+      lamMo: batLamMo,
+      subRegion: batPhuDe ? subRegion : undefined,
+      batAmThanh,
+      amThanhFile: batAmThanh ? amThanhFile : null,
+      amLuongGoc
     })
     off()
+
     if (!r.ok) {
       if (r.error === 'Đã huỷ.') {
         setGhep('idle')
         return
       }
-      setGhepLoi(r.error ?? 'Ghép phụ đề thất bại.')
+      setGhepLoi(r.error ?? 'Xử lý video thất bại.')
       setGhep('loi')
       return
     }
@@ -273,15 +346,13 @@ export default function ScreenText({
 
   if (!unlocked) return <div className="card muted">Tính năng đang khoá.</div>
 
-  // ----- Man cai cong cu (giong tab Douyin / Phu de) -----
   if (hasEngine === false) {
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">🔍 Cần tải công cụ Dịch màn hình</div>
           <p className="muted">
-            Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b> (không cần mạng sau khi tải,
-            không gửi dữ liệu đi đâu). Bấm để tải một lần (~230MB), sau đó dùng thoải mái.
+            Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b>. Bấm để tải một lần (~230MB).
           </p>
           {installing ? (
             <>
@@ -302,22 +373,6 @@ export default function ScreenText({
   }
 
   const dangChay = buoc === 'doc' || buoc === 'dich'
-
-  // Danh sach .srt co the ghep: ban OCR (dich/goc) + ban .srt co san
-  const dsSrt: { path: string; nhan: string }[] = []
-  if (ketQua.length > 1) {
-    dsSrt.push({ path: ketQua[1], nhan: 'Bản dịch — ' })
-    dsSrt.push({ path: ketQua[0], nhan: 'Bản gốc — ' })
-  } else if (ketQua.length === 1) {
-    dsSrt.push({ path: ketQua[0], nhan: 'Bản đọc được — ' })
-  }
-  if (srtNgoai && !ketQua.includes(srtNgoai)) {
-    dsSrt.push({ path: srtNgoai, nhan: 'Có sẵn — ' })
-  }
-
-  // Canh bao khi .srt lech han so voi video (hay gap voi luong "chon file co san":
-  // chon nham file cua video khac). Chi canh bao, VAN cho ghep — co truong hop
-  // co y (vd chi lam phu de cho doan dau).
   const phut = (s: number): string => {
     const t = Math.round(s)
     return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
@@ -331,14 +386,8 @@ export default function ScreenText({
           : null
       : null
 
-  // Xem truoc vung lam mo tren khung: chi khi da co phu de de ghep + dang bat
-  // lam mo (dot chet). Khong bat luc dang khoanh vung DE DOC (can thay chu de canh).
-  const xemMoVung =
-    ghepMode === 'burn' && lamMo && (buoc === 'xong' || !!srtNgoai)
-
   return (
     <div className="lam-viec">
-      {/* ---------- COT GIUA: cau hinh ---------- */}
       <div className="cot-cauhinh">
         <div className="cot-tieude">Cấu hình</div>
 
@@ -347,10 +396,6 @@ export default function ScreenText({
             🎞 Chọn video
           </button>
           {video && <div className="muted small ocr-ten">{baseName(video)}</div>}
-          <div className="muted small">
-            Dành cho video <b>chỉ có chữ chạy, không có tiếng</b> — thứ mà tab Phụ đề bó tay vì
-            không có gì để nghe.
-          </div>
         </div>
 
         <div className="card options-card">
@@ -375,20 +420,73 @@ export default function ScreenText({
 
         {video && (
           <div className="card">
-            <div className="cookie-actions">
+            <div className="cot-tieude" style={{ fontSize: 13, marginBottom: 6 }}>
+              🔍 Đọc chữ trên video (OCR)
+            </div>
+
+            {/* Checkbox Cấu hình vùng quét OCR */}
+            <div style={{ marginBottom: 12 }}>
+              <label className="gk-check">
+                <input
+                  type="checkbox"
+                  checked={batOcrBox}
+                  onChange={(e) => setBatOcrBox(e.target.checked)}
+                />
+                <span>Cấu hình vùng quét OCR</span>
+              </label>
+              {batOcrBox && (
+                <div className="muted small" style={{ marginTop: 4, marginLeft: 22, color: '#eab308' }}>
+                  💡 Kéo di chuyển và kéo giãn <b>Vùng quét OCR màu vàng</b> trên màn hình xem trước để giới hạn phạm vi quét chữ.
+                </div>
+              )}
+            </div>
+
+            {/* Tùy chọn định dạng xuất file */}
+            <div style={{ marginBottom: 12 }}>
+              <div className="muted small" style={{ marginBottom: 4 }}>Định dạng xuất file:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', paddingLeft: 2 }}>
+                <label className="gk-check">
+                  <input type="checkbox" checked={fmtSrt} onChange={(e) => setFmtSrt(e.target.checked)} />
+                  <span>.srt</span>
+                </label>
+                <label className="gk-check">
+                  <input type="checkbox" checked={fmtTxt} onChange={(e) => setFmtTxt(e.target.checked)} />
+                  <span>.txt</span>
+                </label>
+                <label className="gk-check">
+                  <input type="checkbox" checked={fmtVtt} onChange={(e) => setFmtVtt(e.target.checked)} />
+                  <span>.vtt</span>
+                </label>
+                <label className="gk-check">
+                  <input type="checkbox" checked={fmtJson} onChange={(e) => setFmtJson(e.target.checked)} />
+                  <span>.json</span>
+                </label>
+              </div>
+            </div>
+
+            <div className="cookie-actions" style={{ flexDirection: 'column', gap: 8 }}>
               {!dangChay && (
-                <button className="btn primary" disabled={!outputDir} onClick={chay}>
-                  ▶ Bắt đầu đọc chữ
+                <button
+                  className="btn primary"
+                  disabled={!outputDir || !batOcrBox}
+                  onClick={chay}
+                  style={{ width: '100%', justifyContent: 'center', fontSize: 14, padding: '10px 16px' }}
+                >
+                  ▶ Bắt đầu đọc chữ OCR
                 </button>
               )}
               {buoc === 'doc' && (
-                <button className="btn danger" onClick={dung} disabled={dangDung}>
+                <button
+                  className="btn danger"
+                  onClick={dung}
+                  disabled={dangDung}
+                  style={{ width: '100%', justifyContent: 'center', fontSize: 14, padding: '10px 16px' }}
+                >
                   {dangDung ? 'Đang dừng…' : '■ Dừng'}
                 </button>
               )}
-              {buoc === 'doc' && <span className="cookie-status ok">Đang đọc… {pct}%</span>}
-              {/* Buoc dich la 1 lan goi mang, khong giet giua chung duoc -> khong co nut Dung */}
-              {buoc === 'dich' && <span className="cookie-status ok">✨ Đang dịch…</span>}
+              {buoc === 'doc' && <span className="cookie-status ok" style={{ width: '100%', textAlign: 'center' }}>Đang đọc… {pct}%</span>}
+              {buoc === 'dich' && <span className="cookie-status ok" style={{ width: '100%', textAlign: 'center' }}>✨ Đang dịch…</span>}
             </div>
             {dangChay && (
               <>
@@ -412,146 +510,212 @@ export default function ScreenText({
           </div>
         )}
 
-        {/* ---- Buoc PHU (opt-in): ghep phu de vao video de dang lai ----
-            Hien khi co video. 2 luong: (1) sau khi doc chu -> ghep ban .srt/dich;
-            (2) chon THANG file .srt co san, khong can OCR. */}
         {video && (
           <div className="card options-card">
-            <div className="cot-tieude">Ghép phụ đề vào video</div>
-            <div className="muted small">
-              Gắn phụ đề vào video để <b>đăng lại</b>, có thể <b>làm mờ phụ đề gốc</b>. Dùng bản
-              vừa đọc/dịch ở trên, hoặc chọn file phụ đề (.srt) có sẵn.
+            <div className="cot-tieude">Xử lý video (Làm mờ &amp; Phụ đề)</div>
+
+            <div style={{ marginTop: 6 }}>
+              <label className="gk-check" style={{ fontWeight: 'bold' }}>
+                <input
+                  type="checkbox"
+                  checked={batLamMo}
+                  onChange={(e) => setBatLamMo(e.target.checked)}
+                />
+                <span>1. Cấu hình vùng làm mờ video</span>
+              </label>
+
+              {batLamMo && (
+                <div style={{ paddingLeft: 22, marginTop: 8 }}>
+                  <button className="btn" onClick={addBlurRegion}>
+                    ➕ Thêm vùng làm mờ
+                  </button>
+
+                  <div className="blur-list">
+                    {blurRegions.map((r, idx) => {
+                      const isActive = r.id === activeBlurId
+                      return (
+                        <div
+                          key={r.id}
+                          className={`blur-item ${isActive ? 'active' : ''}`}
+                          onClick={() => setActiveBlurId(r.id)}
+                        >
+                          <div className="blur-color-badge" style={{ background: r.color }} />
+                          <div className="blur-toado">
+                            <b>Vùng {idx + 1}:</b> {r.y0} → {r.y1} px (Ngang: {r.x0} → {r.x1} px)
+                          </div>
+                          {blurRegions.length > 1 && (
+                            <button
+                              className="blur-del-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                removeBlurRegion(r.id)
+                              }}
+                              title="Xoá vùng làm mờ này"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <button className="btn" onClick={chonSrt}>
-              📄 Dùng file phụ đề (.srt) có sẵn
-            </button>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
 
-            {dsSrt.length === 0 ? (
-              <div className="muted small">
-                Chưa có phụ đề — đọc chữ ở trên hoặc chọn file phụ đề (.srt) có sẵn.
-              </div>
-            ) : (
-              <>
-                {dsSrt.length > 1 && (
-                  <label className="field">
-                    <span className="muted small">Ghép phụ đề nào</span>
-                    <select value={ghepSrt} onChange={(e) => setGhepSrt(e.target.value)}>
-                      {dsSrt.map((o) => (
-                        <option key={o.path} value={o.path}>
-                          {o.nhan}
-                          {baseName(o.path)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+            <div>
+              <label className="gk-check" style={{ fontWeight: 'bold' }}>
+                <input
+                  type="checkbox"
+                  checked={batPhuDe}
+                  onChange={(e) => setBatPhuDe(e.target.checked)}
+                />
+                <span>2. Cấu hình thêm phụ đề</span>
+              </label>
 
-                {lechSrt && (
-                  <div className="qwarn small">
-                    ⚠ File phụ đề dài <b>{phut(srtGiay)}</b>, video dài <b>{phut(videoGiay)}</b>
-                    {lechSrt === 'dai'
-                      ? ' — phần phụ đề vượt quá thời lượng video sẽ không hiện.'
-                      : ' — phụ đề chỉ phủ được phần đầu video.'}{' '}
-                    Có thể bạn chọn nhầm file?
-                    {lechSrt === 'dai' && ghepMode === 'soft' && (
+              {batPhuDe && (
+                <div style={{ paddingLeft: 22, marginTop: 8 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <button className="btn" onClick={chonSrt}>
+                      📄 Chọn tệp phụ đề (.srt)
+                    </button>
+                    {ghepSrt ? (
                       <div className="muted small" style={{ marginTop: 4 }}>
-                        Nếu vẫn ghép, phần phụ đề thừa sẽ được <b>cắt bỏ</b> cho vừa video.
+                        Đã chọn: <b>{baseName(ghepSrt)}</b>
+                      </div>
+                    ) : (
+                      <div className="muted small" style={{ marginTop: 4, color: '#ff6b6b' }}>
+                        * Chưa chọn tệp phụ đề .srt
                       </div>
                     )}
                   </div>
-                )}
 
-                <label className="field">
-                  <span className="muted small">Cách gắn phụ đề</span>
-                  <select
-                    value={ghepMode}
-                    onChange={(e) => setGhepMode(e.target.value as 'burn' | 'soft')}
-                  >
-                    <option value="burn">Gắn cố định vào hình (đăng lại đâu cũng còn)</option>
-                    <option value="soft">Phụ đề rời, bật/tắt được (chỉ xem trên máy)</option>
-                  </select>
-                </label>
-
-                {ghepMode === 'burn' && (
-                  <>
-                    <label className="field">
-                      <span className="muted small">Cỡ chữ</span>
-                      <select value={coChu} onChange={(e) => setCoChu(e.target.value)}>
-                        <option value="auto">Tự động (theo khung)</option>
-                        <option value="nho">Nhỏ</option>
-                        <option value="vua">Vừa</option>
-                        <option value="lon">Lớn</option>
-                        <option value="ratlon">Rất lớn</option>
-                      </select>
-                    </label>
-                    <label className="gk-check">
-                      <input type="checkbox" checked={lamMo} onChange={(e) => setLamMo(e.target.checked)} />
-                      <span>
-                        Làm mờ phụ đề gốc{' '}
-                        <span className="muted small">(thêm nền mờ vào đúng khung bên phải)</span>
-                      </span>
-                    </label>
-                    <div className="muted small">
-                      💡 <b>Khung bên phải là chỗ đặt chữ</b> — kéo khung tới đâu, phụ đề mới nằm
-                      giữa đó. Ô trên chỉ quyết định có làm mờ nền hay không.
+                  {lechSrt && ghepSrt && (
+                    <div className="qwarn small" style={{ marginBottom: 8 }}>
+                      ⚠ File phụ đề dài <b>{phut(srtGiay)}</b>, video dài <b>{phut(videoGiay)}</b>
+                      {lechSrt === 'dai'
+                        ? ' — phần phụ đề vượt quá thời lượng video sẽ không hiện.'
+                        : ' — phụ đề chỉ phủ được phần đầu video.'}
                     </div>
-                  </>
-                )}
-
-                <div className="cookie-actions">
-                  {ghep !== 'chay' && (
-                    <button className="btn primary" disabled={!ghepSrt} onClick={ghepVideo}>
-                      🎬 Ghép vào video
-                    </button>
                   )}
-                  {ghep === 'chay' && (
-                    <>
-                      <button className="btn danger" onClick={() => window.api.burnCancel()}>
-                        ■ Dừng
-                      </button>
-                      <span className="cookie-status ok">Đang ghép… {ghepPct}%</span>
-                    </>
+
+                  <label className="field">
+                    <span className="muted small">Cách gắn phụ đề</span>
+                    <select
+                      value={ghepMode}
+                      onChange={(e) => setGhepMode(e.target.value as 'burn' | 'soft')}
+                    >
+                      <option value="burn">Gắn cố định vào hình (đăng lại đâu cũng còn)</option>
+                      <option value="soft">Phụ đề rời, bật/tắt được (chỉ xem trên máy)</option>
+                    </select>
+                  </label>
+
+                  {ghepMode === 'burn' && (
+                    <div className="muted small" style={{ marginTop: 8, background: 'rgba(168, 85, 247, 0.1)', padding: 8, borderRadius: 4, border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                      💡 <b>Vị trí &amp; Cỡ chữ phụ đề:</b> Kéo di chuyển và kéo giãn <b>Khung Phụ Đề màu tím</b> trực tiếp trên khung xem trước video bên phải để điều chỉnh vị trí và cỡ chữ xuất ra.
+                    </div>
                   )}
                 </div>
-                {ghep === 'chay' && (
-                  <div className="bar" style={{ marginTop: 10, height: 8 }}>
-                    <div className="bar-fill" style={{ width: `${ghepPct}%` }} />
-                  </div>
-                )}
-                {ghep === 'chay' && ghepMode === 'burn' && (
-                  <div className="muted small" style={{ marginTop: 6 }}>
-                    Đang gắn phụ đề vào hình nên hơi lâu — video dài có thể vài phút.
-                  </div>
-                )}
-                {ghepLoi && <div className="dy-err small">{ghepLoi}</div>}
-                {ghep === 'xong' && (
-                  <div className="muted small" style={{ marginTop: 8 }}>
-                    ✅ Đã ghép ·{' '}
-                    <button className="link-btn" onClick={() => window.api.showItem(ghepOut)}>
-                      {baseName(ghepOut)}
+              )}
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
+
+            <div>
+              <label className="gk-check" style={{ fontWeight: 'bold' }}>
+                <input
+                  type="checkbox"
+                  checked={batAmThanh}
+                  onChange={(e) => setBatAmThanh(e.target.checked)}
+                />
+                <span>3. Cấu hình âm thanh</span>
+              </label>
+
+              {batAmThanh && (
+                <div style={{ paddingLeft: 22, marginTop: 8 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <button className="btn" onClick={chonAmThanh}>
+                      🎵 Chọn tệp âm thanh
                     </button>
+                    {amThanhFile ? (
+                      <div className="muted small" style={{ marginTop: 4 }}>
+                        Đã chọn: <b>{baseName(amThanhFile)}</b>
+                      </div>
+                    ) : (
+                      <div className="muted small" style={{ marginTop: 4 }}>
+                        (Không lồng nhạc mới)
+                      </div>
+                    )}
                   </div>
-                )}
-              </>
+
+                  <div className="field" style={{ marginTop: 12 }}>
+                    <span className="muted small" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Âm lượng video gốc:</span>
+                      <b style={{ color: 'var(--text)' }}>{amLuongGoc}%</b>
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={amLuongGoc}
+                      onChange={(e) => setAmLuongGoc(Number(e.target.value))}
+                      style={{ width: '100%', height: 6, borderRadius: 3, outline: 'none', background: 'var(--border)', cursor: 'pointer' }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
+
+            <div className="cookie-actions">
+              {ghep !== 'chay' && (
+                <button
+                  className="btn primary"
+                  onClick={xuLyVideo}
+                  style={{ width: '100%', justifyContent: 'center', fontSize: 14, padding: '10px 16px' }}
+                >
+                  ▶ Bắt đầu xử lý
+                </button>
+              )}
+              {ghep === 'chay' && (
+                <>
+                  <button className="btn danger" onClick={() => window.api.burnCancel()}>
+                    ■ Dừng
+                  </button>
+                  <span className="cookie-status ok">Đang xử lý… {ghepPct}%</span>
+                </>
+              )}
+            </div>
+
+            {ghep === 'chay' && (
+              <div className="bar" style={{ marginTop: 10, height: 8 }}>
+                <div className="bar-fill" style={{ width: `${ghepPct}%` }} />
+              </div>
+            )}
+            {ghepLoi && <div className="dy-err small" style={{ marginTop: 8 }}>{ghepLoi}</div>}
+            {ghep === 'xong' && (
+              <div className="muted small" style={{ marginTop: 8 }}>
+                ✅ Đã xử lý xong ·{' '}
+                <button className="link-btn" onClick={() => window.api.showItem(ghepOut)}>
+                  {baseName(ghepOut)}
+                </button>
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {/* ---------- COT PHAI: video + khung khoanh vung ---------- */}
       <div className="cot-ketqua cot-video">
-        <div className="cot-tieude">Video &amp; vùng chữ</div>
+        <div className="cot-tieude">Video &amp; Các vùng làm mờ</div>
         {video ? (
           <>
             <div className="muted small">
-              Kéo khung để trùm lên <b>chỗ chữ chạy</b>. Kéo mép trên/dưới để co giãn. Chữ ngoài
-              khung (logo, tiêu đề, watermark) sẽ bị bỏ qua.
+              Xem trước video và điều chỉnh vị trí các <b>vùng làm mờ</b>.
             </div>
             <div className="ocr-sanh">
-              {/* aspect-ratio = ti le THAT cua video -> khung tu co vua o xem,
-                  video doc khong con tran ra ngoai. Chua biet kich thuoc (chua
-                  nap xong) thi de trong, khoi nhay giat. */}
               <div
                 className="ocr-video"
                 style={videoW > 0 && videoH > 0 ? { aspectRatio: `${videoW} / ${videoH}` } : undefined}
@@ -566,19 +730,28 @@ export default function ScreenText({
                 />
                 {videoH > 0 && (
                   <RegionBox
-                    vung={vung}
-                    setVung={setVung}
+                    regions={batLamMo ? blurRegions : []}
+                    activeId={activeBlurId}
+                    setActiveId={setActiveBlurId}
+                    updateRegion={updateBlurRegion}
+                    removeRegion={removeBlurRegion}
+                    hienSubBox={batPhuDe}
+                    subRegion={subRegion}
+                    setSubRegion={setSubRegion}
+                    hienOcrBox={batOcrBox}
+                    ocrRegion={ocrRegion}
+                    setOcrRegion={setOcrRegion}
                     videoH={videoH}
+                    videoW={videoW}
                     boxH={boxH}
-                    xemMo={xemMoVung}
+                    xemMo={batLamMo}
                   />
                 )}
               </div>
             </div>
             {videoH > 0 && (
               <div className="muted small ocr-toado">
-                Video {videoW}×{videoH} · {xemMoVung ? 'vùng làm mờ' : 'vùng đang chọn'}:{' '}
-                {vung.y0} → {vung.y1} px
+                Video {videoW}×{videoH} · Đang có {blurRegions.length} vùng làm mờ
               </div>
             )}
           </>

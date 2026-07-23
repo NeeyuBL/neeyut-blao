@@ -53,6 +53,8 @@ const NHAN_LOI: [RegExp, string][] = [
   [/ENOENT|not found|no such file/i, 'thiếu tệp hoặc công cụ'],
   [/ENOSPC|disk.?full|no space/i, 'ổ đĩa đã đầy'],
   [/EACCES|EPERM|denied/i, 'không đủ quyền ghi'],
+  [/\bdll\b|import.?error|module.?not.?found/i, 'thiếu thư viện hệ thống (vui lòng cài Microsoft Visual C++ Redistributable)'],
+  [/illegal instruction|\b3221225501\b|-\b1073741795\b|\b0xC000001D\b/i, 'CPU không hỗ trợ (yêu cầu tập lệnh AVX/AVX2)'],
   // `fetch failed` la thu Node nem ra khi MAT MANG — khong chua chu "network"
   // nao ca, nen phai bat rieng, khong thi user chi thay "lỗi không xác định"
   // trong khi ho chi can cam lai wifi.
