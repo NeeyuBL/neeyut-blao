@@ -31,7 +31,7 @@ jobs:
       - name: Build Douyin Engine (macOS)
         run: |
           cd engines/douyin-engine
-          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt || pip install requests pyyaml rich pydantic aiohttp aiofiles aiosqlite python-dateutil; fi
           if [ -f "dy-engine.spec" ]; then
             pyinstaller dy-engine.spec
           else
@@ -45,7 +45,7 @@ jobs:
       - name: Build Whisper Engine (macOS)
         run: |
           cd engines/whisper-engine
-          pip install faster-whisper ctranslate2 onnxruntime sentencepiece tokenizers sherpa_onnx wtpsplit_lite || true
+          pip install faster-whisper ctranslate2 onnxruntime sentencepiece tokenizers sherpa_onnx wtpsplit_lite av || true
           if [ -f "whisper-engine.spec" ]; then
             pyinstaller whisper-engine.spec
           else
