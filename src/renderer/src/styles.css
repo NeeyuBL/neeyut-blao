@@ -1445,6 +1445,132 @@ select {
   margin-top: 4px;
 }
 
+/* ---- He sinh thai Neeyu — the quang cao ---- */
+.eco {
+  padding: 20px 24px 28px;
+  overflow: auto;
+}
+.eco-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.eco-promo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 14px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.eco-logo {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--panel-2);
+  cursor: pointer;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.eco-logo:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+.eco-logo-img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+.eco-logo-letter {
+  font-size: 52px;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.eco-logo-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 5px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.eco-logo:hover .eco-logo-hint {
+  opacity: 1;
+}
+.eco-name {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  text-align: center;
+}
+.eco-name:hover {
+  opacity: 0.85;
+}
+.eco-blurb-box {
+  width: 100%;
+  min-height: 72px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.eco-blurb-box p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+  text-align: center;
+}
+.eco-preview-modal {
+  width: min(720px, 100%);
+}
+.eco-preview-body {
+  align-items: center;
+}
+.eco-preview-img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.eco-preview-placeholder {
+  width: 100%;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: var(--panel-2);
+}
+
 /* 3 nut lien ket o cuoi sidebar (duoi muc Giay phep): GitHub / Lien he / Cafe */
 .side-links {
   display: flex;
@@ -1484,12 +1610,47 @@ select {
   align-items: center;
   text-align: center;
 }
+.qr-zoom-wrap {
+  width: 100%;
+  max-width: 300px;
+  max-height: 360px;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+}
 .qr-img {
   width: 100%;
   max-width: 300px;
   height: auto;
   border-radius: 10px;
   border: 1px solid var(--border);
+  transform-origin: center center;
+  transition: transform 0.05s linear;
+  user-select: none;
+}
+.qr-zoom-hint {
+  margin-top: -4px;
+  opacity: 0.75;
+  font-size: 11px;
+}
+.zalo-link {
+  display: inline-block;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 600;
+  word-break: break-all;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.zalo-link:hover {
+  opacity: 0.85;
 }
 
 /* ---- Cookie panel ---- */

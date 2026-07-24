@@ -1,5 +1,5 @@
 import type { JSX } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SetupScreen from './components/SetupScreen'
 import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
@@ -7,14 +7,16 @@ import AudioText from './components/AudioText'
 import ScreenText from './components/ScreenText'
 import License from './components/License'
 import Logs from './components/Logs'
+import EcoNeeyu from './components/EcoNeeyu'
 import qrImg from './assets/qr.jpg'
+import zaloImg from './assets/zalo.jpg'
 import type { UpdateStatus } from '../../shared/types'
 
 const REPO_URL = 'https://github.com/NeeyuBL/neeyut-blao'
-const LIEN_HE_URL = 'https://t.me/neeyutblao'
+const ZALO_URL = 'https://zalo.me/g/sctlgzzn07wpiez8rbbc'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'logs' | 'license'
+type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'eco' | 'logs' | 'license'
 
 interface Tab {
   key: TabKey
@@ -55,6 +57,13 @@ const TABS: Tab[] = [
     // Anh em voi tab Phu de: mot ben tu TIENG, mot ben tu HINH.
     // Danh cho video chi co chu chay, khong co tieng -> tab Phu de bo tay.
     subtitle: 'Đọc chữ chạy trên video → tạo phụ đề .srt'
+  },
+  {
+    key: 'eco',
+    label: 'Hệ sinh thái Neeyu',
+    icon: '🌐',
+    title: 'Hệ sinh thái Neeyu',
+    subtitle: 'Các công cụ & ứng dụng trong bộ Neeyu'
   }
 ]
 
@@ -88,6 +97,9 @@ export default function App(): JSX.Element {
   // "Hop thu" gui file tu tab Tai xuong sang tab Audio->Text (nut "Lay sub")
   const [subInbox, setSubInbox] = useState<{ path: string; id: string } | null>(null)
   const [hienQr, setHienQr] = useState(false) // bang QR ung ho (nut Cafe)
+  const [hienLienHe, setHienLienHe] = useState(false) // bang Zalo (nut Lien he)
+  const [qrZoom, setQrZoom] = useState(1) // phong to/thu nho anh QR (Ctrl + lan chuot)
+  const qrZoomRef = useRef<HTMLDivElement>(null)
 
   const sendToSub = (filePath: string): void => {
     setSubInbox({ path: filePath, id: crypto.randomUUID() })
@@ -119,14 +131,36 @@ export default function App(): JSX.Element {
     return offUpd
   }, [])
 
-  // Bam Esc dong bang QR
+  // Bam Esc dong bang QR / Lien he
   useEffect(() => {
-    if (!hienQr) return
+    if (!hienQr && !hienLienHe) return
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setHienQr(false)
+      if (e.key !== 'Escape') return
+      setHienQr(false)
+      setHienLienHe(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
+  }, [hienQr, hienLienHe])
+
+  // Mo bang Cafe -> reset zoom ve 1x
+  useEffect(() => {
+    if (hienQr) setQrZoom(1)
+  }, [hienQr])
+
+  // Ctrl + lan chuot phong to/thu nho anh QR trong bang Cafe
+  useEffect(() => {
+    if (!hienQr) return
+    const el = qrZoomRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent): void => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const step = e.deltaY < 0 ? 0.15 : -0.15
+      setQrZoom((z) => Math.min(4, Math.max(0.5, Math.round((z + step) * 100) / 100)))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
   }, [hienQr])
 
   if (stage === 'checking') {
@@ -178,7 +212,7 @@ export default function App(): JSX.Element {
             <button className="side-link" onClick={() => window.api.openExternal(REPO_URL)}>
               <span className="side-link-ico">🐙</span> GitHub
             </button>
-            <button className="side-link" onClick={() => window.api.openExternal(LIEN_HE_URL)}>
+            <button className="side-link" onClick={() => setHienLienHe(true)}>
               <span className="side-link-ico">✈️</span> Liên hệ
             </button>
             <button className="side-link" onClick={() => setHienQr(true)}>
@@ -238,6 +272,7 @@ export default function App(): JSX.Element {
           <div className={`tab-pane ${tab === 'screen' ? '' : 'hidden'}`}>
             <ScreenText outputDir={outputDir} setOutputDir={updateOutputDir} />
           </div>
+          {tab === 'eco' && <EcoNeeyu />}
           {tab === 'logs' && <Logs />}
           {tab === 'license' && <License />}
         </div>
@@ -254,8 +289,45 @@ export default function App(): JSX.Element {
               </button>
             </div>
             <div className="modal-body qr-body">
-              <img src={qrImg} alt="Mã QR ủng hộ" className="qr-img" />
-              <p className="muted small">Cảm ơn bạn đã ủng hộ T-blao 💛</p>
+              <div className="qr-zoom-wrap" ref={qrZoomRef} title="Giữ Ctrl + lăn chuột để phóng to/thu nhỏ">
+                <img
+                  src={qrImg}
+                  alt="Mã QR ủng hộ"
+                  className="qr-img"
+                  style={{ transform: `scale(${qrZoom})` }}
+                  draggable={false}
+                />
+              </div>
+              <p className="muted small">
+                Cảm ơn bạn đã ủng hộ T-blao 💛
+                {qrZoom !== 1 ? ` · ${Math.round(qrZoom * 100)}%` : ''}
+              </p>
+              <p className="muted small qr-zoom-hint">Ctrl + lăn chuột để phóng to / thu nhỏ</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bang Lien he Zalo — bam ra ngoai / X / Esc de dong */}
+      {hienLienHe && (
+        <div className="modal-nen" onClick={() => setHienLienHe(false)}>
+          <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <span className="modal-title">💬 Liên hệ Zalo</span>
+              <button className="modal-x" onClick={() => setHienLienHe(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body qr-body">
+              <img src={zaloImg} alt="Zalo liên hệ" className="qr-img" />
+              <button
+                className="zalo-link"
+                onClick={() => window.api.openExternal(ZALO_URL)}
+                title={ZALO_URL}
+              >
+                {ZALO_URL}
+              </button>
+              <p className="muted small">Quét QR hoặc bấm link để vào nhóm Zalo</p>
             </div>
           </div>
         </div>
