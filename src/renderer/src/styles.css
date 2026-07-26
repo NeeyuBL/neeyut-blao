@@ -521,6 +521,30 @@ select {
   flex-direction: column;
   gap: 8px;
 }
+.gk-providers {
+  display: flex;
+  gap: 6px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.gk-prov {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.gk-prov.active {
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 0 0 1px var(--border);
+}
 .gk-row {
   display: flex;
   gap: 8px;

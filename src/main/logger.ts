@@ -53,8 +53,13 @@ const NHAN_LOI: [RegExp, string][] = [
   [/ENOENT|not found|no such file/i, 'thiếu tệp hoặc công cụ'],
   [/ENOSPC|disk.?full|no space/i, 'ổ đĩa đã đầy'],
   [/EACCES|EPERM|denied/i, 'không đủ quyền ghi'],
-  [/\bdll\b|import.?error|module.?not.?found/i, 'thiếu thư viện hệ thống (vui lòng cài Microsoft Visual C++ Redistributable)'],
+  [/\bdll\b|import.?error|module.?not.?found|vcruntime|msvcp\d/i, 'thiếu thư viện hệ thống (vui lòng cài Microsoft Visual C++ Redistributable)'],
   [/illegal instruction|\b3221225501\b|-\b1073741795\b|\b0xC000001D\b/i, 'CPU không hỗ trợ (yêu cầu tập lệnh AVX/AVX2)'],
+  // Access violation / crash cung (Windows) — thu gap o OCR/DirectML tren 1 so may
+  [/\b3221225477\b|-\b1073741819\b|\b0xC0000005\b|access.?violation/i, 'công cụ bị sập (thử tắt tăng tốc GPU hoặc cài lại công cụ)'],
+  [/onnxruntime|directml|dml.?execution|cuda.?error|gpu.?device/i, 'lỗi tăng tốc GPU — thử chạy lại hoặc cập nhật driver'],
+  [/ffmpeg|invalid data|could not find codec|error while decoding/i, 'không đọc được video (định dạng/codec lỗi)'],
+  [/không tách được khung|no frames/i, 'không tách được khung hình từ video'],
   // `fetch failed` la thu Node nem ra khi MAT MANG — khong chua chu "network"
   // nao ca, nen phai bat rieng, khong thi user chi thay "lỗi không xác định"
   // trong khi ho chi can cam lai wifi.
@@ -71,6 +76,9 @@ const NHAN_LOI: [RegExp, string][] = [
 export function errLabel(raw: unknown): string {
   const s = raw instanceof Error ? raw.message : String(raw ?? '')
   for (const [re, nhan] of NHAN_LOI) if (re.test(s)) return nhan
+  // Process chet ma khong de lai message — it nhat giu ma thoat de ho tro.
+  const ma = s.match(/(?:^|[\s:])(?:code|thoát mã)\s*(-?\d+)/i)
+  if (ma) return `lỗi không xác định (mã ${ma[1]})`
   return 'lỗi không xác định'
 }
 

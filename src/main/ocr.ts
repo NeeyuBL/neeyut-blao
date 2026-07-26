@@ -3,7 +3,8 @@ import { access, chmod, mkdir, readdir, readFile, writeFile, rm } from 'node:fs/
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
 import { ASSET_BASE, binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
-import { debugRaw, errLabel, logInfo } from './logger'
+import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
+import { debugRaw, errLabel, logError, logInfo } from './logger'
 import type { OcrEngineStatus, OcrProgress, OcrResult } from '../shared/types'
 
 const isWin = process.platform === 'win32'
@@ -34,7 +35,8 @@ async function exists(p: string): Promise<boolean> {
 }
 
 export async function ocrEngineStatus(): Promise<OcrEngineStatus> {
-  return { has: await exists(enginePath()) }
+  const has = await exists(enginePath())
+  return { has, needsUpdate: await engineNeedsUpdate('ocr', has) }
 }
 
 export async function installOcrEngine(onProgress: (p: number) => void): Promise<void> {
@@ -43,12 +45,13 @@ export async function installOcrEngine(onProgress: (p: number) => void): Promise
   logInfo('Dịch màn hình: đang tải công cụ (~230MB)…')
   await downloadFile(`${BASE}/${asset()}`, zip, onProgress)
   logInfo('Dịch màn hình: đang giải nén…')
+  await rm(engineDir(), { recursive: true, force: true })
   await extractZip(zip, binDir())
-  const { rm } = await import('node:fs/promises')
   await rm(zip, { force: true })
   if (!isWin && (await exists(enginePath()))) {
     await chmod(enginePath(), 0o755)
   }
+  await markEngineInstalled('ocr')
   logInfo('Dịch màn hình: đã cài xong công cụ.')
 }
 
@@ -212,7 +215,9 @@ export async function ocrVideo(
     p.on('error', (err) => {
       debugRaw('ocr spawn', err)
       child = null
-      resolve({ ok: false, error: errLabel(err) })
+      const nhan = errLabel(err)
+      logError(`Dịch màn hình: ${nhan}`)
+      resolve({ ok: false, error: nhan })
     })
 
     p.on('close', async (code) => {
@@ -265,7 +270,9 @@ export async function ocrVideo(
       }
       const raw = errMsg || errTail || `code ${code}`
       debugRaw('ocr close', raw)
-      resolve({ ok: false, error: errLabel(raw) })
+      const nhan = errLabel(raw)
+      logError(`Dịch màn hình: ${nhan}`)
+      resolve({ ok: false, error: nhan })
     })
   })
 }

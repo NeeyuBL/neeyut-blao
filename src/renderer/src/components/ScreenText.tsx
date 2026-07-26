@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { BlurRegion } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
+import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
 import RegionBox, { type Region } from './RegionBox'
 import GeminiKey from './GeminiKey'
@@ -84,7 +85,26 @@ export default function ScreenText({
   const unlocked = hasFeature('ocr')
 
   useEffect(() => {
-    void window.api.ocrEngineStatus().then((s) => setHasEngine(s.has))
+    let huy = false
+    void (async () => {
+      const s = await window.api.ocrEngineStatus()
+      if (huy) return
+      setHasEngine(s.has)
+      if (!s.needsUpdate) return
+      setInstalling(true)
+      setInstallErr(null)
+      setInstallPct(0)
+      const off = window.api.onOcrInstallProgress(setInstallPct)
+      const res = await window.api.ocrInstallEngine()
+      off()
+      if (huy) return
+      setInstalling(false)
+      if (res.ok) setHasEngine(true)
+      else setInstallErr(res.error ?? 'Cập nhật công cụ thất bại.')
+    })()
+    return () => {
+      huy = true
+    }
   }, [])
 
   useEffect(() => {
@@ -272,7 +292,7 @@ export default function ScreenText({
     if (dich !== 'none' && r.output) {
       setBuoc('dich')
       const out = r.output.replace(/\.srt$/i, `.${dich}.srt`)
-      const t = await window.api.geminiTranslateSrt(r.output, out, dich)
+      const t = await window.api.translateSrt(r.output, out, dich, readDichProvider())
       if (t.ok) ra.push(out)
       else setLoi(`Dịch: ${t.error}`)
     }
@@ -346,20 +366,32 @@ export default function ScreenText({
 
   if (!unlocked) return <div className="card muted">Tính năng đang khoá.</div>
 
-  if (hasEngine === false) {
+  if (hasEngine === false || installing) {
+    const dangCapNhat = hasEngine === true
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
-          <div className="dy-install-title">🔍 Cần tải công cụ Dịch màn hình</div>
+          <div className="dy-install-title">
+            {dangCapNhat ? '🔄 Đang cập nhật công cụ Dịch màn hình' : '🔍 Cần tải công cụ Dịch màn hình'}
+          </div>
           <p className="muted">
-            Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b>. Bấm để tải một lần (~230MB).
+            {dangCapNhat ? (
+              <>Đã có bản công cụ mới — đang tải và cài đè bản cũ (~230MB).</>
+            ) : (
+              <>
+                Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b>. Bấm để tải một lần
+                (~230MB).
+              </>
+            )}
           </p>
           {installing ? (
             <>
               <div className="bar">
                 <div className="bar-fill" style={{ width: `${installPct}%` }} />
               </div>
-              <div className="muted small">Đang tải công cụ… {installPct}%</div>
+              <div className="muted small">
+                {dangCapNhat ? 'Đang cập nhật' : 'Đang tải'} công cụ… {installPct}%
+              </div>
             </>
           ) : (
             <button className="btn primary" onClick={caiCongCu}>

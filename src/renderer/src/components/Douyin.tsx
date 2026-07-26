@@ -41,6 +41,7 @@ export default function Douyin({
   const [cover, setCover] = usePersistedState('tblao.dy.cover', true)
   const [avatar, setAvatar] = usePersistedState('tblao.dy.avatar', false)
   const [metaJson, setMetaJson] = usePersistedState('tblao.dy.metaJson', true)
+  const [folderstyle, setFolderstyle] = usePersistedState('tblao.dy.folderstyle', true)
   const [proxy, setProxy] = usePersistedState('tblao.dy.proxy', '')
 
   const [urlInput, setUrlInput] = useState('')
@@ -57,8 +58,26 @@ export default function Douyin({
   }
 
   useEffect(() => {
-    void window.api.dyEngineStatus().then((s) => setHasEngine(s.has))
-    void window.api.dyCookieStatus().then(setCookie)
+    let huy = false
+    void (async () => {
+      const s = await window.api.dyEngineStatus()
+      if (huy) return
+      setHasEngine(s.has)
+      if (!s.needsUpdate) return
+      setInstalling(true)
+      setInstallErr(null)
+      setInstallPct(0)
+      const offInst = window.api.onDyInstallProgress(setInstallPct)
+      const res = await window.api.dyInstallEngine()
+      offInst()
+      if (huy) return
+      setInstalling(false)
+      if (res.ok) setHasEngine(true)
+      else setInstallErr(res.error ?? 'Cập nhật công cụ thất bại.')
+    })()
+    void window.api.dyCookieStatus().then((c) => {
+      if (!huy) setCookie(c)
+    })
     refreshChannels()
     const off = window.api.onDyProgress((p) => {
       setItems((prev) =>
@@ -80,7 +99,10 @@ export default function Douyin({
         )
       )
     })
-    return off
+    return () => {
+      huy = true
+      off()
+    }
   }, [])
 
   const installEngine = async (): Promise<void> => {
@@ -147,6 +169,7 @@ export default function Douyin({
     cover,
     avatar,
     metaJson,
+    folderstyle,
     proxy: proxy.trim() || null
   })
 
@@ -200,22 +223,33 @@ export default function Douyin({
   }
   const pending = items.filter((it) => it.status === 'queued' || it.status === 'error').length
 
-  // ----- Man cai engine -----
-  if (hasEngine === false) {
+  // ----- Man cai / cap nhat engine -----
+  if (hasEngine === false || installing) {
+    const dangCapNhat = hasEngine === true
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
-          <div className="dy-install-title">🎬 Cần tải công cụ Douyin</div>
+          <div className="dy-install-title">
+            {dangCapNhat ? '🔄 Đang cập nhật công cụ Douyin' : '🎬 Cần tải công cụ Douyin'}
+          </div>
           <p className="muted">
-            Douyin dùng công cụ tải chuyên biệt (khác YouTube). Bấm để tải một lần (~21MB), sau đó
-            dùng thoải mái.
+            {dangCapNhat ? (
+              <>Đã có bản công cụ mới — đang tải và cài đè bản cũ.</>
+            ) : (
+              <>
+                Douyin dùng công cụ tải chuyên biệt (khác YouTube). Bấm để tải một lần (~21MB), sau
+                đó dùng thoải mái.
+              </>
+            )}
           </p>
           {installing ? (
             <>
               <div className="bar">
                 <div className="bar-fill" style={{ width: `${installPct}%` }} />
               </div>
-              <div className="muted small">Đang tải công cụ… {installPct}%</div>
+              <div className="muted small">
+                {dangCapNhat ? 'Đang cập nhật' : 'Đang tải'} công cụ… {installPct}%
+              </div>
             </>
           ) : (
             <button className="btn primary" onClick={installEngine}>
@@ -286,6 +320,14 @@ export default function Douyin({
               onChange={(e) => setMetaJson(e.target.checked)}
             />
             Lưu thông tin (JSON)
+          </label>
+          <label className="check" title="Bật: mỗi video một thư mục con. Tắt: dồn tất cả file vào thư mục đã chọn.">
+            <input
+              type="checkbox"
+              checked={folderstyle}
+              onChange={(e) => setFolderstyle(e.target.checked)}
+            />
+            Mỗi video một thư mục riêng
           </label>
         </div>
         <div className="folder-row">

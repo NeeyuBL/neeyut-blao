@@ -1,18 +1,15 @@
-import { safeStorage } from 'electron'
+import { safeStorage, app } from 'electron'
 import { readFile, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { app } from 'electron'
 import { debugRaw, errLabel, logInfo } from './logger'
-import type { GeminiStatus, SrtBlock } from '../shared/types'
+import type { DichKeyStatus, SrtBlock } from '../shared/types'
 import { buildSrt, chia, huongDan, parseSrt } from './translate-shared'
 
-export { parseSrt, buildSrt } from './translate-shared'
-
-const BASE = 'https://generativelanguage.googleapis.com/v1beta'
+const BASE = 'https://api.openai.com/v1'
 
 // ---- Khoa cua user: ma hoa bang DPAPI (Win) / Keychain (mac) ----
 function keyFile(): string {
-  return join(app.getPath('userData'), 'gk.bin')
+  return join(app.getPath('userData'), 'ok.bin')
 }
 
 export async function saveKey(key: string): Promise<void> {
@@ -43,40 +40,38 @@ export async function hasKey(): Promise<boolean> {
 }
 
 // ---- Chon model ----
-const DU_PHONG = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash-lite']
-const LOAI = /image|imagen|tts|audio|speech|embedding|robotics|computer-use|omni/
+const DU_PHONG = ['gpt-4o-mini', 'gpt-4o']
 
 function diem(n: string): number {
-  const m = n.match(/(\d+\.\d+|\d+)/)
-  let s = (m ? parseFloat(m[1]) : 1) * 100
-  if (n.includes('flash')) s += 50
-  if (n.includes('lite')) s -= 20
-  if (n.includes('preview') || n.includes('-exp')) s -= 30
+  let s = 0
+  if (n === 'gpt-4o-mini') s += 200
+  if (n === 'gpt-4o') s += 150
+  if (n.startsWith('gpt-4o-mini')) s += 100
+  if (n.startsWith('gpt-4o')) s += 80
+  if (n.includes('mini')) s += 20
+  if (n.includes('realtime') || n.includes('audio') || n.includes('search')) s -= 100
   return s
 }
 
 async function danhSach(key: string): Promise<string[]> {
   let ds: string[] = []
   try {
-    // Cung phai co han: mat mang o day thi treo truoc khi kip goi dich.
-    const res = await fetch(`${BASE}/models?key=${key}`, { signal: AbortSignal.timeout(15_000) })
+    const res = await fetch(`${BASE}/models`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(15_000)
+    })
     if (res.ok) {
-      const d = (await res.json()) as {
-        models?: { name?: string; supportedGenerationMethods?: string[] }[]
-      }
-      ds = (d.models ?? [])
-        .filter(
-          (m) =>
-            (m.name ?? '').includes('gemini-') &&
-            (m.supportedGenerationMethods ?? []).includes('generateContent')
-        )
-        .map((m) => (m.name as string).replace('models/', ''))
+      const d = (await res.json()) as { data?: { id?: string }[] }
+      ds = (d.data ?? [])
+        .map((m) => m.id ?? '')
+        .filter((id) => id.startsWith('gpt-4o') && !id.includes('realtime') && !id.includes('audio'))
     }
   } catch {
     /* rot ve du phong */
   }
   const pool = ds.length ? ds : DU_PHONG
-  return pool.filter((n) => !LOAI.test(n)).sort((a, b) => diem(b) - diem(a))
+  const uniq = [...new Set(pool)]
+  return uniq.sort((a, b) => diem(b) - diem(a))
 }
 
 interface GenKQ {
@@ -87,34 +82,64 @@ interface GenKQ {
   err?: string
 }
 
-// fetch cua Node KHONG tu het gio. Google mo ket noi roi im -> cho VINH VIEN,
-// nut quay mai, khong co duong thoat. Bat buoc phai tu dat han.
-const HAN_KIEM = 20_000 // kiem key: 1 cau "xin chào", 20s la qua du
-const HAN_DICH = 180_000 // dich 1 chunk 20k ky tu: do that 14-60s
+const HAN_KIEM = 20_000
+const HAN_DICH = 180_000
+
+/** OpenAI json_schema bat root object — boc mang {n,t} trong `items`. */
+const SCHEMA = {
+  type: 'json_schema' as const,
+  json_schema: {
+    name: 'srt_translation',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              n: { type: 'integer' },
+              t: { type: 'string' }
+            },
+            required: ['n', 't'],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ['items'],
+      additionalProperties: false
+    }
+  }
+}
 
 async function goi(
   key: string,
   model: string,
   sys: string,
   user: string,
-  schema?: object,
+  dungSchema: boolean,
   han = HAN_DICH
 ): Promise<GenKQ> {
-  const cfg: Record<string, unknown> = { temperature: 0.2 }
-  if (schema) {
-    cfg.responseMimeType = 'application/json'
-    cfg.responseSchema = schema
-  }
+  const messages: { role: string; content: string }[] = []
+  if (sys) messages.push({ role: 'system', content: sys })
+  messages.push({ role: 'user', content: user })
+
   const body: Record<string, unknown> = {
-    contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: cfg
+    model,
+    messages,
+    temperature: 0.2
   }
-  if (sys) body.systemInstruction = { parts: [{ text: sys }] }
+  if (dungSchema) body.response_format = SCHEMA
+
   let res: Response
   try {
-    res = await fetch(`${BASE}/models/${model}:generateContent?key=${key}`, {
+    res = await fetch(`${BASE}/chat/completions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`
+      },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(han)
     })
@@ -125,8 +150,10 @@ async function goi(
     const t = await res.text()
     return { ok: false, lui: res.status === 429 || res.status >= 500, status: res.status, err: t }
   }
-  const d = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }
-  const text = (d.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('')
+  const d = (await res.json()) as {
+    choices?: { message?: { content?: string | null } }[]
+  }
+  const text = d.choices?.[0]?.message?.content ?? ''
   if (!text.trim()) return { ok: false, lui: false, status: 200, err: 'rỗng' }
   return { ok: true, text }
 }
@@ -136,76 +163,51 @@ async function goiCoLui(
   models: string[],
   sys: string,
   user: string,
-  schema?: object,
+  dungSchema: boolean,
   han?: number
 ): Promise<GenKQ> {
-  // Khong co model nao de thu -> phai bao ro, dung de rot ve "lỗi không xác định"
   if (!models.length) return { ok: false, err: 'network: không lấy được danh sách' }
   let cuoi: GenKQ = { ok: false, err: 'hết model' }
   for (const m of models) {
-    const r = await goi(key, m, sys, user, schema, han)
+    const r = await goi(key, m, sys, user, dungSchema, han)
     if (r.ok) return r
-    debugRaw(`gemini ${m}`, r.err)
+    debugRaw(`openai ${m}`, r.err)
     cuoi = r
     if (!r.lui) break
   }
   return cuoi
 }
 
-/**
- * Kiem tra khoa = gui MOT cau chao that don gian, co tra loi la khoa con song.
- * Khong system instruction, khong schema — cang it thu cang it cho hong.
- * UI chi duoc bao dung/khong: khong ten model, khong so lieu.
- */
-export async function checkKey(key: string): Promise<GeminiStatus> {
+export async function checkKey(key: string): Promise<DichKeyStatus> {
   const k = key.trim() || (await loadKey())
   if (!k) return { ok: false, message: 'Chưa nhập API key.' }
 
   const models = await danhSach(k)
   if (!models.length) return { ok: false, message: 'Kiểm tra thất bại: lỗi kết nối mạng.' }
 
-  // Co mang thi Google LUON tra loi — chi la tra bang loi. Nen ket luan "khoa
-  // chet" chi duoc rut ra khi da di HET danh sach ma khong cai nao tra loi.
-  // (Truoc day chi thu 5 -> 5 cai dau ket hạn la bao chet, trong khi nhung cai
-  //  sau van song -> bao oan.)
   let ketHan = 0
   let loiKhac = ''
   for (const m of models) {
-    const r = await goi(k, m, '', 'xin chào', undefined, HAN_KIEM)
+    const r = await goi(k, m, '', 'xin chào', false, HAN_KIEM)
     if (r.ok) return { ok: true, message: 'API KEY của bạn dùng được.' }
-    debugRaw(`checkKey ${m}`, r.err)
+    debugRaw(`openai checkKey ${m}`, r.err)
 
-    // Mat mang / het gio -> dung ngay, thu tiep cung vo ich
     if (r.status === 0) return { ok: false, message: `Kiểm tra thất bại: ${errLabel(r.err)}` }
-    // Khoa sai/bi thu hoi -> chac chan chet, khong can thu tiep
-    if (r.status === 400 || r.status === 401 || r.status === 403) {
+    if (r.status === 401 || r.status === 403) {
       return { ok: false, message: 'API KEY không dùng được. Vui lòng tạo khoá mới và dán lại.' }
     }
     if (r.status === 429) ketHan++
     else loiKhac = r.err ?? ''
   }
 
-  // Di het danh sach, khong cai nao tra loi
   if (ketHan && !loiKhac) {
     return { ok: false, message: 'API KEY đã dùng hết lượt hôm nay. Vui lòng thử lại sau.' }
   }
   return { ok: false, message: `API KEY không dùng được: ${errLabel(loiKhac)}` }
 }
 
-// ---- Dich .srt ----
-const SCHEMA = {
-  type: 'ARRAY',
-  items: {
-    type: 'OBJECT',
-    properties: { n: { type: 'INTEGER' }, t: { type: 'STRING' } },
-    required: ['n', 't']
-  }
-}
-
 /**
- * Dich 1 file .srt. Timestamp KHONG bao gio gui di — giu o may, ghep lai sau.
- * Khoi nao khong co ban dich -> giu nguyen chu goc (tha 1 dong chua dich con
- * hon ca file sai gio).
+ * Dich 1 file .srt qua OpenAI. Timestamp khong gui di — ghep lai sau.
  */
 export async function translateSrt(
   srtPath: string,
@@ -221,18 +223,21 @@ export async function translateSrt(
 
   const models = await danhSach(key)
   const chunks = chia(blocks)
-  logInfo(`Dịch phụ đề: ${blocks.length} câu…`)
+  logInfo(`Dịch phụ đề (ChatGPT): ${blocks.length} câu…`)
 
   const ra: SrtBlock[] = []
   for (let i = 0; i < chunks.length; i++) {
     const c = chunks[i]
     const payload = c.map((b, j) => `${j + 1}. ${b.text}`).join('\n')
-    const r = await goiCoLui(key, models, huongDan(dich), payload, SCHEMA)
+    const r = await goiCoLui(key, models, huongDan(dich), payload, true)
     if (!r.ok) return { ok: false, error: errLabel(r.err) }
 
     let arr: { n: number; t: string }[] = []
     try {
-      arr = JSON.parse(r.text as string)
+      const parsed = JSON.parse(r.text as string) as
+        | { items?: { n: number; t: string }[] }
+        | { n: number; t: string }[]
+      arr = Array.isArray(parsed) ? parsed : (parsed.items ?? [])
     } catch {
       return { ok: false, error: 'Kết quả dịch không đọc được.' }
     }
@@ -242,6 +247,6 @@ export async function translateSrt(
   }
 
   await writeFile(outPath, buildSrt(ra), 'utf-8')
-  logInfo(`Dịch phụ đề: xong ${ra.length} câu.`)
+  logInfo(`Dịch phụ đề (ChatGPT): xong ${ra.length} câu.`)
   return { ok: true, count: ra.length }
 }

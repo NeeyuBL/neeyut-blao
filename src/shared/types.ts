@@ -117,6 +117,7 @@ export interface DouyinRequest {
   cover: boolean
   avatar: boolean
   metaJson: boolean
+  folderstyle: boolean // true = moi video 1 thu muc con; false = don het vao outputDir
   proxy: string | null
 }
 
@@ -140,6 +141,8 @@ export interface DouyinProgress {
 
 export interface DyEngineStatus {
   has: boolean
+  /** Co tren may nhung thap hon engines-manifest.json tren assets-v1. */
+  needsUpdate?: boolean
 }
 
 export interface DyCookieStatus {
@@ -173,6 +176,7 @@ export interface WhisperRequest {
 
 export interface WhisperCudaStatus {
   has: boolean // da tai + giai nen goi tang toc CUDA chua
+  needsUpdate?: boolean
 }
 
 export interface WhisperProgress {
@@ -194,11 +198,13 @@ export interface WhisperResult {
 
 export interface WhisperEngineStatus {
   has: boolean
+  needsUpdate?: boolean
 }
 
 // ---- Tab Dich man hinh (doc chu chay tren video) ----
 export interface OcrEngineStatus {
   has: boolean
+  needsUpdate?: boolean
 }
 export interface OcrProgress {
   percent: number // -1 = chua tinh duoc (dang tach khung)
@@ -266,12 +272,18 @@ export interface BurnResult {
   error?: string
 }
 
+/** Nha cung cap dich phu de bang AI. */
+export type DichProvider = 'gemini' | 'openai'
+
 /** Ket qua kiem tra API key. `message` di THANG len UI — khong duoc mang chi
  *  tiet ky thuat nao. */
 export interface GeminiStatus {
   ok: boolean
   message: string
 }
+
+/** Alias dung chung cho moi provider (cung hinh GeminiStatus). */
+export type DichKeyStatus = GeminiStatus
 
 /** 1 khoi phu de: moc thoi gian + chu. Moc thoi gian KHONG bao gio gui cho AI. */
 export interface SrtBlock {

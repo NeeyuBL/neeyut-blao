@@ -1,12 +1,13 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
-import { DICH_LANGS } from '../../../shared/types'
+import { DICH_LANGS, type DichProvider } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
 import GeminiHelp from './GeminiHelp'
+import OpenAIHelp from './OpenAIHelp'
 
 /**
- * O nhap API key + nut kiem tra + chon ngon ngu dich.
- * Dung chung cho tab Phu de va (sau nay) tab OCR.
+ * O nhap API key + chon nha cung cap (Gemini | ChatGPT) + ngon ngu dich.
+ * Dung chung cho tab Phu de va tab OCR.
  */
 export default function GeminiKey({
   dich,
@@ -15,6 +16,7 @@ export default function GeminiKey({
   dich: string
   setDich: (v: string) => void
 }): JSX.Element {
+  const [provider, setProvider] = usePersistedState<DichProvider>('tblao.dich.provider', 'gemini')
   const [key, setKey] = useState('')
   const [daLuu, setDaLuu] = useState(false)
   const [dangKiem, setDangKiem] = useState(false)
@@ -22,29 +24,43 @@ export default function GeminiKey({
   const [hienHd, setHienHd] = useState(false)
   const [moRong, setMoRong] = usePersistedState('tblao.gemini.mo', false)
 
+  /** Ghi localStorage dong bo — de tab cha doc dung provider ngay khi dich. */
+  const chonProvider = (p: DichProvider): void => {
+    setProvider(p)
+    try {
+      localStorage.setItem('tblao.dich.provider', JSON.stringify(p))
+    } catch {
+      /* bo qua */
+    }
+  }
+
   useEffect(() => {
-    void window.api.geminiHasKey().then(setDaLuu)
-  }, [])
+    setKey('')
+    setKq(null)
+    void window.api.translateHasKey(provider).then(setDaLuu)
+  }, [provider])
 
   const kiem = async (): Promise<void> => {
     setDangKiem(true)
     setKq(null)
-    if (key.trim()) await window.api.geminiSaveKey(key.trim())
-    const r = await window.api.geminiCheckKey(key.trim())
+    if (key.trim()) await window.api.translateSaveKey(provider, key.trim())
+    const r = await window.api.translateCheckKey(provider, key.trim())
     setKq(r)
     setDangKiem(false)
     if (r.ok) {
       setDaLuu(true)
-      setKey('') // khong giu khoa trong o nua — da luu ma hoa duoi may
+      setKey('')
     }
   }
 
   const xoa = async (): Promise<void> => {
-    await window.api.geminiSaveKey('')
+    await window.api.translateSaveKey(provider, '')
     setDaLuu(false)
     setKq(null)
     setDich('none')
   }
+
+  const laGemini = provider === 'gemini'
 
   return (
     <div className="card gk">
@@ -56,15 +72,47 @@ export default function GeminiKey({
 
       {moRong && (
         <div className="gk-body">
+          <div className="gk-providers" role="radiogroup" aria-label="Nhà cung cấp dịch">
+            <button
+              type="button"
+              className={`gk-prov ${laGemini ? 'active' : ''}`}
+              onClick={() => chonProvider('gemini')}
+            >
+              Gemini
+            </button>
+            <button
+              type="button"
+              className={`gk-prov ${!laGemini ? 'active' : ''}`}
+              onClick={() => chonProvider('openai')}
+            >
+              ChatGPT
+            </button>
+          </div>
+
           <p className="muted small">
-            Dùng <b>API key Google AI Studio của bạn</b> để dịch phụ đề sang mọi ngôn ngữ, chất lượng
-            cao hơn hẳn bộ dịch có sẵn. Miễn phí, khoá chỉ lưu trên máy bạn.
+            {laGemini ? (
+              <>
+                Dùng <b>API key Google AI Studio của bạn</b> để dịch phụ đề sang mọi ngôn ngữ, chất
+                lượng cao hơn hẳn bộ dịch có sẵn. Miễn phí, khoá chỉ lưu trên máy bạn.
+              </>
+            ) : (
+              <>
+                Dùng <b>API key OpenAI (ChatGPT) của bạn</b> để dịch phụ đề. Khoá chỉ lưu trên máy
+                bạn. OpenAI tính phí theo lượng dùng.
+              </>
+            )}
           </p>
 
           <div className="gk-row">
             <input
               type="password"
-              placeholder={daLuu ? '••••••••••  (đã lưu — dán khoá mới để thay)' : 'Dán API key vào đây'}
+              placeholder={
+                daLuu
+                  ? '••••••••••  (đã lưu — dán khoá mới để thay)'
+                  : laGemini
+                    ? 'Dán Gemini API key vào đây'
+                    : 'Dán OpenAI API key vào đây'
+              }
               value={key}
               onChange={(e) => setKey(e.target.value)}
               spellCheck={false}
@@ -86,20 +134,16 @@ export default function GeminiKey({
           )}
 
           <div className="muted small gk-note">
-            Việc dùng 1 API KEY quá nhiều lần trong ngày sẽ giảm chất lượng dịch.
+            {laGemini
+              ? 'Việc dùng 1 API KEY quá nhiều lần trong ngày sẽ giảm chất lượng dịch.'
+              : 'Nên dùng model gpt-4o-mini để tiết kiệm chi phí — app tự chọn model phù hợp.'}
           </div>
 
-          {/* O chon ngon ngu hien LUON, khong doi kiem tra key.
-              Moi lan kiem tra la 1 request cua user — dung bat ho dot mot lan goi
-              chi de mo khoa mot cai dropdown, nhat la khi ho biet key con song. */}
           <div className="gk-row2">
             <label className="field gk-field">
               <span className="muted small">Dịch phụ đề sang</span>
               <select value={dich} onChange={(e) => setDich(e.target.value)}>
                 <option value="none">Không dịch</option>
-                {/* value = MA ngon ngu (vi/en/…) chu khong phai nhan: ma nay
-                    dung dat ten file `video.vi.srt` — dung quy uoc trinh phat
-                    tu nap phu de. Dat "video.Tiếng Việt.srt" thi khong tu nap. */}
                 {DICH_LANGS.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.label}
@@ -114,7 +158,12 @@ export default function GeminiKey({
         </div>
       )}
 
-      {hienHd && <GeminiHelp onClose={() => setHienHd(false)} />}
+      {hienHd &&
+        (laGemini ? (
+          <GeminiHelp onClose={() => setHienHd(false)} />
+        ) : (
+          <OpenAIHelp onClose={() => setHienHd(false)} />
+        ))}
     </div>
   )
 }

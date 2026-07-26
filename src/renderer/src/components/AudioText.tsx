@@ -2,6 +2,7 @@ import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import type { GpuInfo, WhisperRequest } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
+import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
 import { useQueueRunner } from '../lib/useQueueRunner'
 import RunControls from './RunControls'
@@ -101,9 +102,43 @@ export default function AudioText({
   }
 
   useEffect(() => {
-    void window.api.whisperEngineStatus().then((s) => setHasEngine(s.has))
-    void window.api.whisperDetectGpu().then(setGpu)
-    void window.api.whisperCudaStatus().then((s) => setCudaHas(s.has))
+    let huy = false
+    void (async () => {
+      const s = await window.api.whisperEngineStatus()
+      if (huy) return
+      setHasEngine(s.has)
+      if (s.needsUpdate) {
+        setInstalling(true)
+        setInstallErr(null)
+        setInstallPct(0)
+        const offInst = window.api.onWhisperInstallProgress(setInstallPct)
+        const res = await window.api.whisperInstallEngine()
+        offInst()
+        if (huy) return
+        setInstalling(false)
+        if (res.ok) setHasEngine(true)
+        else setInstallErr(res.error ?? 'Cập nhật công cụ thất bại.')
+      }
+    })()
+    void window.api.whisperDetectGpu().then((g) => {
+      if (!huy) setGpu(g)
+    })
+    void (async () => {
+      const s = await window.api.whisperCudaStatus()
+      if (huy) return
+      setCudaHas(s.has)
+      if (!s.needsUpdate) return
+      setCudaInstalling(true)
+      setCudaErr(null)
+      setCudaPct(0)
+      const off = window.api.onWhisperCudaProgress(setCudaPct)
+      const res = await window.api.whisperInstallCuda()
+      off()
+      if (huy) return
+      setCudaInstalling(false)
+      if (res.ok) setCudaHas(true)
+      else setCudaErr(res.error ?? 'Cập nhật gói tăng tốc thất bại.')
+    })()
     const off = window.api.onWhisperProgress((p) => {
       setItems((prev) =>
         prev.map((it) =>
@@ -124,7 +159,10 @@ export default function AudioText({
         )
       )
     })
-    return off
+    return () => {
+      huy = true
+      off()
+    }
   }, [])
 
   // Nhan file gui tu tab Tai xuong ("Lay sub")
@@ -207,7 +245,7 @@ export default function AudioText({
           prev.map((x) => (x.id === it.id ? { ...x, status: 'translating' } : x))
         )
         const out = srt.replace(/\.srt$/i, `.${dich}.srt`)
-        const t = await window.api.geminiTranslateSrt(srt, out, dich)
+        const t = await window.api.translateSrt(srt, out, dich, readDichProvider())
         if (t.ok) outputs.push(out)
         else setDichErr(t.error ?? 'Dịch thất bại.')
       }
@@ -243,22 +281,34 @@ export default function AudioText({
   const pending = items.filter((it) => it.status === 'queued' || it.status === 'error').length
   const noFormat = !fmtSrt && !fmtTxt && !fmtVtt
 
-  // ----- Man cai engine -----
-  if (hasEngine === false) {
+  // ----- Man cai / cap nhat engine -----
+  if (hasEngine === false || installing) {
+    const dangCapNhat = hasEngine === true
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
-          <div className="dy-install-title">📝 Cần tải công cụ Audio→Text</div>
+          <div className="dy-install-title">
+            {dangCapNhat ? '🔄 Đang cập nhật công cụ Audio→Text' : '📝 Cần tải công cụ Audio→Text'}
+          </div>
           <p className="muted">
-            Tính năng chuyển giọng nói thành phụ đề dùng AI chạy <b>ngay trên máy bạn</b> (không cần
-            mạng sau khi tải, không lộ dữ liệu). Bấm để tải một lần (~240MB), sau đó dùng thoải mái.
+            {dangCapNhat ? (
+              <>Đã có bản công cụ mới — đang tải và cài đè bản cũ (~240MB).</>
+            ) : (
+              <>
+                Tính năng chuyển giọng nói thành phụ đề dùng AI chạy <b>ngay trên máy bạn</b> (không
+                cần mạng sau khi tải, không lộ dữ liệu). Bấm để tải một lần (~240MB), sau đó dùng
+                thoải mái.
+              </>
+            )}
           </p>
           {installing ? (
             <>
               <div className="bar">
                 <div className="bar-fill" style={{ width: `${installPct}%` }} />
               </div>
-              <div className="muted small">Đang tải công cụ… {installPct}%</div>
+              <div className="muted small">
+                {dangCapNhat ? 'Đang cập nhật' : 'Đang tải'} công cụ… {installPct}%
+              </div>
             </>
           ) : (
             <button className="btn primary" onClick={installEngine}>

@@ -1,0 +1,6 @@
+{
+  "ocr": 2,
+  "whisper": 1,
+  "douyin": 1,
+  "whisperCuda": 1
+}

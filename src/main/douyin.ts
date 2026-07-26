@@ -4,6 +4,7 @@ import { access, chmod, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { join } from 'node:path'
 import { ASSET_BASE, binDir, downloadFile } from './deps'
+import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { readDyCookies } from './douyinCookies'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import { DouyinProgress, DouyinRequest, DouyinResult, DyChannel, DyEngineStatus } from '../shared/types'
@@ -47,7 +48,8 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 export async function dyEngineStatus(): Promise<DyEngineStatus> {
-  return { has: await fileExists(enginePath()) }
+  const has = await fileExists(enginePath())
+  return { has, needsUpdate: await engineNeedsUpdate('douyin', has) }
 }
 
 export async function installDyEngine(onProgress: (percent: number) => void): Promise<void> {
@@ -55,6 +57,7 @@ export async function installDyEngine(onProgress: (percent: number) => void): Pr
   logInfo('Douyin: đang tải bộ tải Douyin…')
   await downloadFile(engineUrl(), enginePath(), onProgress)
   if (!isWin) await chmod(enginePath(), 0o755)
+  await markEngineInstalled('douyin')
   logInfo('Douyin: đã tải xong bộ tải Douyin.')
 }
 
@@ -78,7 +81,7 @@ function buildConfig(req: DouyinRequest, cookies: Record<string, string>): objec
     cover: req.cover,
     avatar: req.avatar,
     json: req.metaJson,
-    folderstyle: true,
+    folderstyle: req.folderstyle,
     mode: ['post'],
     number,
     increase,

@@ -49,7 +49,18 @@ import {
   installCudaPack
 } from './whisper'
 import { detectGpu } from './gpu'
-import { checkKey, hasKey, saveKey, translateSrt } from './gemini'
+import {
+  checkKey as geminiCheckKey,
+  hasKey as geminiHasKey,
+  saveKey as geminiSaveKey,
+  translateSrt as geminiTranslateSrt
+} from './gemini'
+import {
+  checkKey as openaiCheckKey,
+  hasKey as openaiHasKey,
+  saveKey as openaiSaveKey,
+  translateSrt as openaiTranslateSrt
+} from './openai'
 import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
 import { burnSubtitle, cancelBurn, srtGiay } from './burn'
 import {
@@ -57,7 +68,7 @@ import {
   clearDyCookies,
   dyCookieStatus
 } from './douyinCookies'
-import { DouyinRequest, WhisperRequest } from '../shared/types'
+import type { DichProvider, DouyinRequest, WhisperRequest } from '../shared/types'
 import {
   clearLogs,
   debugRaw,
@@ -417,16 +428,49 @@ function registerIpc(): void {
   // Do do dai file .srt -> renderer canh bao khi lech han so voi video
   ipcMain.handle('burn:srtGiay', async (_e, duong: string) => srtGiay(duong))
 
-  // ---- Dich phu de bang API key cua user ----
-  ipcMain.handle('gemini:hasKey', async () => hasKey())
-  ipcMain.handle('gemini:saveKey', async (_e, key: string) => saveKey(key))
-  ipcMain.handle('gemini:checkKey', async (_e, key: string) => checkKey(key))
+  // ---- Dich phu de bang API key cua user (Gemini | ChatGPT) ----
+  const isProvider = (p: unknown): p is DichProvider => p === 'gemini' || p === 'openai'
+
+  ipcMain.handle('translate:hasKey', async (_e, provider: DichProvider) => {
+    if (!isProvider(provider)) return false
+    return provider === 'openai' ? openaiHasKey() : geminiHasKey()
+  })
+  ipcMain.handle('translate:saveKey', async (_e, provider: DichProvider, key: string) => {
+    if (!isProvider(provider)) return
+    return provider === 'openai' ? openaiSaveKey(key) : geminiSaveKey(key)
+  })
+  ipcMain.handle('translate:checkKey', async (_e, provider: DichProvider, key: string) => {
+    if (!isProvider(provider)) return { ok: false, message: 'Nhà cung cấp không hợp lệ.' }
+    return provider === 'openai' ? openaiCheckKey(key) : geminiCheckKey(key)
+  })
+  ipcMain.handle(
+    'translate:translateSrt',
+    async (
+      event,
+      srtPath: string,
+      outPath: string,
+      dich: string,
+      provider: DichProvider = 'gemini'
+    ) => {
+      const p: DichProvider = isProvider(provider) ? provider : 'gemini'
+      const run = p === 'openai' ? openaiTranslateSrt : geminiTranslateSrt
+      return run(srtPath, outPath, dich, (d, t) =>
+        event.sender.send('translate:progress', { done: d, total: t })
+      )
+    }
+  )
+
+  // Alias cu — giu cho goi gemini:* van chay
+  ipcMain.handle('gemini:hasKey', async () => geminiHasKey())
+  ipcMain.handle('gemini:saveKey', async (_e, key: string) => geminiSaveKey(key))
+  ipcMain.handle('gemini:checkKey', async (_e, key: string) => geminiCheckKey(key))
   ipcMain.handle(
     'gemini:translateSrt',
     async (event, srtPath: string, outPath: string, dich: string) =>
-      translateSrt(srtPath, outPath, dich, (d, t) =>
+      geminiTranslateSrt(srtPath, outPath, dich, (d, t) => {
+        event.sender.send('translate:progress', { done: d, total: t })
         event.sender.send('gemini:progress', { done: d, total: t })
-      )
+      })
   )
 
 

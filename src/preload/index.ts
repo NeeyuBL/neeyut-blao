@@ -17,6 +17,7 @@ import {
   BurnProgress,
   BurnReq,
   BurnResult,
+  DichProvider,
   GeminiStatus,
   LogEntry,
   OcrEngineStatus,
@@ -171,7 +172,27 @@ const api = {
     return () => ipcRenderer.removeListener('burn:progress', listener)
   },
 
-  // ---- Dich phu de bang API key cua user ----
+  // ---- Dich phu de bang API key cua user (Gemini | ChatGPT) ----
+  translateHasKey: (provider: DichProvider): Promise<boolean> =>
+    ipcRenderer.invoke('translate:hasKey', provider),
+  translateSaveKey: (provider: DichProvider, key: string): Promise<void> =>
+    ipcRenderer.invoke('translate:saveKey', provider, key),
+  translateCheckKey: (provider: DichProvider, key: string): Promise<GeminiStatus> =>
+    ipcRenderer.invoke('translate:checkKey', provider, key),
+  translateSrt: (
+    srtPath: string,
+    outPath: string,
+    dich: string,
+    provider: DichProvider
+  ): Promise<{ ok: boolean; error?: string; count?: number }> =>
+    ipcRenderer.invoke('translate:translateSrt', srtPath, outPath, dich, provider),
+  onTranslateProgress: (cb: (p: { done: number; total: number }) => void): (() => void) => {
+    const listener = (_e: unknown, p: { done: number; total: number }): void => cb(p)
+    ipcRenderer.on('translate:progress', listener)
+    return () => ipcRenderer.removeListener('translate:progress', listener)
+  },
+
+  // Alias cu
   geminiHasKey: (): Promise<boolean> => ipcRenderer.invoke('gemini:hasKey'),
   geminiSaveKey: (key: string): Promise<void> => ipcRenderer.invoke('gemini:saveKey', key),
   geminiCheckKey: (key: string): Promise<GeminiStatus> => ipcRenderer.invoke('gemini:checkKey', key),

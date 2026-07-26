@@ -4,6 +4,7 @@ import { access, chmod, mkdir, readdir, rm } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { basename, join } from 'node:path'
 import { ASSET_BASE, binDir, downloadFile, extractZip } from './deps'
+import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { debugRaw, errLabel, logError, logInfo } from './logger'
 import {
   WhisperCudaStatus,
@@ -61,12 +62,14 @@ function cudaDir(): string {
 }
 
 export async function whisperCudaStatus(): Promise<WhisperCudaStatus> {
+  let has = false
   try {
     const files = await readdir(cudaDir())
-    return { has: files.some((f) => f.toLowerCase().endsWith('.dll') || f.toLowerCase().endsWith('.so')) }
+    has = files.some((f) => f.toLowerCase().endsWith('.dll') || f.toLowerCase().endsWith('.so'))
   } catch {
-    return { has: false }
+    has = false
   }
+  return { has, needsUpdate: await engineNeedsUpdate('whisperCuda', has) }
 }
 
 export async function installCudaPack(onProgress: (percent: number) => void): Promise<void> {
@@ -79,6 +82,7 @@ export async function installCudaPack(onProgress: (percent: number) => void): Pr
   await mkdir(cudaDir(), { recursive: true })
   await extractZip(zip, cudaDir())
   await rm(zip, { force: true })
+  await markEngineInstalled('whisperCuda')
   logInfo('Audio→Text: đã cài gói tăng tốc GPU.')
 }
 
@@ -92,7 +96,8 @@ async function fileExists(p: string): Promise<boolean> {
 }
 
 export async function whisperEngineStatus(): Promise<WhisperEngineStatus> {
-  return { has: await fileExists(enginePath()) }
+  const has = await fileExists(enginePath())
+  return { has, needsUpdate: await engineNeedsUpdate('whisper', has) }
 }
 
 export async function installWhisperEngine(onProgress: (percent: number) => void): Promise<void> {
@@ -105,6 +110,7 @@ export async function installWhisperEngine(onProgress: (percent: number) => void
   await extractZip(zip, binDir())
   await rm(zip, { force: true })
   if (!isWin) await chmod(enginePath(), 0o755)
+  await markEngineInstalled('whisper')
   logInfo('Audio→Text: đã cài xong engine.')
 }
 

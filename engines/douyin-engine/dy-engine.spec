@@ -1,19 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = []
 binaries = []
 hiddenimports = []
 try:
     tmp_ret = collect_all('gmssl')
-    datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+    datas += tmp_ret[0]
+    binaries += tmp_ret[1]
+    hiddenimports += tmp_ret[2]
 except Exception:
     pass
 
+# Goi local (cli/core/storage/...) — bat buoc de one-file khong thieu module
+for pkg in ('cli', 'core', 'storage', 'auth', 'config', 'control', 'utils', 'server', 'tools'):
+    try:
+        hiddenimports += collect_submodules(pkg)
+    except Exception:
+        hiddenimports.append(pkg)
 
 a = Analysis(
     ['run.py'],
-    pathex=[],
+    pathex=['.'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,

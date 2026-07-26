@@ -40,6 +40,20 @@ def test_get_save_path_creates_directories(tmp_path):
     assert "123" in str(path)
 
 
+def test_get_save_path_flat_when_folderstyle_false(tmp_path):
+    fm = FileManager(str(tmp_path))
+    path = fm.get_save_path(
+        "Author",
+        mode="post",
+        aweme_title="Title",
+        aweme_id="123",
+        folderstyle=False,
+        download_date="2024-01-01",
+    )
+    assert path == tmp_path
+    assert path.exists()
+
+
 @pytest.mark.asyncio
 async def test_download_file_atomic_write(tmp_path):
     """Downloaded file should appear only after successful completion (atomic rename)."""
