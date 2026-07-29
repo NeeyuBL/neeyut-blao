@@ -1,12 +1,13 @@
-## T-blao v0.1.10
+## T-blao v0.1.11
 
 ### Mới
-- Dịch phụ đề bằng **ChatGPT (OpenAI API)** cạnh Gemini — chọn nhà cung cấp trong card dịch AI.
-- Douyin: tuỳ chọn **Mỗi video một thư mục riêng** (bật/tắt).
-- **Tự cập nhật công cụ** (OCR / Audio→Text / Douyin): khi có bản mới trên máy chủ, app tự tải lại khi mở tab.
+- Tab **Nâng cấp video** (Video2X): upscale / tăng FPS, hàng đợi, chỉnh task dùng chung (tự nhớ), Stats / Pause / Abort.
+- Phụ đề gắn cứng: chọn **font**, màu chữ/viền, độ dày viền, nền ôm chữ; xem trước trên khung video.
+- Giấy phép app: **PolyForm Noncommercial** (phi thương mại + ghi công). Video2X (AGPL) ghi trong tab Giấy phép.
 
-### Sửa
-- Tab Dịch màn hình: thông báo lỗi rõ hơn; công cụ OCR được cập nhật trên kênh asset.
+### Công cụ
+- Engine **Video2X** trên kênh asset (`video2x-win.zip`). Lần đầu mở tab: bấm **Tải Video2X**; lần sau tự cập nhật khi có bản mới.
 
 ### Lưu ý
-- Cập nhật app lên 0.1.10 rồi mở tab Dịch màn hình một lần để nhận bản OCR mới (nếu đã từng tải công cụ).
+- Tab Nâng cấp video hiện hỗ trợ **Windows** (GPU Vulkan). macOS chưa có bản native.
+- Cần chạy `fonts:copy` trên máy build trước khi đóng gói (font không nằm trên GitHub).
