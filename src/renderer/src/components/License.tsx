@@ -1,27 +1,19 @@
 import type { JSX } from 'react'
 import { useState } from 'react'
 
-const MIT_LICENSE = `MIT License
+const POLYFORM_NC_SUMMARY = `PolyForm Noncommercial License 1.0.0
 
 Copyright (c) 2026 NeeyuBL
+Required Notice: Copyright NeeyuBL (https://github.com/NeeyuBL/neeyut-blao)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+• Được phép: dùng / sửa / chia sẻ cho mục đích PHI THƯƠNG MẠI
+  (cá nhân, học tập, nghiên cứu, tổ chức phi lợi nhuận theo định nghĩa license).
+• Bắt buộc: giữ LICENSE (hoặc URL) và dòng Required Notice khi phân phối lại.
+• Không được: dùng thương mại (bán, SaaS, tích hợp sản phẩm thương mại…)
+  trừ khi có thỏa thuận riêng với NeeyuBL.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.`
+Toàn văn: https://polyformproject.org/licenses/noncommercial/1.0.0
+File trong repo: LICENSE · NOTICE`
 
 // MIT bat buoc giu nguyen thong bao ban quyen cua tac gia goc
 const DOUYIN_MIT = `MIT License
@@ -82,6 +74,13 @@ const THIRD_PARTY: ThirdParty[] = [
     link: null,
     copyright: 'Copyright (c) 2026 jiji262',
     notice: DOUYIN_MIT
+  },
+  {
+    group: G_TOOL,
+    name: 'Video2X',
+    license: 'AGPL-3.0',
+    link: 'https://github.com/k4yt3x/video2x',
+    copyright: 'Copyright (C) K4YT3X and contributors'
   },
 
   {
@@ -204,10 +203,23 @@ export default function License(): JSX.Element {
       <section className="lic-section">
         <h3>Giấy phép T-blao</h3>
         <p className="muted small">
-          T-blao là phần mềm mã nguồn mở. Bấm để xem chi tiết giấy phép.
+          Source-available: phi thương mại + bắt buộc ghi công. Bấm để xem tóm tắt; toàn văn trong
+          file LICENSE.
         </p>
-        <LicCard title="T-blao" badge="MIT">
-          <pre className="license-text">{MIT_LICENSE}</pre>
+        <LicCard title="T-blao" badge="PolyForm-NC">
+          <>
+            <pre className="license-text">{POLYFORM_NC_SUMMARY}</pre>
+            <button
+              className="lic-link"
+              onClick={() =>
+                window.api.openExternal(
+                  'https://polyformproject.org/licenses/noncommercial/1.0.0'
+                )
+              }
+            >
+              https://polyformproject.org/licenses/noncommercial/1.0.0
+            </button>
+          </>
         </LicCard>
       </section>
 

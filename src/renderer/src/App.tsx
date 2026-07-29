@@ -5,6 +5,7 @@ import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
 import AudioText from './components/AudioText'
 import ScreenText from './components/ScreenText'
+import VideoEnhance from './components/VideoEnhance'
 import License from './components/License'
 import Logs from './components/Logs'
 import EcoNeeyu from './components/EcoNeeyu'
@@ -16,7 +17,7 @@ const REPO_URL = 'https://github.com/NeeyuBL/neeyut-blao'
 const ZALO_URL = 'https://zalo.me/g/sctlgzzn07wpiez8rbbc'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'eco' | 'logs' | 'license'
+type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'enhance' | 'eco' | 'logs' | 'license'
 
 interface Tab {
   key: TabKey
@@ -57,6 +58,13 @@ const TABS: Tab[] = [
     // Anh em voi tab Phu de: mot ben tu TIENG, mot ben tu HINH.
     // Danh cho video chi co chu chay, khong co tieng -> tab Phu de bo tay.
     subtitle: 'Đọc chữ chạy trên video → tạo phụ đề .srt'
+  },
+  {
+    key: 'enhance',
+    label: 'Nâng cấp video',
+    icon: '✨',
+    title: 'Nâng cấp video',
+    subtitle: 'Upscale & tăng FPS (Video2X)'
   },
   {
     key: 'eco',
@@ -271,6 +279,9 @@ export default function App(): JSX.Element {
               app — dung y user chot. */}
           <div className={`tab-pane ${tab === 'screen' ? '' : 'hidden'}`}>
             <ScreenText outputDir={outputDir} setOutputDir={updateOutputDir} />
+          </div>
+          <div className={`tab-pane ${tab === 'enhance' ? '' : 'hidden'}`}>
+            <VideoEnhance outputDir={outputDir} setOutputDir={updateOutputDir} />
           </div>
           {tab === 'eco' && <EcoNeeyu />}
           {tab === 'logs' && <Logs />}

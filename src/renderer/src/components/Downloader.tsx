@@ -41,7 +41,7 @@ const NAME_PRESETS: { label: string; tpl: string; ex: string }[] = [
   }
 ]
 
-type ItemStatus = 'fetching' | 'ready' | 'downloading' | 'done' | 'error'
+type ItemStatus = 'fetching' | 'ready' | 'downloading' | 'done' | 'skipped' | 'error'
 
 // Cach sap xep file vao thu muc
 type FolderMode = 'flat' | 'playlist' | 'channel'
@@ -410,7 +410,7 @@ export default function Downloader({
     patch(it.id, { status: 'downloading', progress: null, result: null, error: null })
     const result = await window.api.download(it.id, buildReq(it))
     patch(it.id, {
-      status: result.ok ? 'done' : 'error',
+      status: result.ok ? (result.skipped ? 'skipped' : 'done') : 'error',
       result,
       error: result.ok ? null : result.error
     })
@@ -418,7 +418,9 @@ export default function Downloader({
 
   const startRun = (): void => {
     if (!outputDir) return
-    const queue = items.filter((it) => it.status === 'ready' || it.status === 'error')
+    const queue = items.filter(
+      (it) => it.status === 'ready' || it.status === 'error' || it.status === 'skipped'
+    )
     void runner.run(queue, runItem)
   }
 
@@ -430,8 +432,11 @@ export default function Downloader({
     setItems([])
   }
 
-  const pending = items.filter((it) => it.status === 'ready' || it.status === 'error').length
+  const pending = items.filter(
+    (it) => it.status === 'ready' || it.status === 'error' || it.status === 'skipped'
+  ).length
   const done = items.filter((it) => it.status === 'done').length
+  const skipped = items.filter((it) => it.status === 'skipped').length
   const failed = items.filter((it) => it.status === 'error').length
 
   return (
@@ -630,23 +635,35 @@ export default function Downloader({
             </div>
 
             <div className="adv-checks">
-              <label className="check">
+              <label
+                className="check"
+                title="Lịch sử toàn cục trên máy — đổi thư mục lưu cũng vẫn bỏ qua video đã từng tải. Muốn tải lại: tắt mục này."
+              >
                 <input
                   type="checkbox"
                   checked={useArchive}
                   onChange={(e) => setUseArchive(e.target.checked)}
                 />
-                Bỏ qua file đã tải (nhớ lịch sử)
+                Bỏ qua video đã tải trước (lịch sử toàn máy)
               </label>
-              <label className="check">
+              <label
+                className="check"
+                title="Chỉ ghi đè khi file cùng tên đã có trên đĩa — không bỏ qua lịch sử tải."
+              >
                 <input
                   type="checkbox"
                   checked={forceOverwrite}
                   onChange={(e) => setForceOverwrite(e.target.checked)}
                 />
-                Ghi đè file trùng
+                Ghi đè file trùng tên
               </label>
             </div>
+            {useArchive && (
+              <div className="muted small" style={{ marginTop: 4 }}>
+                Đang bật lịch sử: video đã tải trước sẽ hiện “Bỏ qua”, không ghi file mới vào thư mục
+                hiện tại. Tắt ô trên nếu muốn tải lại.
+              </div>
+            )}
 
             {/* Cong cu tai: phien ban + cap nhat */}
             <div className="adv-tools">
@@ -788,7 +805,9 @@ export default function Downloader({
         <>
           <div className="queue-bar">
             <div className="queue-summary muted small">
-              {items.length} mục · {done} xong{failed > 0 ? ` · ${failed} lỗi` : ''}
+              {items.length} mục · {done} xong
+              {skipped > 0 ? ` · ${skipped} bỏ qua` : ''}
+              {failed > 0 ? ` · ${failed} lỗi` : ''}
             </div>
             <div className="queue-actions">
               <button className="btn" onClick={clearAll} disabled={runner.active}>
@@ -814,6 +833,7 @@ export default function Downloader({
                 selKind={kind}
                 selHeight={height}
                 folderMode={folderMode}
+                outputDir={outputDir}
                 onRemove={() => removeItem(it.id)}
                 onPickFormat={() => openFormatPicker(it)}
                 onClearFormat={() => clearFormat(it.id)}
@@ -1143,6 +1163,8 @@ function statusLabel(it: QueueItem): string {
       }
     case 'done':
       return 'Xong'
+    case 'skipped':
+      return 'Bỏ qua'
     case 'error':
       return 'Lỗi'
   }
@@ -1153,6 +1175,7 @@ function QueueRow({
   selKind,
   selHeight,
   folderMode,
+  outputDir,
   onRemove,
   onPickFormat,
   onClearFormat,
@@ -1162,6 +1185,7 @@ function QueueRow({
   selKind: DownloadKind
   selHeight: number | null
   folderMode: FolderMode
+  outputDir: string
   onRemove: () => void
   onPickFormat: () => void
   onClearFormat: () => void
@@ -1217,9 +1241,16 @@ function QueueRow({
           </div>
         )}
 
-        {folderHint && item.status !== 'downloading' && item.status !== 'done' && (
+        {folderHint && item.status !== 'downloading' && (
           <div className="qfolder muted small" title={folderHint}>
             📁 {folderHint}
+          </div>
+        )}
+
+        {item.status === 'skipped' && (
+          <div className="qwarn small">
+            Video này đã có trong lịch sử tải — không ghi file mới. Tắt “Bỏ qua video đã tải trước”
+            rồi tải lại nếu cần.
           </div>
         )}
 
@@ -1287,6 +1318,15 @@ function QueueRow({
                 📝
               </button>
             </>
+          )}
+          {item.status === 'skipped' && outputDir && (
+            <button
+              className="ibtn"
+              title="Mở thư mục lưu"
+              onClick={() => window.api.openPath(outputDir)}
+            >
+              📂
+            </button>
           )}
           {item.status !== 'downloading' && (
             <button className="ibtn" title="Xóa khỏi hàng đợi" onClick={onRemove}>

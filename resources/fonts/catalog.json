@@ -1,0 +1,604 @@
+[
+  {
+    "id": "arial",
+    "label": "Arial",
+    "file": "arial.ttf",
+    "family": "Arial",
+    "group": "Latin"
+  },
+  {
+    "id": "arialbd",
+    "label": "Arial Bold",
+    "file": "arialbd.ttf",
+    "family": "Arial Bold",
+    "group": "Latin"
+  },
+  {
+    "id": "times",
+    "label": "Times New Roman",
+    "file": "times.ttf",
+    "family": "Times New Roman",
+    "group": "Latin"
+  },
+  {
+    "id": "timesbd",
+    "label": "Times New Roman Bold",
+    "file": "timesbd.ttf",
+    "family": "Times New Roman Bold",
+    "group": "Latin"
+  },
+  {
+    "id": "verdana",
+    "label": "Verdana",
+    "file": "verdana.ttf",
+    "family": "Verdana",
+    "group": "Latin"
+  },
+  {
+    "id": "verdanab",
+    "label": "Verdana Bold",
+    "file": "verdanab.ttf",
+    "family": "Verdana Bold",
+    "group": "Latin"
+  },
+  {
+    "id": "georgia",
+    "label": "Georgia",
+    "file": "georgia.ttf",
+    "family": "Georgia",
+    "group": "Latin"
+  },
+  {
+    "id": "georgiab",
+    "label": "Georgia Bold",
+    "file": "georgiab.ttf",
+    "family": "Georgia Bold",
+    "group": "Latin"
+  },
+  {
+    "id": "tahoma",
+    "label": "Tahoma",
+    "file": "tahoma.ttf",
+    "family": "Tahoma",
+    "group": "Latin"
+  },
+  {
+    "id": "tahomabd",
+    "label": "Tahoma Bold",
+    "file": "tahomabd.ttf",
+    "family": "Tahoma Bold",
+    "group": "Latin"
+  },
+  {
+    "id": "impact",
+    "label": "Impact",
+    "file": "impact.ttf",
+    "family": "Impact",
+    "group": "Latin"
+  },
+  {
+    "id": "UTM_Avo",
+    "label": "UTM Avo",
+    "file": "UTM Avo.ttf",
+    "family": "UTM Avo",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_AvoBold",
+    "label": "UTM AvoBold",
+    "file": "UTM AvoBold.ttf",
+    "family": "UTMAvoBold",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Aptima",
+    "label": "UTM Aptima",
+    "file": "UTM Aptima.ttf",
+    "family": "UTM Aptima",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_AptimaBold",
+    "label": "UTM AptimaBold",
+    "file": "UTM AptimaBold.ttf",
+    "family": "UTMAptimaBold",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Helvetins",
+    "label": "UTM Helvetins",
+    "file": "UTM Helvetins.ttf",
+    "family": "UTM HelvetIns",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Neo_Sans_Intel",
+    "label": "UTM Neo Sans Intel",
+    "file": "UTM Neo Sans Intel.ttf",
+    "family": "UTM Neo Sans Intel",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Neo_Sans_IntelBold",
+    "label": "UTM Neo Sans IntelBold",
+    "file": "UTM Neo Sans IntelBold.ttf",
+    "family": "UTMNeoSansIntelBold",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Facebook",
+    "label": "UTM Facebook",
+    "file": "UTM Facebook.ttf",
+    "family": "UTM Facebook",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Bebas",
+    "label": "UTM Bebas",
+    "file": "UTM Bebas.ttf",
+    "family": "UTM Bebas",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Times",
+    "label": "UTM Times",
+    "file": "UTM Times.ttf",
+    "family": "UTM Times",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Centur",
+    "label": "UTM Centur",
+    "file": "UTM Centur.ttf",
+    "family": "UTM Centur",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Caviar",
+    "label": "UTM Caviar",
+    "file": "UTM Caviar.ttf",
+    "family": "UTM Caviar",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Micra",
+    "label": "UTM Micra",
+    "file": "UTM Micra.ttf",
+    "family": "UTM Micra",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_American_Sans",
+    "label": "UTM American Sans",
+    "file": "UTM American Sans.ttf",
+    "family": "UTM American Sans",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Amerika_Sans",
+    "label": "UTM Amerika Sans",
+    "file": "UTM Amerika Sans.ttf",
+    "family": "UTM Amerika Sans",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_BryantLG",
+    "label": "UTM BryantLG",
+    "file": "UTM BryantLG.ttf",
+    "family": "UTM BryantLG",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Nokia",
+    "label": "UTM Nokia",
+    "file": "UTM Nokia.ttf",
+    "family": "UTM Nokia",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Neutra",
+    "label": "UTM Neutra",
+    "file": "UTM Neutra.ttf",
+    "family": "UTM Neutra",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Swiss_721_Black_Condensed",
+    "label": "UTM Swiss 721 Black Condensed",
+    "file": "UTM Swiss 721 Black Condensed.ttf",
+    "family": "UTM Swiss 721 Black Condensed",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Eremitage",
+    "label": "UTM Eremitage",
+    "file": "UTM Eremitage.ttf",
+    "family": "UTM Eremitage",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Flamenco",
+    "label": "UTM Flamenco",
+    "file": "UTM Flamenco.ttf",
+    "family": "UTM Flamenco",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Alexander",
+    "label": "UTM Alexander",
+    "file": "UTM Alexander.ttf",
+    "family": "UTM Alexander",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Aurora",
+    "label": "UTM Aurora",
+    "file": "UTM Aurora.ttf",
+    "family": "UTM Aurora",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Bienvenue",
+    "label": "UTM Bienvenue",
+    "file": "UTM Bienvenue.ttf",
+    "family": "UTM Bienvenue",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Cookies",
+    "label": "UTM Cookies",
+    "file": "UTM Cookies.ttf",
+    "family": "UTM Cookies",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Nyala",
+    "label": "UTM Nyala",
+    "file": "UTM Nyala.ttf",
+    "family": "UTM Nyala",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Ong_Do_Gia",
+    "label": "UTM Ong Do Gia",
+    "file": "UTM Ong Do Gia.ttf",
+    "family": "UTM Ong Do Gia",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Ong_Do_Tre",
+    "label": "UTM Ong Do Tre",
+    "file": "UTM Ong Do Tre.ttf",
+    "family": "UTM Ong Do Tre",
+    "group": "UTM"
+  },
+  {
+    "id": "UTM_Mabella",
+    "label": "UTM Mabella",
+    "file": "UTM Mabella.ttf",
+    "family": "UTM Mabella",
+    "group": "UTM"
+  },
+  {
+    "id": "UVF_Chopin_Script",
+    "label": "UVF Chopin Script",
+    "file": "UVF Chopin Script.ttf",
+    "family": "UVF Chopin Script",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_Fiolex_Girl",
+    "label": "UVF Fiolex Girl",
+    "file": "UVF Fiolex Girl.ttf",
+    "family": "UVF Fiolex Girls",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_SlimTony",
+    "label": "UVF SlimTony",
+    "file": "UVF SlimTony.ttf",
+    "family": "UVF Slim Tony",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_Voyage_Regular",
+    "label": "UVF Voyage Regular",
+    "file": "UVF Voyage Regular.otf",
+    "family": "UVFVoyage",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_BellissimaScriptPro",
+    "label": "UVF BellissimaScriptPro",
+    "file": "UVF BellissimaScriptPro.otf",
+    "family": "UVFBellissimaScriptPro",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_Breathe_Pro",
+    "label": "UVF Breathe Pro",
+    "file": "UVF Breathe Pro.otf",
+    "family": "UVFBreathePro",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_You_Make_Me_Smile",
+    "label": "UVF You Make Me Smile",
+    "file": "UVF You Make Me Smile.ttf",
+    "family": "UVF YouMakeMeSmile",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_Funkydori",
+    "label": "UVF Funkydori",
+    "file": "UVF Funkydori.ttf",
+    "family": "UVF Funkydori",
+    "group": "UVF"
+  },
+  {
+    "id": "UVF_memoriam",
+    "label": "UVF memoriam",
+    "file": "UVF memoriam.ttf",
+    "family": "UVF Memoriam Pro",
+    "group": "UVF"
+  },
+  {
+    "id": "UVNBaiHoc",
+    "label": "UVNBaiHoc",
+    "file": "UVNBaiHoc.TTF",
+    "family": "UVN Bai Hoc Bold",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNChinhLuan_R",
+    "label": "UVNChinhLuan_R",
+    "file": "UVNChinhLuan_R.TTF",
+    "family": "UVN Chinh Luan",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNNhatKy_R",
+    "label": "UVNNhatKy_R",
+    "file": "UVNNhatKy_R.TTF",
+    "family": "UVN Nhat Ky",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNSaigon_I",
+    "label": "UVNSaigon_I",
+    "file": "UVNSaigon_I.TTF",
+    "family": "UVN Saigon Italic",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNGiaDinh_I",
+    "label": "UVNGiaDinh_I",
+    "file": "UVNGiaDinh_I.TTF",
+    "family": "UVN Gia Dinh  Italic",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNGiaDinhHep_R",
+    "label": "UVNGiaDinhHep_R",
+    "file": "UVNGiaDinhHep_R.TTF",
+    "family": "UVN Gia Dinh Hep",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNAnhHaiNhe_I",
+    "label": "UVNAnhHaiNhe_I",
+    "file": "UVNAnhHaiNhe_I.TTF",
+    "family": "UVN Anh Hai Nhe Italic",
+    "group": "UVN"
+  },
+  {
+    "id": "UVNBachTuyet_I",
+    "label": "UVNBachTuyet_I",
+    "file": "UVNBachTuyet_I.TTF",
+    "family": "UVN Bach Tuyet Italic",
+    "group": "UVN"
+  },
+  {
+    "id": "VNF-Aire_Roman_Std",
+    "label": "VNF-Aire Roman Std",
+    "file": "VNF-Aire Roman Std.ttf",
+    "family": "VNF-AireRomanStd",
+    "group": "VNF"
+  },
+  {
+    "id": "VNF-Narziss_Regular",
+    "label": "VNF-Narziss Regular",
+    "file": "VNF-Narziss Regular.ttf",
+    "family": "VNF-Narziss",
+    "group": "VNF"
+  },
+  {
+    "id": "VNF-Valentina",
+    "label": "VNF-Valentina",
+    "file": "VNF-Valentina.ttf",
+    "family": "VNF-Valentina",
+    "group": "VNF"
+  },
+  {
+    "id": "SVN-Avo",
+    "label": "SVN-Avo",
+    "file": "SVN-Avo.ttf",
+    "family": "SVN-Avo",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Avo_bold",
+    "label": "SVN-Avo bold",
+    "file": "SVN-Avo bold.ttf",
+    "family": "SVN-Avobold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Aptima",
+    "label": "SVN-Aptima",
+    "file": "SVN-Aptima.ttf",
+    "family": "SVN-Aptima",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Aptima_bold",
+    "label": "SVN-Aptima bold",
+    "file": "SVN-Aptima bold.ttf",
+    "family": "SVN-Aptimabold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Helvetica_Neue_Regular",
+    "label": "SVN-Helvetica Neue Regular",
+    "file": "SVN-Helvetica Neue Regular.ttf",
+    "family": "SVN-Helvetica Neue",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Helvetica_Neue_Bold",
+    "label": "SVN-Helvetica Neue Bold",
+    "file": "SVN-Helvetica Neue Bold.ttf",
+    "family": "SVN-Helvetica Neue Bold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Helves",
+    "label": "SVN-Helves",
+    "file": "SVN-Helves.ttf",
+    "family": "SVN-Helves",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Helves_bold",
+    "label": "SVN-Helves bold",
+    "file": "SVN-Helves bold.ttf",
+    "family": "SVN-Helves bold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Book_Antiqua",
+    "label": "SVN-Book Antiqua",
+    "file": "SVN-Book Antiqua.ttf",
+    "family": "SVN-Book Antiqua",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Book_Antiqua_bold",
+    "label": "SVN-Book Antiqua bold",
+    "file": "SVN-Book Antiqua bold.ttf",
+    "family": "SVN-Book Antiqua bold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Lobster",
+    "label": "SVN-Lobster",
+    "file": "SVN-Lobster.ttf",
+    "family": "SVN-Lobster",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Dancing_script",
+    "label": "SVN-Dancing script",
+    "file": "SVN-Dancing script.ttf",
+    "family": "SVN-Dancing Script",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Cookie",
+    "label": "SVN-Cookie",
+    "file": "SVN-Cookie.ttf",
+    "family": "SVN-Cookie",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Sofia",
+    "label": "SVN-Sofia",
+    "file": "SVN-Sofia.ttf",
+    "family": "SVN-Sofia",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Agency_FB",
+    "label": "SVN-Agency FB",
+    "file": "SVN-Agency FB.ttf",
+    "family": "SVN-Agency FB",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Agency_FB_Bold",
+    "label": "SVN-Agency FB Bold",
+    "file": "SVN-Agency FB Bold.ttf",
+    "family": "SVN-Agency FB Bold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Titillium_medium",
+    "label": "SVN-Titillium medium",
+    "file": "SVN-Titillium medium.ttf",
+    "family": "SVN-Titillium Medium",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Titillium_bold",
+    "label": "SVN-Titillium bold",
+    "file": "SVN-Titillium bold.ttf",
+    "family": "SVN-Titillium Bold",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-The_Voice_Regular",
+    "label": "SVN-The Voice Regular",
+    "file": "SVN-The Voice Regular.ttf",
+    "family": "SVN-The Voice",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Linux_Libertine_regular",
+    "label": "SVN-Linux Libertine regular",
+    "file": "SVN-Linux Libertine regular.ttf",
+    "family": "SVN-Linux Libertine",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Sansation",
+    "label": "SVN-Sansation",
+    "file": "SVN-Sansation.ttf",
+    "family": "SVN-Sansation",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Rounded",
+    "label": "SVN-Rounded",
+    "file": "SVN-Rounded.ttf",
+    "family": "SVN-Rounded",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Comic_Sans_MS",
+    "label": "SVN-Comic Sans MS",
+    "file": "SVN-Comic Sans MS.ttf",
+    "family": "SVN-Comic Sans MS",
+    "group": "SVN"
+  },
+  {
+    "id": "SVN-Yahoo",
+    "label": "SVN-Yahoo",
+    "file": "SVN-Yahoo.ttf",
+    "family": "SVN-Yahoo",
+    "group": "SVN"
+  },
+  {
+    "id": "iCiel_Rukola",
+    "label": "iCiel Rukola",
+    "file": "iCiel Rukola.ttf",
+    "family": "iCiel Rukola",
+    "group": "iCiel"
+  },
+  {
+    "id": "iCielAmerigraf",
+    "label": "iCielAmerigraf",
+    "file": "iCielAmerigraf.ttf",
+    "family": "iCiel Amerigraf",
+    "group": "iCiel"
+  }
+]

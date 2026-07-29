@@ -13,7 +13,9 @@ const KIEU_MEDIA: Record<string, string> = {
   '.avi': 'video/x-msvideo',
   '.m4v': 'video/mp4',
   '.ts': 'video/mp2t',
-  '.flv': 'video/x-flv'
+  '.flv': 'video/x-flv',
+  '.ttf': 'font/ttf',
+  '.otf': 'font/otf'
 }
 
 // Giao thuc rieng de trinh phat doc duoc video TREN DIA CUA USER.
@@ -63,12 +65,20 @@ import {
 } from './openai'
 import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
 import { burnSubtitle, cancelBurn, srtGiay } from './burn'
+import { listBurnFonts } from './fonts'
+import {
+  cancelVideo2x,
+  installVideo2xEngine,
+  listVideo2xDevices,
+  runVideo2x,
+  video2xEngineStatus
+} from './video2x'
 import {
   captureDyCookies,
   clearDyCookies,
   dyCookieStatus
 } from './douyinCookies'
-import type { DichProvider, DouyinRequest, WhisperRequest } from '../shared/types'
+import type { DichProvider, DouyinRequest, Video2xRunRequest, WhisperRequest } from '../shared/types'
 import {
   clearLogs,
   debugRaw,
@@ -180,7 +190,12 @@ app.whenReady().then(() => {
     if (!dau) {
       return new Response(Readable.toWeb(createReadStream(p)) as ReadableStream, {
         status: 200,
-        headers: { 'Content-Type': kieu, 'Content-Length': String(co), 'Accept-Ranges': 'bytes' }
+        headers: {
+          'Content-Type': kieu,
+          'Content-Length': String(co),
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*'
+        }
       })
     }
     const m = /bytes=(\d*)-(\d*)/.exec(dau)
@@ -192,7 +207,8 @@ app.whenReady().then(() => {
         'Content-Type': kieu,
         'Content-Length': String(k - b + 1),
         'Content-Range': `bytes ${b}-${k}/${co}`,
-        'Accept-Ranges': 'bytes'
+        'Accept-Ranges': 'bytes',
+        'Access-Control-Allow-Origin': '*'
       }
     })
   })
@@ -310,15 +326,18 @@ function registerIpc(): void {
   })
 
   // Chon 1 tep phu de .srt co san (de ghep vao video ma khong can OCR)
-  ipcMain.handle('dialog:chooseSrt', async () => {
+  ipcMain.handle('dialog:chooseSrt', async (_e, defaultDir?: string | null) => {
     if (!mainWindow) return null
-    const res = await dialog.showOpenDialog(mainWindow, {
+    const opts: Electron.OpenDialogOptions = {
       properties: ['openFile'],
       filters: [
         { name: 'Phụ đề', extensions: ['srt'] },
         { name: 'Tất cả', extensions: ['*'] }
       ]
-    })
+    }
+    // Mo dung thu muc xuat OCR neu co
+    if (defaultDir && defaultDir.trim()) opts.defaultPath = defaultDir.trim()
+    const res = await dialog.showOpenDialog(mainWindow, opts)
     return res.canceled || !res.filePaths.length ? null : res.filePaths[0]
   })
 
@@ -427,6 +446,24 @@ function registerIpc(): void {
   ipcMain.handle('burn:cancel', async () => cancelBurn())
   // Do do dai file .srt -> renderer canh bao khi lech han so voi video
   ipcMain.handle('burn:srtGiay', async (_e, duong: string) => srtGiay(duong))
+  ipcMain.handle('fonts:list', async () => listBurnFonts())
+
+  // ---- Video2X (nang cap video) ----
+  ipcMain.handle('video2x:engineStatus', async () => video2xEngineStatus())
+  ipcMain.handle('video2x:installEngine', async (event) => {
+    try {
+      await installVideo2xEngine((p) => event.sender.send('video2x:install-progress', p))
+      return { ok: true }
+    } catch (err) {
+      debugRaw('video2x install', err)
+      return { ok: false, error: errLabel(err) }
+    }
+  })
+  ipcMain.handle('video2x:listDevices', async () => listVideo2xDevices())
+  ipcMain.handle('video2x:start', async (event, req: Video2xRunRequest) =>
+    runVideo2x(req, (p) => event.sender.send('video2x:progress', p))
+  )
+  ipcMain.handle('video2x:cancel', async () => cancelVideo2x())
 
   // ---- Dich phu de bang API key cua user (Gemini | ChatGPT) ----
   const isProvider = (p: unknown): p is DichProvider => p === 'gemini' || p === 'openai'

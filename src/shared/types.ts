@@ -238,6 +238,18 @@ export interface OcrResult {
 }
 
 // ---- Ghep phu de vao video (buoc phu cua tab Dich man hinh) ----
+/** Font dong goi de burn phu de (tu resources/fonts/catalog.json). */
+export interface BurnFontEntry {
+  id: string
+  label: string
+  file: string
+  /** Ten noi bo dung trong ASS Style Fontname. */
+  family: string
+  group: string
+  /** URL tblao:// de @font-face preview trong renderer (main gan khi list). */
+  previewUrl?: string
+}
+
 export interface BurnReq {
   video: string
   srt?: string | null
@@ -262,6 +274,20 @@ export interface BurnReq {
   batAmThanh?: boolean
   amThanhFile?: string | null
   amLuongGoc?: number
+  /** null / 'auto' / undefined = tu dong theo ngon ngu; else id trong catalog. */
+  fontId?: string | null
+  /** Mau chu #RRGGBB (mac dinh trang). */
+  textColor?: string
+  /** Mau vien chu #RRGGBB (mac dinh den). */
+  outlineColor?: string
+  /** Do day vien (px), 0–8, buoc 0.5. */
+  outlinePx?: number
+  /** Bat hop nen dung khung subRegion. */
+  bgEnabled?: boolean
+  /** Mau nen #RRGGBB. */
+  bgColor?: string
+  /** Do dam nen 0–100. */
+  bgOpacity?: number
 }
 export interface BurnProgress {
   percent: number // -1 = chua tinh duoc
@@ -329,6 +355,8 @@ export interface DownloadResult {
   ok: boolean
   file: string | null
   error: string | null
+  /** true = yt-dlp bo qua vi ID da co trong download-archive (khong ghi file moi). */
+  skipped?: boolean
 }
 
 // ---- Cookie dang nhap (Playwright) ----
@@ -371,3 +399,64 @@ export interface CookieCaptureResult {
   path: string | null
   error: string | null
 }
+
+// ---- Video2X (nang cap video) ----
+export type Video2xProcessor = 'libplacebo' | 'realesrgan' | 'realcugan' | 'rife'
+export type Video2xMode = 'filter' | 'interpolate'
+
+export interface Video2xTaskConfig {
+  deviceIndex: number
+  mode: Video2xMode
+  processor: Video2xProcessor
+  /** Upscale bang he so (ESRGAN/CUGAN); null neu dung width/height. */
+  scalingFactor: number | null
+  width: number | null
+  height: number | null
+  noiseLevel: number
+  libplaceboShader: string
+  realesrganModel: string
+  realcuganModel: string
+  rifeModel: string
+  frameRateMul: number
+  sceneThresh: number
+  codec: string
+  copyAudio: boolean
+  copySubtitle: boolean
+  crf: number | null
+  encoderPreset: string | null
+}
+
+export interface Video2xEngineStatus {
+  has: boolean
+  needsUpdate?: boolean
+  /** false tren macOS — khong co binary native. */
+  supported: boolean
+}
+
+export interface Video2xDevice {
+  index: number
+  name: string
+}
+
+export interface Video2xProgress {
+  percent: number
+  fps: number
+  frame: number
+  totalFrames: number
+  elapsedSec: number
+  remainingSec: number
+  message?: string
+}
+
+export interface Video2xRunRequest {
+  input: string
+  output: string
+  config: Video2xTaskConfig
+}
+
+export interface Video2xRunResult {
+  ok: boolean
+  output?: string
+  error?: string
+}
+

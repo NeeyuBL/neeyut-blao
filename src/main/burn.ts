@@ -3,8 +3,70 @@ import { basename, dirname, join } from 'node:path'
 import { mkdir, copyFile, readFile, writeFile, stat, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { resolveFfmpeg } from './deps'
-import { debugRaw, errLabel, logInfo } from './logger'
+import { escapeFfmpegFilterPath, findBurnFont, resolveFontsDir } from './fonts'
+import { debugRaw, logInfo } from './logger'
 import type { BlurRegion, BurnReq, BurnProgress, BurnResult } from '../shared/types'
+
+/** Parse #RGB / #RRGGBB -> { r,g,b } hoac null. */
+function parseHexColor(hex: string | undefined | null): { r: number; g: number; b: number } | null {
+  if (!hex) return null
+  const s = hex.trim().replace(/^#/, '')
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(s)) return null
+  const full =
+    s.length === 3
+      ? s
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : s
+  return {
+    r: parseInt(full.slice(0, 2), 16),
+    g: parseInt(full.slice(2, 4), 16),
+    b: parseInt(full.slice(4, 6), 16)
+  }
+}
+
+/**
+ * ASS mau &HAABBGGRR — alpha: 00 = dam, FF = trong suot.
+ * opacityPct 0–100 (100 = dam nhat).
+ */
+export function hexToAssColour(hex: string | undefined | null, opacityPct = 100): string {
+  const c = parseHexColor(hex) ?? { r: 255, g: 255, b: 255 }
+  const op = Math.max(0, Math.min(100, opacityPct))
+  const aa = Math.round(255 * (1 - op / 100))
+  const hex2 = (n: number): string => n.toString(16).padStart(2, '0').toUpperCase()
+  return `&H${hex2(aa)}${hex2(c.b)}${hex2(c.g)}${hex2(c.r)}&`
+}
+
+
+interface SubStyle {
+  textColor: string
+  outlineColor: string
+  outlinePx: number
+  bgEnabled: boolean
+  bgColor: string
+  bgOpacity: number
+}
+
+function styleFromReq(req: BurnReq, fallbackVien: number): SubStyle {
+  const outlinePx = Math.max(
+    0,
+    Math.min(
+      8,
+      req.outlinePx != null
+        ? Math.round(req.outlinePx * 2) / 2
+        : Math.min(8, fallbackVien)
+    )
+  )
+  return {
+    textColor: parseHexColor(req.textColor) ? req.textColor! : '#ffffff',
+    outlineColor: parseHexColor(req.outlineColor) ? req.outlineColor! : '#000000',
+    outlinePx,
+    bgEnabled: Boolean(req.bgEnabled),
+    bgColor: parseHexColor(req.bgColor) ? req.bgColor! : '#000000',
+    bgOpacity: Math.max(0, Math.min(100, req.bgOpacity ?? 60))
+  }
+}
 
 let child: ChildProcess | null = null
 let daHuy = false
@@ -381,7 +443,13 @@ export function ngatDongTheoDoRong(text: string, maxUnits: number, isCJK: boolea
   }
 }
 
-export function taoAss(cues: Cue[], meta: Meta, bc: BoCuc): string {
+export function taoAss(
+  cues: Cue[],
+  meta: Meta,
+  bc: BoCuc,
+  fontOverride?: string | null,
+  style?: SubStyle | null
+): string {
   const w = meta.w > 0 ? meta.w : 1280
   const h = meta.h > 0 ? meta.h : 720
 
@@ -401,7 +469,9 @@ export function taoAss(cues: Cue[], meta: Meta, bc: BoCuc): string {
   const isChinese = /[\u4e00-\u9fa5]/.test(textSample)
   const isCJK = isJapanese || isChinese
 
-  if (isJapanese) {
+  if (fontOverride && fontOverride.trim()) {
+    fontName = fontOverride.trim()
+  } else if (isJapanese) {
     // Tieng Nhat (uu tien nhan dien truoc do tieng Nhat co chua chu Kanji trung voi tieng Trung)
     fontName = 'MS Gothic'
   } else if (/[\uAC00-\uD7A3\u1100-\u11FF\u3130-\u318F]/.test(textSample)) {
@@ -424,15 +494,40 @@ export function taoAss(cues: Cue[], meta: Meta, bc: BoCuc): string {
   // Tinh gioi han don vi do rong tuong doi tren moi dong (safe margin = 0.5 don vi)
   const maxUnits = Math.max(8, (boxWidth / bc.fontSize) - 0.5)
 
-  // Alignment=2 (\an2 = bottom-center)
-  const style =
-    `Style: D,${fontName},${bc.fontSize},&H00FFFFFF&,&H00000000&,&H00000000&,&H00000000&,` +
-    `0,0,0,0,100,100,0,0,1,${bc.vien},0,2,${marginL},${marginR},${marginV},1`
+  const primary = hexToAssColour(style?.textColor ?? '#ffffff', 100)
+  const outline = hexToAssColour(style?.outlineColor ?? '#000000', 100)
+  const outlineW = style != null ? style.outlinePx : bc.vien
+  const bgOn = Boolean(style?.bgEnabled)
+  // Padding hop nen (BorderStyle=3: Outline = le quanh chu). Soft corner via \blur.
+  const boxPad = Math.max(6, Math.round(bc.fontSize * 0.22))
+  const back = bgOn
+    ? hexToAssColour(style!.bgColor, style!.bgOpacity)
+    : '&H00000000&'
+  // blur nhe de mem goc hop (ASS khong co border-radius that)
+  const boxBlur = Math.max(1.5, Math.min(4, bc.fontSize * 0.045))
 
-  const events = cues.map((c) => {
+  // D = chu + vien; Box = chi hop nen (chu trong suot), ôm sát khi xuống dòng
+  const styleText =
+    `Style: D,${fontName},${bc.fontSize},${primary},&H00000000&,${outline},&H00000000&,` +
+    `0,0,0,0,100,100,0,0,1,${outlineW},0,2,${marginL},${marginR},${marginV},1`
+  const styleBox =
+    `Style: Box,${fontName},${bc.fontSize},&HFF000000&,&H00000000&,&H00000000&,${back},` +
+    `0,0,0,0,100,100,0,0,3,${boxPad},0,2,${marginL},${marginR},${marginV},1`
+
+  const events = cues.flatMap((c) => {
     const textFormatted = ngatDongTheoDoRong(c.chu, maxUnits, isCJK)
-    return `Dialogue: 0,${gioAss(c.a)},${gioAss(c.b)},D,,0,0,0,,${textFormatted}`
+    const a = gioAss(c.a)
+    const b = gioAss(c.b)
+    if (bgOn) {
+      return [
+        `Dialogue: 0,${a},${b},Box,,0,0,0,,{\\blur${boxBlur.toFixed(1)}}${textFormatted}`,
+        `Dialogue: 1,${a},${b},D,,0,0,0,,${textFormatted}`
+      ]
+    }
+    return [`Dialogue: 0,${a},${b},D,,0,0,0,,${textFormatted}`]
   })
+
+  const styleLines = bgOn ? [styleBox, styleText] : [styleText]
 
   return [
     '[Script Info]',
@@ -443,7 +538,7 @@ export function taoAss(cues: Cue[], meta: Meta, bc: BoCuc): string {
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    style,
+    ...styleLines,
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -463,13 +558,18 @@ function taoFilterComplex(
   assName: string,
   batAmThanh = false,
   hasAudioFile = false,
-  audioVolume = 100
+  audioVolume = 100,
+  fontsDir: string | null = null
 ): string[] {
   const sigma = Math.max(8, Math.round((meta.h > 0 ? meta.h : 720) * 0.03))
   const validRegions = lamMo ? regions.filter((r) => r.x1 > r.x0 && r.y1 > r.y0) : []
 
   const hasVideoFilters = validRegions.length > 0 || coAss
   const lines: string[] = []
+  const assFilter =
+    fontsDir && coAss
+      ? `ass=${assName}:fontsdir=${escapeFfmpegFilterPath(fontsDir)}`
+      : `ass=${assName}`
 
   if (hasVideoFilters) {
     const N = validRegions.length
@@ -518,11 +618,11 @@ function taoFilterComplex(
 
       // 4. Ghep phu de neu co
       if (coAss) {
-        lines.push(`[${prev}]ass=${assName}[out]`)
+        lines.push(`[${prev}]${assFilter}[out]`)
       }
     } else {
       // Chi co ass, khong co blur
-      lines.push(`[0:v]ass=${assName}[out]`)
+      lines.push(`[0:v]${assFilter}[out]`)
     }
   }
 
@@ -737,13 +837,20 @@ export async function burnSubtitle(
   const meta = await doVideo(duongFfprobe(ff), req.video)
   let bc: BoCuc | null = null
   const duongAss = join(tam, 'sub.ass')
+  const picked = findBurnFont(req.fontId)
+  const fontsDir = picked ? resolveFontsDir() : null
+  let subStyle: SubStyle | null = null
 
   if (hasSrt) {
     const srtRaw = docFileSrt(srtTam)
     const cues = docSrt(srtRaw)
     logInfo(`Dịch màn hình: đọc được ${cues.length} câu phụ đề.`)
     bc = boCuc(meta, req.subRegion, req.lamMo)
-    await writeFile(duongAss, taoAss(cues, meta, bc), 'utf8')
+    subStyle = styleFromReq(req, bc.vien)
+    await writeFile(duongAss, taoAss(cues, meta, bc, picked?.family ?? null, subStyle), 'utf8')
+    if (picked) {
+      logInfo(`Dịch màn hình: font phụ đề «${picked.label}» (${picked.family}).`)
+    }
   }
 
   // FFmpeg chay voi cwd = tam nen chi can ten tuong doi 'sub.ass'
@@ -755,7 +862,8 @@ export async function burnSubtitle(
     'sub.ass',
     req.batAmThanh ?? false,
     hasAudioFile,
-    req.amLuongGoc ?? 100
+    req.amLuongGoc ?? 100,
+    fontsDir
   )
   logInfo(`Dịch màn hình: đang xử lý video ${basename(req.video)}…`)
   if (filterArgs.length > 0) {

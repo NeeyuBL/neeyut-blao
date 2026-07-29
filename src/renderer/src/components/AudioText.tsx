@@ -246,8 +246,10 @@ export default function AudioText({
         )
         const out = srt.replace(/\.srt$/i, `.${dich}.srt`)
         const t = await window.api.translateSrt(srt, out, dich, readDichProvider())
-        if (t.ok) outputs.push(out)
-        else setDichErr(t.error ?? 'Dịch thất bại.')
+        if (t.ok) {
+          // Uu tien ban dich: hien dau danh sach tep
+          outputs.unshift(out)
+        } else setDichErr(t.error ?? 'Dịch thất bại.')
       }
     }
 

@@ -4,7 +4,7 @@ import { ASSET_BASE, binDir } from './deps'
 import { debugRaw, logInfo } from './logger'
 
 /** Ten key trong engines-manifest.json tren assets-v1. */
-export type EngineKind = 'ocr' | 'whisper' | 'douyin' | 'whisperCuda'
+export type EngineKind = 'ocr' | 'whisper' | 'douyin' | 'whisperCuda' | 'video2x'
 
 type VerMap = Partial<Record<EngineKind, number>>
 

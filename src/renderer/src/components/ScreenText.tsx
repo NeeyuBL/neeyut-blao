@@ -1,6 +1,6 @@
 import type { JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { BlurRegion } from '../../../shared/types'
+import type { BlurRegion, BurnFontEntry } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
 import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
@@ -59,7 +59,15 @@ export default function ScreenText({
   const [srtGiay, setSrtGiay] = useState(0)
   const [ghepSrt, setGhepSrt] = useState('')
   const [subRegion, setSubRegion] = useState<Region | undefined>(undefined)
-  const [ghepMode, setGhepMode] = useState<'burn' | 'soft'>('burn')
+  const [fontId, setFontId] = usePersistedState('tblao.burn.fontId', 'auto')
+  const [burnFonts, setBurnFonts] = useState<BurnFontEntry[]>([])
+  const [previewFontFamily, setPreviewFontFamily] = useState('')
+  const [textColor, setTextColor] = usePersistedState('tblao.burn.textColor', '#ffffff')
+  const [outlineColor, setOutlineColor] = usePersistedState('tblao.burn.outlineColor', '#000000')
+  const [outlinePx, setOutlinePx] = usePersistedState('tblao.burn.outlinePx', 2)
+  const [bgEnabled, setBgEnabled] = usePersistedState('tblao.burn.bgEnabled', false)
+  const [bgColor, setBgColor] = usePersistedState('tblao.burn.bgColor', '#000000')
+  const [bgOpacity, setBgOpacity] = usePersistedState('tblao.burn.bgOpacity', 60)
   const [ghep, setGhep] = useState<'idle' | 'chay' | 'xong' | 'loi'>('idle')
   const [ghepPct, setGhepPct] = useState(0)
   const [ghepOut, setGhepOut] = useState('')
@@ -106,6 +114,58 @@ export default function ScreenText({
       huy = true
     }
   }, [])
+
+  useEffect(() => {
+    let huy = false
+    void window.api.listBurnFonts().then((list) => {
+      if (!huy) setBurnFonts(list)
+    })
+    return () => {
+      huy = true
+    }
+  }, [])
+
+  // Nap @font-face khi doi font — chu mau tren khung video doi theo
+  useEffect(() => {
+    const styleId = 'tblao-burn-font-preview'
+    let el = document.getElementById(styleId) as HTMLStyleElement | null
+    if (!el) {
+      el = document.createElement('style')
+      el.id = styleId
+      document.head.appendChild(el)
+    }
+
+    const entry = fontId !== 'auto' ? burnFonts.find((f) => f.id === fontId) : undefined
+    if (!entry?.previewUrl) {
+      el.textContent = ''
+      setPreviewFontFamily('')
+      return
+    }
+
+    const fam = `TblaoBurn_${entry.id}`
+    const fmt = /\.otf$/i.test(entry.file) ? 'opentype' : 'truetype'
+    el.textContent =
+      `@font-face{font-family:'${fam}';src:url('${entry.previewUrl}') format('${fmt}');` +
+      `font-display:block;}`
+    setPreviewFontFamily(fam)
+    let huy = false
+    void document.fonts
+      .load(`24px "${fam}"`)
+      .then(() => {
+        if (huy) return
+        // Force re-paint: doi key nhe de RegionBox ve lai sau khi font san sang
+        setPreviewFontFamily('')
+        requestAnimationFrame(() => {
+          if (!huy) setPreviewFontFamily(fam)
+        })
+      })
+      .catch(() => {
+        /* bo qua */
+      })
+    return () => {
+      huy = true
+    }
+  }, [fontId, burnFonts])
 
   useEffect(() => {
     if (!ghepSrt) {
@@ -229,7 +289,7 @@ export default function ScreenText({
   }
 
   const chonSrt = async (): Promise<void> => {
-    const file = await window.api.chooseSrt()
+    const file = await window.api.chooseSrt(outputDir || null)
     if (file) {
       setGhepSrt(file)
     }
@@ -288,16 +348,21 @@ export default function ScreenText({
       return
     }
     const ra = r.outputs || (r.output ? [r.output] : [])
+    let srtUuTien: string | null = null
 
     if (dich !== 'none' && r.output) {
       setBuoc('dich')
       const out = r.output.replace(/\.srt$/i, `.${dich}.srt`)
       const t = await window.api.translateSrt(r.output, out, dich, readDichProvider())
-      if (t.ok) ra.push(out)
-      else setLoi(`Dịch: ${t.error}`)
+      if (t.ok) {
+        // Ban dich dung dau danh sach + uu tien cho buoc ghep phu de
+        ra.unshift(out)
+        srtUuTien = out
+      } else setLoi(`Dịch: ${t.error}`)
     }
     setKetQua(ra)
-    const srtOutput = r.outputs?.find(o => o.endsWith('.srt')) || r.output
+    const srtOutput =
+      srtUuTien || r.outputs?.find((o) => o.toLowerCase().endsWith('.srt')) || r.output
     if (srtOutput) {
       setGhepSrt(srtOutput)
     }
@@ -341,13 +406,20 @@ export default function ScreenText({
       video,
       srt: batPhuDe ? ghepSrt : null,
       outputDir,
-      mode: ghepMode,
+      mode: 'burn',
       blurRegions: batLamMo ? blurRegions : [],
       lamMo: batLamMo,
       subRegion: batPhuDe ? subRegion : undefined,
       batAmThanh,
       amThanhFile: batAmThanh ? amThanhFile : null,
-      amLuongGoc
+      amLuongGoc,
+      fontId: fontId !== 'auto' ? fontId : 'auto',
+      textColor,
+      outlineColor,
+      outlinePx,
+      bgEnabled,
+      bgColor,
+      bgOpacity
     })
     off()
 
@@ -634,21 +706,87 @@ export default function ScreenText({
                   )}
 
                   <label className="field">
-                    <span className="muted small">Cách gắn phụ đề</span>
-                    <select
-                      value={ghepMode}
-                      onChange={(e) => setGhepMode(e.target.value as 'burn' | 'soft')}
-                    >
-                      <option value="burn">Gắn cố định vào hình (đăng lại đâu cũng còn)</option>
-                      <option value="soft">Phụ đề rời, bật/tắt được (chỉ xem trên máy)</option>
+                    <span className="muted small">Font chữ phụ đề</span>
+                    <select value={fontId} onChange={(e) => setFontId(e.target.value)}>
+                      <option value="auto">Tự động (theo ngôn ngữ)</option>
+                      {(['Latin', 'UTM', 'SVN', 'UVF', 'UVN', 'VNF', 'iCiel'] as const).map(
+                        (group) => {
+                          const items = burnFonts.filter((f) => f.group === group)
+                          if (items.length === 0) return null
+                          return (
+                            <optgroup key={group} label={group}>
+                              {items.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                  {f.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )
+                        }
+                      )}
                     </select>
                   </label>
 
-                  {ghepMode === 'burn' && (
-                    <div className="muted small" style={{ marginTop: 8, background: 'rgba(168, 85, 247, 0.1)', padding: 8, borderRadius: 4, border: '1px solid rgba(168, 85, 247, 0.3)' }}>
-                      💡 <b>Vị trí &amp; Cỡ chữ phụ đề:</b> Kéo di chuyển và kéo giãn <b>Khung Phụ Đề màu tím</b> trực tiếp trên khung xem trước video bên phải để điều chỉnh vị trí và cỡ chữ xuất ra.
-                    </div>
-                  )}
+                  <div className="sub-style-grid">
+                    <label className="field">
+                      <span className="muted small">Màu chữ</span>
+                      <input
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                      />
+                    </label>
+                    <label className="field">
+                      <span className="muted small">Màu viền</span>
+                      <input
+                        type="color"
+                        value={outlineColor}
+                        onChange={(e) => setOutlineColor(e.target.value)}
+                      />
+                    </label>
+                    <label className="field" style={{ gridColumn: '1 / -1' }}>
+                      <span className="muted small">Độ dày viền: {outlinePx} px</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={8}
+                        step={0.5}
+                        value={outlinePx}
+                        onChange={(e) => setOutlinePx(Number(e.target.value))}
+                      />
+                    </label>
+                    <label className="gk-check" style={{ gridColumn: '1 / -1' }}>
+                      <input
+                        type="checkbox"
+                        checked={bgEnabled}
+                        onChange={(e) => setBgEnabled(e.target.checked)}
+                      />
+                      <span>Bật nền sau chữ</span>
+                    </label>
+                    {bgEnabled && (
+                      <>
+                        <label className="field">
+                          <span className="muted small">Màu nền</span>
+                          <input
+                            type="color"
+                            value={bgColor}
+                            onChange={(e) => setBgColor(e.target.value)}
+                          />
+                        </label>
+                        <label className="field">
+                          <span className="muted small">Độ đậm nền: {bgOpacity}%</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={bgOpacity}
+                            onChange={(e) => setBgOpacity(Number(e.target.value))}
+                          />
+                        </label>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -777,6 +915,13 @@ export default function ScreenText({
                     videoW={videoW}
                     boxH={boxH}
                     xemMo={batLamMo}
+                    previewFontFamily={previewFontFamily || undefined}
+                    textColor={textColor}
+                    outlineColor={outlineColor}
+                    outlinePx={outlinePx}
+                    bgEnabled={bgEnabled}
+                    bgColor={bgColor}
+                    bgOpacity={bgOpacity}
                   />
                 )}
               </div>

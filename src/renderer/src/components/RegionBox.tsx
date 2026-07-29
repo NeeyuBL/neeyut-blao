@@ -27,6 +27,14 @@ interface Props {
   videoW: number
   boxH: number
   xemMo?: boolean
+  /** CSS font-family cho chu mau trong khung phu de (sau khi @font-face load). */
+  previewFontFamily?: string
+  textColor?: string
+  outlineColor?: string
+  outlinePx?: number
+  bgEnabled?: boolean
+  bgColor?: string
+  bgOpacity?: number
 }
 
 type DragType = 'move' | 'top' | 'bot' | 'left' | 'right' | 'top-left' | 'top-right' | 'bot-left' | 'bot-right'
@@ -46,7 +54,14 @@ export default function RegionBox({
   videoH,
   videoW,
   boxH,
-  xemMo = false
+  xemMo = false,
+  previewFontFamily,
+  textColor = '#ffffff',
+  outlineColor = '#000000',
+  outlinePx = 2,
+  bgEnabled = false,
+  bgColor = '#000000',
+  bgOpacity = 60
 }: Props): JSX.Element {
   const keo = useRef<{
     target: 'blur' | 'sub' | 'ocr'
@@ -152,9 +167,39 @@ export default function RegionBox({
     ? Math.max(12, Math.round((subRegion.y1 - subRegion.y0) * 0.65 / ti))
     : 16
 
-  const realFontSize = subRegion
-    ? Math.max(14, Math.round((subRegion.y1 - subRegion.y0) * 0.7))
-    : 24
+  const outlineShadow = (() => {
+    const px = Math.max(0, Math.min(8, Math.round(outlinePx * 2) / 2))
+    if (px <= 0) return 'none'
+    const parts: string[] = []
+    const step = 0.5
+    for (let x = -px; x <= px + 1e-9; x += step) {
+      for (let y = -px; y <= px + 1e-9; y += step) {
+        if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) continue
+        if (x * x + y * y > px * px + px * 0.5) continue
+        const xr = Math.round(x * 2) / 2
+        const yr = Math.round(y * 2) / 2
+        parts.push(`${xr}px ${yr}px 0 ${outlineColor}`)
+      }
+    }
+    return parts.join(', ')
+  })()
+
+  const bgRgba = (() => {
+    const s = bgColor.replace('#', '')
+    const full =
+      s.length === 3
+        ? s
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : s
+    if (!/^[0-9a-fA-F]{6}$/.test(full)) return 'transparent'
+    const r = parseInt(full.slice(0, 2), 16)
+    const g = parseInt(full.slice(2, 4), 16)
+    const b = parseInt(full.slice(4, 6), 16)
+    const a = Math.max(0, Math.min(100, bgOpacity)) / 100
+    return `rgba(${r},${g},${b},${a})`
+  })()
 
   return (
     <div className="rbox-lop">
@@ -254,12 +299,25 @@ export default function RegionBox({
           <div className="rbox-tay rbox-trai" onMouseDown={batSub('left')} />
           <div className="rbox-tay rbox-phai" onMouseDown={batSub('right')} />
 
-          <div className="rbox-nhan rbox-nhan-sub">
-            Vị trí &amp; Cỡ chữ Phụ đề ({realFontSize}px)
-          </div>
-
-          {/* Dòng chữ mẫu xem trước phóng to / thu nhỏ theo kích thước khung */}
-          <div className="sub-sample-text" style={{ fontSize: `${previewFontSize}px` }}>
+          {/* Chu mau: nen om sat chu + bo goc nhe (khong fill ca khung tim) */}
+          <div
+            className={`sub-sample-text${bgEnabled ? ' sub-sample-hug' : ''}`}
+            style={{
+              fontSize: `${previewFontSize}px`,
+              fontFamily: previewFontFamily
+                ? `"${previewFontFamily}", Arial, sans-serif`
+                : 'Arial, sans-serif',
+              color: textColor,
+              textShadow: outlineShadow,
+              ...(bgEnabled
+                ? {
+                    background: bgRgba,
+                    borderRadius: Math.max(6, Math.round(previewFontSize * 0.35)),
+                    padding: `${Math.max(4, Math.round(previewFontSize * 0.22))}px ${Math.max(8, Math.round(previewFontSize * 0.4))}px`
+                  }
+                : {})
+            }}
+          >
             Mẫu phụ đề xuất ra
           </div>
         </div>

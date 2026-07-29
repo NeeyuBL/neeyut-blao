@@ -17,6 +17,7 @@ import {
   BurnProgress,
   BurnReq,
   BurnResult,
+  BurnFontEntry,
   DichProvider,
   GeminiStatus,
   LogEntry,
@@ -28,6 +29,11 @@ import {
   SetupProgress,
   UpdateStatus,
   VideoInfo,
+  Video2xDevice,
+  Video2xEngineStatus,
+  Video2xProgress,
+  Video2xRunRequest,
+  Video2xRunResult,
   WhisperCudaStatus,
   WhisperEngineStatus,
   WhisperProgress,
@@ -63,7 +69,8 @@ const api = {
 
   chooseFolder: (): Promise<string | null> => ipcRenderer.invoke('dialog:chooseFolder'),
   chooseFiles: () => ipcRenderer.invoke('dialog:chooseFiles'),
-  chooseSrt: () => ipcRenderer.invoke('dialog:chooseSrt'),
+  chooseSrt: (defaultDir?: string | null): Promise<string | null> =>
+    ipcRenderer.invoke('dialog:chooseSrt', defaultDir),
   chooseAudio: () => ipcRenderer.invoke('dialog:chooseAudio'),
   downloadsDir: () => ipcRenderer.invoke('app:downloadsDir'),
   appVersion: () => ipcRenderer.invoke('app:version'),
@@ -164,12 +171,33 @@ const api = {
   // ---- Ghep phu de vao video ----
   burnStart: (req: BurnReq): Promise<BurnResult> => ipcRenderer.invoke('burn:start', req),
   burnCancel: (): Promise<void> => ipcRenderer.invoke('burn:cancel'),
+  listBurnFonts: (): Promise<BurnFontEntry[]> => ipcRenderer.invoke('fonts:list'),
   /** Do dai file .srt (giay) — de canh bao khi lech han so voi video. */
   srtGiay: (duong: string): Promise<number> => ipcRenderer.invoke('burn:srtGiay', duong),
   onBurnProgress: (cb: (p: BurnProgress) => void): (() => void) => {
     const listener = (_e: unknown, p: BurnProgress): void => cb(p)
     ipcRenderer.on('burn:progress', listener)
     return () => ipcRenderer.removeListener('burn:progress', listener)
+  },
+
+  // ---- Video2X ----
+  video2xEngineStatus: (): Promise<Video2xEngineStatus> =>
+    ipcRenderer.invoke('video2x:engineStatus'),
+  video2xInstallEngine: (): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('video2x:installEngine'),
+  onVideo2xInstallProgress: (cb: (p: number) => void): (() => void) => {
+    const listener = (_e: unknown, p: number): void => cb(p)
+    ipcRenderer.on('video2x:install-progress', listener)
+    return () => ipcRenderer.removeListener('video2x:install-progress', listener)
+  },
+  video2xListDevices: (): Promise<Video2xDevice[]> => ipcRenderer.invoke('video2x:listDevices'),
+  video2xStart: (req: Video2xRunRequest): Promise<Video2xRunResult> =>
+    ipcRenderer.invoke('video2x:start', req),
+  video2xCancel: (): Promise<void> => ipcRenderer.invoke('video2x:cancel'),
+  onVideo2xProgress: (cb: (p: Video2xProgress) => void): (() => void) => {
+    const listener = (_e: unknown, p: Video2xProgress): void => cb(p)
+    ipcRenderer.on('video2x:progress', listener)
+    return () => ipcRenderer.removeListener('video2x:progress', listener)
   },
 
   // ---- Dich phu de bang API key cua user (Gemini | ChatGPT) ----

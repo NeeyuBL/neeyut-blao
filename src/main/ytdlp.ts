@@ -271,6 +271,7 @@ function runYtdlpDownload(
   return new Promise<DownloadResult>((resolve) => {
     const child = spawn(cmd, args, { windowsHide: true, env: utf8Env() })
     let destFile: string | null = null
+    let skipped = false
     let errBuf = ''
     let stdoutBuf = ''
 
@@ -329,6 +330,8 @@ function runYtdlpDownload(
       if (mAlready) destFile = mAlready[1]
       const mExtract = trimmed.match(/\[ExtractAudio\] Destination: (.+)$/)
       if (mExtract) destFile = mExtract[1]
+      // Archive skip: exit 0 nhung KHONG ghi file vao thu muc moi
+      if (/has already been recorded in the archive/i.test(trimmed)) skipped = true
     }
 
     child.stdout.on('data', (d) => {
@@ -350,8 +353,15 @@ function runYtdlpDownload(
       if (stdoutBuf) handleLine(stdoutBuf)
       if (code === 0) {
         emit({ status: 'finished', percent: 100 })
-        logInfo(`Hoàn tất: ${destFile ? basename(destFile) : domainOf(req.url)}`)
-        resolve({ id, ok: true, file: destFile, error: null })
+        // Co archive-skip ma khong co file dich -> bao skipped (dung de nham "Xong")
+        const thucSuBoQua = skipped && !destFile
+        if (thucSuBoQua) {
+          logInfo(`Bỏ qua (đã có trong lịch sử tải): ${domainOf(req.url)}`)
+          resolve({ id, ok: true, file: null, error: null, skipped: true })
+        } else {
+          logInfo(`Hoàn tất: ${destFile ? basename(destFile) : domainOf(req.url)}`)
+          resolve({ id, ok: true, file: destFile, error: null, skipped: false })
+        }
       } else {
         debugRaw('ytdlp close', errBuf)
         const nhan = errLabel(errBuf || `code ${code}`)

@@ -8,6 +8,13 @@ files:
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!font/**'
+  - '!resources/fonts/**'
+extraResources:
+  - from: resources/fonts
+    to: fonts
+    filter:
+      - '**/*'
 win:
   target:
     - nsis
