@@ -33,6 +33,30 @@ Downloaded/
 # Binaries engine (khong commit - tai/dong goi rieng)
 *.exe
 !build/**/*.exe
+*.zip
+
+# Engine build / venv (PyInstaller, pip) — khong day len git
+engines/**/.venv-build/
+engines/**/build/
+engines/**/storage/
+engines/**/dist/
+
+# Clone / thu nghiem noi bo
+repo test/
+
+# Font nguon day du (chi ship subset resources/fonts/ khi duoc phep)
+font/
+
+# Binary font dong goi — khong commit len GitHub public (ban quyen UTM/SVN/Windows…)
+# Giu catalog.json + README; copy local bang: npm run fonts:copy
+resources/fonts/**
+!resources/fonts/catalog.json
+!resources/fonts/README.md
+
+# Anh ca nhan / branding local (khong bat buoc public)
+Neeyuvoice.jpg
+QR.jpg
+selfie.jpg
 
 # Editor
 .vscode/*

@@ -4,7 +4,7 @@
   "description": "T-blao - Trinh tai video/audio da nen tang",
   "main": "./out/main/index.js",
   "author": "NeeyuBL",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -12,6 +12,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "fonts:copy": "node scripts/copy-fonts.mjs",
     "package:win": "electron-vite build && electron-builder --win -p never",
     "package:mac": "electron-vite build && electron-builder --mac -p never"
   },

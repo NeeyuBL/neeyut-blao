@@ -41,6 +41,15 @@ Vai trò: tải video & kênh từ Douyin (không watermark).
 Giấy phép: MIT License. Copyright (c) 2026 jiji262.
 Toàn văn: xem mục E1.
 
+--------------------------------------------------------------------------
+A4) Video2X
+--------------------------------------------------------------------------
+Vai trò: upscale & tăng FPS video (tab Nâng cấp video).
+Giấy phép: GNU Affero General Public License v3.0 (AGPL-3.0).
+Bản quyền: K4YT3X and contributors.
+Chi tiết: https://github.com/k4yt3x/video2x
+Được tải về khi cần (hoặc cài local), không chỉnh sửa mã nguồn.
+
 
 ==========================================================================
 B. THƯ VIỆN TRONG BỘ XỬ LÝ ÂM THANH

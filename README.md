@@ -50,15 +50,27 @@ src/
 - Đổi định dạng đầu ra, mẫu tên file, tiếp tục tải dở
 - Hỗ trợ Douyin (engine riêng)
 
+## Font phụ đề
+
+Binary font **không** nằm trên GitHub (bản quyền). Khi build App trên máy bạn: đặt nguồn trong `font/` → `npm run fonts:copy` → xem [resources/fonts/README.md](resources/fonts/README.md).
+
 ## Giấy phép
 
-T-blao phát hành theo giấy phép **MIT** — xem [LICENSE](LICENSE).
+T-blao phát hành theo **PolyForm Noncommercial License 1.0.0** (source-available, **phi thương mại** + bắt buộc ghi công).
+
+- Toàn văn: [LICENSE](LICENSE)
+- Ghi công / NOTICE: [NOTICE](NOTICE)
+- Dùng cá nhân, học tập, nghiên cứu, tổ chức phi thương mại: được phép theo license.
+- **Dùng thương mại** (bán, SaaS, tích hợp sản phẩm thương mại…): cần thỏa thuận riêng với **NeeyuBL**.
+
+Đây **không** phải giấy phép OSI “Open Source” (vì cấm thương mại).
 
 ### Ghi công (bên thứ ba)
 
-T-blao dùng các công cụ mã nguồn mở, được tải/dựng lúc chạy (không kèm trong repo):
+T-blao dùng các công cụ/thư viện bên thứ ba (tải khi cần hoặc đóng gói riêng), mỗi thành phần giữ giấy phép gốc — xem [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) và tab **Giấy phép** trong app. Ví dụ:
 
-- **ffmpeg** — xử lý & ghép âm thanh/video. Giấy phép **LGPL/GPL**: <https://ffmpeg.org/legal.html>
-- Bộ tải xuống mã nguồn mở (giấy phép Unlicense / phạm vi công cộng).
+- **ffmpeg** — LGPL/GPL: <https://ffmpeg.org/legal.html>
+- **Video2X** — AGPL-3.0: <https://github.com/k4yt3x/video2x>
+- Bộ tải xuống mã nguồn mở (Unlicense / phạm vi công cộng).
 
 > Người dùng chịu trách nhiệm tuân thủ điều khoản của các nền tảng và luật bản quyền khi tải nội dung.
