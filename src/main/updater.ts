@@ -53,5 +53,6 @@ export async function checkForUpdates(): Promise<void> {
 
 export function quitAndInstall(): void {
   if (!app.isPackaged) return
-  autoUpdater.quitAndInstall()
+  // Silent + force-run: tranh wizard NSIS (oneClick:false) gỡ app roi dung giua chung.
+  autoUpdater.quitAndInstall(true, true)
 }

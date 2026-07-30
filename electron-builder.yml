@@ -10,6 +10,13 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!font/**'
   - '!resources/fonts/**'
+  # Khong nhet engine/clone/zip vao installer (tai tu assets-v1 luc chay)
+  - '!repo test{,/**}'
+  - '!dist-engine{,/**}'
+  - '!engines{,/**}'
+  - '!**/*.zip'
+  - '!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
 extraResources:
   - from: resources/fonts
     to: fonts
