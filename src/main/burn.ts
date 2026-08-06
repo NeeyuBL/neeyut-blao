@@ -4,12 +4,13 @@ import { mkdir, copyFile, readFile, writeFile, stat, rm } from 'node:fs/promises
 import { tmpdir } from 'node:os'
 import { resolveFfmpeg } from './deps'
 import { escapeFfmpegFilterPath, findBurnFont, resolveFontsDir } from './fonts'
+import { createTextMeasurer } from './fontMeasure'
 import { debugRaw, logInfo } from './logger'
-import type { BlurRegion, BurnReq, BurnProgress, BurnResult } from '../shared/types'
+import type { BlurRegion, BurnFontEntry, BurnReq, BurnProgress, BurnResult } from '../shared/types'
 import {
   cueUsesCjkWrap,
-  maxUnitsFromBox,
-  ngatDongTheoDoRong
+  ngatDongTheoPx,
+  wrapWidthFromBox
 } from '../shared/subWrap'
 
 /** Parse #RGB / #RRGGBB -> { r,g,b } hoac null. */
@@ -408,7 +409,8 @@ export function taoAss(
   meta: Meta,
   bc: BoCuc,
   fontOverride?: string | null,
-  style?: SubStyle | null
+  style?: SubStyle | null,
+  pickedFont: BurnFontEntry | null = null
 ): string {
   const w = meta.w > 0 ? meta.w : 1280
   const h = meta.h > 0 ? meta.h : 720
@@ -450,31 +452,32 @@ export function taoAss(
     fontName = 'Segoe UI'
   }
 
-  // Gioi han do rong tuong doi tren moi dong (safe margin = 0.5 don vi)
-  const maxUnits = maxUnitsFromBox(boxWidth, bc.fontSize)
+  // Wrap theo px chieu ngang khung (tru pad neu co nen)
+  const bgOn = Boolean(style?.bgEnabled)
+  const boxPad = Math.max(8, Math.round(bc.fontSize * 0.26))
+  const maxWidthPx = wrapWidthFromBox(boxWidth, bgOn ? boxPad : 0)
+  const measure = createTextMeasurer(bc.fontSize, fontName, pickedFont)
 
   const primary = hexToAssColour(style?.textColor ?? '#ffffff', 100)
   const outline = hexToAssColour(style?.outlineColor ?? '#000000', 100)
   const outlineW = style != null ? style.outlinePx : bc.vien
-  const bgOn = Boolean(style?.bgEnabled)
-  // Padding hop nen (BorderStyle=3: Outline = le quanh chu). Soft corner via \blur.
-  const boxPad = Math.max(6, Math.round(bc.fontSize * 0.22))
   const back = bgOn
     ? hexToAssColour(style!.bgColor, style!.bgOpacity)
     : '&H00000000&'
   // blur nhe de mem goc hop (ASS khong co border-radius that)
-  const boxBlur = Math.max(1.5, Math.min(4, bc.fontSize * 0.045))
+  const boxBlur = Math.max(2, Math.min(5, bc.fontSize * 0.055))
 
   // D = chu + vien; Box = chi hop nen (chu trong suot), ôm sát khi xuống dòng
   const styleText =
     `Style: D,${fontName},${bc.fontSize},${primary},&H00000000&,${outline},&H00000000&,` +
     `0,0,0,0,100,100,0,0,1,${outlineW},0,2,${marginL},${marginR},${marginV},1`
+  // BorderStyle=3: mau hop = OutlineColour (khong phai BackColour)
   const styleBox =
-    `Style: Box,${fontName},${bc.fontSize},&HFF000000&,&H00000000&,&H00000000&,${back},` +
+    `Style: Box,${fontName},${bc.fontSize},&HFF000000&,&H00000000&,${back},&H00000000&,` +
     `0,0,0,0,100,100,0,0,3,${boxPad},0,2,${marginL},${marginR},${marginV},1`
 
   const events = cues.flatMap((c) => {
-    const textFormatted = ngatDongTheoDoRong(c.chu, maxUnits, cueUsesCjkWrap(c.chu))
+    const textFormatted = ngatDongTheoPx(c.chu, maxWidthPx, measure, cueUsesCjkWrap(c.chu))
     const a = gioAss(c.a)
     const b = gioAss(c.b)
     if (bgOn) {
@@ -806,7 +809,7 @@ export async function burnSubtitle(
     logInfo(`Dịch màn hình: đọc được ${cues.length} câu phụ đề.`)
     bc = boCuc(meta, req.subRegion, req.lamMo)
     subStyle = styleFromReq(req, bc.vien)
-    await writeFile(duongAss, taoAss(cues, meta, bc, picked?.family ?? null, subStyle), 'utf8')
+    await writeFile(duongAss, taoAss(cues, meta, bc, picked?.family ?? null, subStyle, picked), 'utf8')
     if (picked) {
       logInfo(`Dịch màn hình: font phụ đề «${picked.label}» (${picked.family}).`)
     }

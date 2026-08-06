@@ -63,6 +63,65 @@ export function findBurnFont(fontId: string | null | undefined): BurnFontEntry |
   return listBurnFonts().find((f) => f.id === fontId) ?? null
 }
 
+/** Duong dan file .ttf/.otf de do glyph (opentype). */
+export function resolveFontFilePath(
+  family: string | null | undefined,
+  picked: BurnFontEntry | null
+): string | null {
+  if (picked) {
+    const dir = resolveFontsDir()
+    if (dir) {
+      const abs = join(dir, picked.file)
+      if (existsSync(abs)) return abs
+    }
+  }
+
+  const fam = (family || '').trim().toLowerCase()
+  const dir = resolveFontsDir()
+  if (dir && fam) {
+    const hit = listBurnFonts().find(
+      (f) => f.family.toLowerCase() === fam || f.label.toLowerCase() === fam
+    )
+    if (hit) {
+      const abs = join(dir, hit.file)
+      if (existsSync(abs)) return abs
+    }
+  }
+
+  // Windows system fonts (auto)
+  const winFonts = process.env.WINDIR ? join(process.env.WINDIR, 'Fonts') : 'C:\\Windows\\Fonts'
+  const sysMap: Record<string, string[]> = {
+    arial: ['arial.ttf', 'Arial.ttf'],
+    'arial bold': ['arialbd.ttf'],
+    'times new roman': ['times.ttf'],
+    'microsoft yahei': ['msyh.ttc', 'msyh.ttf', 'MSYH.TTC'],
+    'ms gothic': ['msgothic.ttc', 'msgothic.ttf'],
+    'malgun gothic': ['malgun.ttf', 'malgun.ttc'],
+    'leelawadee ui': ['LeelawadeeUI.ttf', 'leelawadeeui.ttf'],
+    'nirmala ui': ['Nirmala.ttf', 'nirmala.ttf'],
+    'segoe ui': ['segoeui.ttf', 'SegoeUI.ttf'],
+    tahoma: ['tahoma.ttf'],
+    verdana: ['verdana.ttf']
+  }
+  const files = sysMap[fam]
+  if (files) {
+    for (const f of files) {
+      const abs = join(winFonts, f)
+      if (existsSync(abs)) return abs
+    }
+  }
+  // Fallback Arial
+  for (const f of ['arial.ttf', 'Arial.ttf']) {
+    const abs = join(winFonts, f)
+    if (existsSync(abs)) return abs
+    if (dir) {
+      const bundled = join(dir, f)
+      if (existsSync(bundled)) return bundled
+    }
+  }
+  return null
+}
+
 /** Escape path cho tham so filter ffmpeg (ass fontsdir=...).
  *  Phai boc trong '...' — neu khong, dau : o dia Windows (D:) bi FFmpeg
  *  coi la separator option -> Invalid argument. */

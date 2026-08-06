@@ -785,28 +785,33 @@ select {
   background: rgba(168, 85, 247, 0.12);
   z-index: 20;
 }
-.sub-sample-text {
+/* Slot mau: fill khung tim, chu CAN GIUA (de chinh khung) */
+.sub-sample-slot {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+}
+.sub-sample-text {
   font-weight: bold;
   pointer-events: none;
   text-align: center;
-  padding: 0 8px;
   line-height: 1.2;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-/* Nen om sat chu (phuong an A) — bo goc nhe */
+/* Nen om sat chu — van nam trong slot (khong bottom:8% / translate) */
 .sub-sample-text.sub-sample-hug {
-  inset: auto;
-  left: 50%;
-  bottom: 8%;
-  transform: translateX(-50%);
   width: max-content;
-  max-width: calc(100% - 12px);
+  max-width: 100%;
   height: auto;
-  white-space: normal;
+  white-space: pre-line;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }

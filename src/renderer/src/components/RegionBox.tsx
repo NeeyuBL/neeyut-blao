@@ -3,10 +3,24 @@ import { useCallback, useEffect, useRef } from 'react'
 import type { BlurRegion } from '../../../shared/types'
 import {
   cueUsesCjkWrap,
+  estimateTextWidthPx,
   fontSizeFromSubBox,
-  maxUnitsFromBox,
-  ngatDongTheoDoRong
+  ngatDongTheoPx,
+  wrapWidthFromBox
 } from '../../../shared/subWrap'
+
+function measureCanvasText(fontCss: string, text: string): number {
+  if (!text) return 0
+  try {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return estimateTextWidthPx(text, 16)
+    ctx.font = fontCss
+    return ctx.measureText(text).width
+  } catch {
+    return estimateTextWidthPx(text, 16)
+  }
+}
 
 export interface Region {
   y0: number
@@ -171,22 +185,36 @@ export default function RegionBox({
   const currentActiveId = activeId ?? list[0]?.id
   const activeRegion = list.find((item) => item.id === currentActiveId)
 
-  // Cỡ chữ mẫu hiển thị theo màn hình (pixel preview)
+  // Cỡ chữ mẫu = burn (bh * 0.7), quy về pixel preview qua sy
   const previewFontSize = subRegion && videoH > 0
-    ? Math.max(12, Math.round((subRegion.y1 - subRegion.y0) * 0.65 / sy))
+    ? Math.max(12, Math.round(fontSizeFromSubBox(subRegion.y1 - subRegion.y0) / sy))
     : 16
 
-  // Xuong dong mau: cung luat burn (maxUnits tu khung phu de / fontSize ASS)
+  // Xuong dong mau: do px that (canvas) vs chieu ngang khung (video px)
   const sampleAssLines = ((): string[] => {
-    const sample = 'Mẫu phụ đề xuất ra'
+    const sample = 'Mẫu chữ xuất ra'
     if (!subRegion || videoW <= 0) return [sample]
     const bw = Math.max(1, subRegion.x1 - subRegion.x0)
     const bh = Math.max(1, subRegion.y1 - subRegion.y0)
     const fs = fontSizeFromSubBox(bh)
-    const mu = maxUnitsFromBox(bw, fs)
-    const wrapped = ngatDongTheoDoRong(sample, mu, cueUsesCjkWrap(sample))
+    const pad = bgEnabled ? Math.max(8, Math.round(fs * 0.26)) : 0
+    const maxW = wrapWidthFromBox(bw, pad)
+    const family = previewFontFamily
+      ? `"${previewFontFamily}", Arial, sans-serif`
+      : 'Arial, sans-serif'
+    // Do theo co chu ASS (video px) de khop burn, khong theo previewFontSize man hinh
+    const fontCss = `bold ${fs}px ${family}`
+    const measure = (t: string): number => {
+      const w = measureCanvasText(fontCss, t)
+      return w > 0 ? w : estimateTextWidthPx(t, fs)
+    }
+    const wrapped = ngatDongTheoPx(sample, maxW, measure, cueUsesCjkWrap(sample))
     return wrapped.split('\\N').filter(Boolean)
   })()
+
+  const boxPadPreview = Math.max(4, Math.round(previewFontSize * 0.26))
+  // Phuong an A: gan vuong nhu ASS (blur), khong pill
+  const boxRadiusPreview = Math.max(2, Math.round(previewFontSize * 0.06))
 
   const outlineShadow = (() => {
     const px = Math.max(0, Math.min(8, Math.round(outlinePx * 2) / 2))
@@ -320,27 +348,29 @@ export default function RegionBox({
           <div className="rbox-tay rbox-trai" onMouseDown={batSub('left')} />
           <div className="rbox-tay rbox-phai" onMouseDown={batSub('right')} />
 
-          {/* Chu mau: nen om sat chu + bo goc nhe (khong fill ca khung tim) */}
-          <div
-            className={`sub-sample-text${bgEnabled ? ' sub-sample-hug' : ''}`}
-            style={{
-              fontSize: `${previewFontSize}px`,
-              fontFamily: previewFontFamily
-                ? `"${previewFontFamily}", Arial, sans-serif`
-                : 'Arial, sans-serif',
-              color: textColor,
-              textShadow: outlineShadow,
-              whiteSpace: 'pre-line',
-              ...(bgEnabled
-                ? {
-                    background: bgRgba,
-                    borderRadius: Math.max(6, Math.round(previewFontSize * 0.35)),
-                    padding: `${Math.max(4, Math.round(previewFontSize * 0.22))}px ${Math.max(8, Math.round(previewFontSize * 0.4))}px`
-                  }
-                : {})
-            }}
-          >
-            {sampleAssLines.join('\n')}
+          {/* Chu mau: can day khung (\\an2), nam trong vien tim */}
+          <div className="sub-sample-slot">
+            <div
+              className={`sub-sample-text${bgEnabled ? ' sub-sample-hug' : ''}`}
+              style={{
+                fontSize: `${previewFontSize}px`,
+                fontFamily: previewFontFamily
+                  ? `"${previewFontFamily}", Arial, sans-serif`
+                  : 'Arial, sans-serif',
+                color: textColor,
+                textShadow: outlineShadow,
+                whiteSpace: 'pre-line',
+                ...(bgEnabled
+                  ? {
+                      background: bgRgba,
+                      borderRadius: boxRadiusPreview,
+                      padding: `${Math.max(3, Math.round(boxPadPreview * 0.55))}px ${boxPadPreview}px`
+                    }
+                  : {})
+              }}
+            >
+              {sampleAssLines.join('\n')}
+            </div>
           </div>
         </div>
       )}
