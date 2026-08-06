@@ -6,6 +6,11 @@ import { resolveFfmpeg } from './deps'
 import { escapeFfmpegFilterPath, findBurnFont, resolveFontsDir } from './fonts'
 import { debugRaw, logInfo } from './logger'
 import type { BlurRegion, BurnReq, BurnProgress, BurnResult } from '../shared/types'
+import {
+  cueUsesCjkWrap,
+  maxUnitsFromBox,
+  ngatDongTheoDoRong
+} from '../shared/subWrap'
 
 /** Parse #RGB / #RRGGBB -> { r,g,b } hoac null. */
 function parseHexColor(hex: string | undefined | null): { r: number; g: number; b: number } | null {
@@ -395,53 +400,8 @@ export function docFileSrt(duong: string): string {
 }
 
 
-export function ngatDongTheoDoRong(text: string, maxUnits: number, isCJK: boolean): string {
-  if (!text) return ''
 
-  if (isCJK) {
-    const chars = Array.from(text)
-    const lines: string[] = []
-    let currentLine = ''
-    let currentUnits = 0
 
-    for (const char of chars) {
-      const charUnit = /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fa5\uac00-\ud7a3]/.test(char) ? 1.0 : 0.5
-      if (currentUnits + charUnit > maxUnits) {
-        if (currentLine) lines.push(currentLine)
-        currentLine = char
-        currentUnits = charUnit
-      } else {
-        currentLine += char
-        currentUnits += charUnit
-      }
-    }
-    if (currentLine) lines.push(currentLine)
-    return lines.join('\\N')
-  } else {
-    const words = text.split(' ')
-    const lines: string[] = []
-    let currentLine = ''
-    let currentUnits = 0
-
-    for (const word of words) {
-      let wordUnits = 0
-      for (const char of word) {
-        wordUnits += /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fa5\uac00-\ud7a3]/.test(char) ? 1.0 : 0.5
-      }
-      const spaceUnit = currentLine ? 0.5 : 0
-      if (currentUnits + spaceUnit + wordUnits > maxUnits) {
-        if (currentLine) lines.push(currentLine)
-        currentLine = word
-        currentUnits = wordUnits
-      } else {
-        currentLine = currentLine ? currentLine + ' ' + word : word
-        currentUnits += spaceUnit + wordUnits
-      }
-    }
-    if (currentLine) lines.push(currentLine)
-    return lines.join('\\N')
-  }
-}
 
 export function taoAss(
   cues: Cue[],
@@ -462,12 +422,11 @@ export function taoAss(
   // => chu se nam SAT day khung sub va duoc phep tran len tren neu nhieu dong
   const marginV = bc.tamY != null ? Math.max(0, h - (bc.y + bc.bh)) : bc.marginV
 
-  // Tu dong phat hien va cau hinh font phu hop cho nhieu ngon ngu (Trung, Nhat, Han, Thai, An, A Rap...)
+  // Tu dong phat hien font theo ngon ngu (mau ca file). Wrap xuong dong: theo TUNG cue.
   const textSample = cues.map((c) => c.chu).join('')
   let fontName = 'Arial'
   const isJapanese = /[\u3040-\u309f\u30a0-\u30ff]/.test(textSample)
   const isChinese = /[\u4e00-\u9fa5]/.test(textSample)
-  const isCJK = isJapanese || isChinese
 
   if (fontOverride && fontOverride.trim()) {
     fontName = fontOverride.trim()
@@ -491,8 +450,8 @@ export function taoAss(
     fontName = 'Segoe UI'
   }
 
-  // Tinh gioi han don vi do rong tuong doi tren moi dong (safe margin = 0.5 don vi)
-  const maxUnits = Math.max(8, (boxWidth / bc.fontSize) - 0.5)
+  // Gioi han do rong tuong doi tren moi dong (safe margin = 0.5 don vi)
+  const maxUnits = maxUnitsFromBox(boxWidth, bc.fontSize)
 
   const primary = hexToAssColour(style?.textColor ?? '#ffffff', 100)
   const outline = hexToAssColour(style?.outlineColor ?? '#000000', 100)
@@ -515,7 +474,7 @@ export function taoAss(
     `0,0,0,0,100,100,0,0,3,${boxPad},0,2,${marginL},${marginR},${marginV},1`
 
   const events = cues.flatMap((c) => {
-    const textFormatted = ngatDongTheoDoRong(c.chu, maxUnits, isCJK)
+    const textFormatted = ngatDongTheoDoRong(c.chu, maxUnits, cueUsesCjkWrap(c.chu))
     const a = gioAss(c.a)
     const b = gioAss(c.b)
     if (bgOn) {

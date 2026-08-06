@@ -1,6 +1,12 @@
 import type { JSX } from 'react'
 import { useCallback, useEffect, useRef } from 'react'
 import type { BlurRegion } from '../../../shared/types'
+import {
+  cueUsesCjkWrap,
+  fontSizeFromSubBox,
+  maxUnitsFromBox,
+  ngatDongTheoDoRong
+} from '../../../shared/subWrap'
 
 export interface Region {
   y0: number
@@ -170,6 +176,18 @@ export default function RegionBox({
     ? Math.max(12, Math.round((subRegion.y1 - subRegion.y0) * 0.65 / sy))
     : 16
 
+  // Xuong dong mau: cung luat burn (maxUnits tu khung phu de / fontSize ASS)
+  const sampleAssLines = ((): string[] => {
+    const sample = 'Mẫu phụ đề xuất ra'
+    if (!subRegion || videoW <= 0) return [sample]
+    const bw = Math.max(1, subRegion.x1 - subRegion.x0)
+    const bh = Math.max(1, subRegion.y1 - subRegion.y0)
+    const fs = fontSizeFromSubBox(bh)
+    const mu = maxUnitsFromBox(bw, fs)
+    const wrapped = ngatDongTheoDoRong(sample, mu, cueUsesCjkWrap(sample))
+    return wrapped.split('\\N').filter(Boolean)
+  })()
+
   const outlineShadow = (() => {
     const px = Math.max(0, Math.min(8, Math.round(outlinePx * 2) / 2))
     if (px <= 0) return 'none'
@@ -312,6 +330,7 @@ export default function RegionBox({
                 : 'Arial, sans-serif',
               color: textColor,
               textShadow: outlineShadow,
+              whiteSpace: 'pre-line',
               ...(bgEnabled
                 ? {
                     background: bgRgba,
@@ -321,7 +340,7 @@ export default function RegionBox({
                 : {})
             }}
           >
-            Mẫu phụ đề xuất ra
+            {sampleAssLines.join('\n')}
           </div>
         </div>
       )}
