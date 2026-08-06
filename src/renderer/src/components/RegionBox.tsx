@@ -26,6 +26,7 @@ interface Props {
   videoH: number
   videoW: number
   boxH: number
+  boxW: number
   xemMo?: boolean
   /** CSS font-family cho chu mau trong khung phu de (sau khi @font-face load). */
   previewFontFamily?: string
@@ -54,6 +55,7 @@ export default function RegionBox({
   videoH,
   videoW,
   boxH,
+  boxW,
   xemMo = false,
   previewFontFamily,
   textColor = '#ffffff',
@@ -72,7 +74,8 @@ export default function RegionBox({
     v: Region
   } | null>(null)
 
-  const ti = videoH > 0 && boxH > 0 ? videoH / boxH : 1
+  const sx = videoW > 0 && boxW > 0 ? videoW / boxW : 1
+  const sy = videoH > 0 && boxH > 0 ? videoH / boxH : 1
 
   const batBlur =
     (id: string, r: Region, kieu: DragType) =>
@@ -103,8 +106,8 @@ export default function RegionBox({
     (e: MouseEvent) => {
       const k = keo.current
       if (!k) return
-      const dy = (e.clientY - k.y) * ti
-      const dx = (e.clientX - k.x) * ti
+      const dy = (e.clientY - k.y) * sy
+      const dx = (e.clientX - k.x) * sx
 
       const MIN_H = Math.max(20, Math.round(videoH * 0.03))
       const MIN_W = Math.max(40, Math.round(videoW * 0.05))
@@ -140,7 +143,7 @@ export default function RegionBox({
         setOcrRegion(updated)
       }
     },
-    [ti, videoH, videoW, regions, updateRegion, setSubRegion, setOcrRegion]
+    [sx, sy, videoH, videoW, regions, updateRegion, setSubRegion, setOcrRegion]
   )
 
   useEffect(() => {
@@ -164,7 +167,7 @@ export default function RegionBox({
 
   // Cỡ chữ mẫu hiển thị theo màn hình (pixel preview)
   const previewFontSize = subRegion && videoH > 0
-    ? Math.max(12, Math.round((subRegion.y1 - subRegion.y0) * 0.65 / ti))
+    ? Math.max(12, Math.round((subRegion.y1 - subRegion.y0) * 0.65 / sy))
     : 16
 
   const outlineShadow = (() => {

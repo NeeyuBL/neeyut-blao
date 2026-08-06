@@ -1,8 +1,8 @@
-## T-blao v0.1.12
+## T-blao v0.1.13
 
 ### Sửa
-- Giảm size installer (~1.7 GB → ~90 MB): không đóng gói nhầm `repo test/`, `engines/`, zip engine vào app.
-- Cập nhật in-app: cài **silent** + tự mở lại app — tránh wizard NSIS gỡ bản cũ rồi dừng giữa chừng.
+- Preview Dịch màn hình: hết letterbox giả làm lệch vùng làm mờ / OCR.
+- Burn phụ đề: chọn font thủ công không còn lỗi FFmpeg `fontsdir` trên Windows.
 
-### Nhắc lại (từ 0.1.11)
-- Tab **Nâng cấp video** (Video2X), font/style phụ đề burn, giấy phép PolyForm-NC.
+### Nhắc lại (từ 0.1.12)
+- Installer gọn (~90 MB), cập nhật in-app silent.

@@ -63,9 +63,11 @@ export function findBurnFont(fontId: string | null | undefined): BurnFontEntry |
   return listBurnFonts().find((f) => f.id === fontId) ?? null
 }
 
-/** Escape path cho tham so filter ffmpeg (ass fontsdir=...). */
+/** Escape path cho tham so filter ffmpeg (ass fontsdir=...).
+ *  Phai boc trong '...' — neu khong, dau : o dia Windows (D:) bi FFmpeg
+ *  coi la separator option -> Invalid argument. */
 export function escapeFfmpegFilterPath(p: string): string {
-  return p
+  const escaped = p
     .replace(/\\/g, '/')
     .replace(/:/g, '\\:')
     .replace(/,/g, '\\,')
@@ -73,4 +75,5 @@ export function escapeFfmpegFilterPath(p: string): string {
     .replace(/\]/g, '\\]')
     .replace(/;/g, '\\;')
     .replace(/'/g, "\\'")
+  return `'${escaped}'`
 }

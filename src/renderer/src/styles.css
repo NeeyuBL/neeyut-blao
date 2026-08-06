@@ -583,7 +583,8 @@ select {
 }
 
 /* Tab Dich man hinh: trinh phat + khung khoanh vung */
-/* San chua video — an het chieu cao con lai cua cot phai */
+/* San chua video — an het chieu cao con lai cua cot phai.
+   container-type:size de .ocr-video tinh contain bang cqi/cqh. */
 .ocr-sanh {
   flex: 1;
   min-height: 0;
@@ -594,32 +595,27 @@ select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
+  container-type: size;
 }
 /* Khung bao video: position:relative de khung khoanh (absolute) bam theo.
-   !! Bo bao PHAI om KHIT lay video, khong duoc rong/cao hon: khung khoanh vung
-      dat inset:0 theo bo bao, lech mot chut la user keo trung cho khac. Vi the
-      dung max-height/max-width (om theo video) chu KHONG dung
-      height:100% + object-fit (se sinh vien den hai ben, bo bao != video). */
-/* !! Bo bao phai om KHIT video va TU CO cho vua khung xem.
-   Truoc day de inline-block + max-height:100%: bo bao cao TU DONG nen
-   `max-height:100%` cua the <video> khong co moc quy chieu -> bi bo qua, chi
-   con max-width an. Video NGANG khong sao, nhung video DOC bi keo theo be
-   ngang roi cao vot ra ngoai khung (tran/cat mat).
-   Nay dat aspect-ratio = ti le THAT cua video (gan inline tu videoW/videoH),
-   cho height:100% roi de max-width:100% keo nguoc lai -> vua khit ca 2 chieu. */
+   Bo bao PHAI om KHIT dung ti le video (khong letterbox trong hop overlay).
+   --ocr-ar = videoW/videoH (so thap phan, gan tu React).
+   width = min(full container width, height * ar) -> contain trong san. */
 .ocr-video {
   position: relative;
   display: block;
   line-height: 0;
-  height: 100%;
-  width: auto;
-  max-height: 100%;
+  aspect-ratio: var(--ocr-ar, 16 / 9);
+  width: min(100cqi, calc(100cqh * var(--ocr-ar, 1.777778)));
+  height: auto;
   max-width: 100%;
+  max-height: 100%;
 }
 .ocr-video video {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: fill;
   border-radius: 4px;
 }
 .ocr-toado {

@@ -1,4 +1,4 @@
-import type { JSX } from 'react'
+import type { CSSProperties, JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { BlurRegion, BurnFontEntry } from '../../../shared/types'
 import { usePersistedState } from '../lib/persist'
@@ -41,6 +41,7 @@ export default function ScreenText({
   const [videoH, setVideoH] = useState(0)
   const [videoW, setVideoW] = useState(0)
   const [boxH, setBoxH] = useState(0)
+  const [boxW, setBoxW] = useState(0)
 
   const [dich, setDich] = usePersistedState('tblao.ocr.dich', 'none')
   const [buoc, setBuoc] = useState<Buoc>('idle')
@@ -90,6 +91,14 @@ export default function ScreenText({
   const [installErr, setInstallErr] = useState<string | null>(null)
 
   const vidRef = useRef<HTMLVideoElement | null>(null)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+
+  const doBox = (): void => {
+    const el = wrapRef.current
+    if (!el) return
+    setBoxW(el.clientWidth)
+    setBoxH(el.clientHeight)
+  }
   const unlocked = hasFeature('ocr')
 
   useEffect(() => {
@@ -234,7 +243,8 @@ export default function ScreenText({
     if (!v) return
     setVideoH(v.videoHeight)
     setVideoW(v.videoWidth)
-    setBoxH(v.clientHeight)
+    // Do wrapper sau khi aspect-ratio cap nhat (frame tiep)
+    requestAnimationFrame(doBox)
     setVideoGiay(Number.isFinite(v.duration) ? v.duration : 0)
     if (blurRegions.length === 0) {
       const defId = 'def-1'
@@ -269,12 +279,13 @@ export default function ScreenText({
   }
 
   useEffect(() => {
-    const el = vidRef.current
+    const el = wrapRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setBoxH(el.clientHeight))
+    const ro = new ResizeObserver(() => doBox())
     ro.observe(el)
+    doBox()
     return () => ro.disconnect()
-  }, [video])
+  }, [video, videoW, videoH])
 
   const chonVideo = async (): Promise<void> => {
     const files = await window.api.chooseFiles()
@@ -887,8 +898,16 @@ export default function ScreenText({
             </div>
             <div className="ocr-sanh">
               <div
+                ref={wrapRef}
                 className="ocr-video"
-                style={videoW > 0 && videoH > 0 ? { aspectRatio: `${videoW} / ${videoH}` } : undefined}
+                style={
+                  videoW > 0 && videoH > 0
+                    ? ({
+                        aspectRatio: `${videoW} / ${videoH}`,
+                        ['--ocr-ar']: String(videoW / videoH)
+                      } as CSSProperties)
+                    : undefined
+                }
               >
                 <video
                   ref={vidRef}
@@ -914,6 +933,7 @@ export default function ScreenText({
                     videoH={videoH}
                     videoW={videoW}
                     boxH={boxH}
+                    boxW={boxW}
                     xemMo={batLamMo}
                     previewFontFamily={previewFontFamily || undefined}
                     textColor={textColor}
