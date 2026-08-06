@@ -7,6 +7,7 @@ import type {
   Video2xProgress,
   Video2xTaskConfig
 } from '../../../shared/types'
+import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 
 const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
@@ -499,13 +500,8 @@ function TaskConfigPanel({
   )
 }
 
-export default function VideoEnhance({
-  outputDir,
-  setOutputDir
-}: {
-  outputDir: string
-  setOutputDir: (d: string) => void
-}): JSX.Element {
+export default function VideoEnhance(): JSX.Element {
+  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.enhance')
   const [cfg, setCfg] = usePersistedState('tblao.v2x.config', defaultConfig())
   const [tasks, setTasks] = useState<EnhanceTask[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)

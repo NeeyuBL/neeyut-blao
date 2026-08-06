@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import type { GpuInfo, WhisperRequest } from '../../../shared/types'
+import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
@@ -41,14 +42,11 @@ const LANGS: { value: string; label: string }[] = [
 const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
 
 export default function AudioText({
-  outputDir,
-  setOutputDir,
   subInbox
 }: {
-  outputDir: string
-  setOutputDir: (d: string) => void
   subInbox: { path: string; id: string } | null
 }): JSX.Element {
+  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.audiotext')
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)

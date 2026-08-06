@@ -1,6 +1,7 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import type { DouyinRequest, DyChannel, DyCookieStatus, DyMode } from '../../../shared/types'
+import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { useQueueRunner } from '../lib/useQueueRunner'
 import LinkInput from './LinkInput'
@@ -21,13 +22,8 @@ interface DyItem {
 
 const isChannelUrl = (u: string): boolean => /\/user\//i.test(u)
 
-export default function Douyin({
-  outputDir,
-  setOutputDir
-}: {
-  outputDir: string
-  setOutputDir: (d: string) => void
-}): JSX.Element {
+export default function Douyin(): JSX.Element {
+  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.douyin')
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPct, setInstallPct] = useState(0)

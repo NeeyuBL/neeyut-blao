@@ -1,6 +1,7 @@
 import type { CSSProperties, JSX } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type { BlurRegion, BurnFontEntry } from '../../../shared/types'
+import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { readDichProvider } from '../lib/dichProvider'
 import { hasFeature } from '../lib/license'
@@ -30,13 +31,8 @@ const PALETTE = [
 
 type Buoc = 'idle' | 'doc' | 'dich' | 'xong' | 'loi'
 
-export default function ScreenText({
-  outputDir,
-  setOutputDir
-}: {
-  outputDir: string
-  setOutputDir: (d: string) => void
-}): JSX.Element {
+export default function ScreenText(): JSX.Element {
+  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.screen')
   const [video, setVideo] = useState<string | null>(null)
   const [videoH, setVideoH] = useState(0)
   const [videoW, setVideoW] = useState(0)

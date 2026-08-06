@@ -100,8 +100,6 @@ export default function App(): JSX.Element {
   const [tab, setTab] = useState<TabKey>('download')
   const [version, setVersion] = useState('')
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
-  // Thu muc luu dung CHUNG cho moi tab; nho qua cac lan mo app
-  const [outputDir, setOutputDir] = useState('')
   // "Hop thu" gui file tu tab Tai xuong sang tab Audio->Text (nut "Lay sub")
   const [subInbox, setSubInbox] = useState<{ path: string; id: string } | null>(null)
   const [hienQr, setHienQr] = useState(false) // bang QR ung ho (nut Cafe)
@@ -114,15 +112,6 @@ export default function App(): JSX.Element {
     setTab('audiotext')
   }
 
-  const updateOutputDir = (d: string): void => {
-    setOutputDir(d)
-    try {
-      localStorage.setItem('tblao.outputDir', d)
-    } catch {
-      /* bo qua */
-    }
-  }
-
   const check = async (): Promise<void> => {
     setStage('checking')
     const status = await window.api.checkDeps()
@@ -132,9 +121,6 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void check()
     void window.api.appVersion().then(setVersion)
-    const saved = localStorage.getItem('tblao.outputDir')
-    if (saved) setOutputDir(saved)
-    else void window.api.downloadsDir().then(setOutputDir)
     const offUpd = window.api.onUpdateStatus(setUpdate)
     return offUpd
   }, [])
@@ -258,30 +244,22 @@ export default function App(): JSX.Element {
         <div className="content-body">
           {/* Giu 2 tab tai luon SONG (khong unmount) de chay song song, khong mat hang doi/tien do */}
           <div className={`tab-pane ${tab === 'download' ? '' : 'hidden'}`}>
-            <Downloader
-              outputDir={outputDir}
-              setOutputDir={updateOutputDir}
-              onGetSub={sendToSub}
-            />
+            <Downloader onGetSub={sendToSub} />
           </div>
           <div className={`tab-pane ${tab === 'douyin' ? '' : 'hidden'}`}>
-            <Douyin outputDir={outputDir} setOutputDir={updateOutputDir} />
+            <Douyin />
           </div>
           <div className={`tab-pane ${tab === 'audiotext' ? '' : 'hidden'}`}>
-            <AudioText
-              outputDir={outputDir}
-              setOutputDir={updateOutputDir}
-              subInbox={subInbox}
-            />
+            <AudioText subInbox={subInbox} />
           </div>
           {/* GIU SONG (khong unmount): user chon video + keo khung xong ma qua
               tab khac mot cai la mat sach, phai lam lai tu dau. Nho toi khi tat
               app — dung y user chot. */}
           <div className={`tab-pane ${tab === 'screen' ? '' : 'hidden'}`}>
-            <ScreenText outputDir={outputDir} setOutputDir={updateOutputDir} />
+            <ScreenText />
           </div>
           <div className={`tab-pane ${tab === 'enhance' ? '' : 'hidden'}`}>
-            <VideoEnhance outputDir={outputDir} setOutputDir={updateOutputDir} />
+            <VideoEnhance />
           </div>
           {tab === 'eco' && <EcoNeeyu />}
           {tab === 'logs' && <Logs />}

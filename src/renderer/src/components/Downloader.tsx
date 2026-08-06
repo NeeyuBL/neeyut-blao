@@ -11,6 +11,7 @@ import type {
   VideoInfo
 } from '../../../shared/types'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
+import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
 import { useQueueRunner } from '../lib/useQueueRunner'
 import LinkInput from './LinkInput'
@@ -85,14 +86,11 @@ function buildFormatChoice(f: VideoFormat): { selector: string; label: string } 
 }
 
 export default function Downloader({
-  outputDir,
-  setOutputDir,
   onGetSub
 }: {
-  outputDir: string
-  setOutputDir: (d: string) => void
   onGetSub: (filePath: string) => void
 }): JSX.Element {
+  const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.download')
   // Tuy chon chung ap dung cho ca hang doi (tu nho qua cac lan mo app)
   const [kind, setKind] = usePersistedState<DownloadKind>('tblao.dl.kind', 'video')
   const [height, setHeight] = usePersistedState<number | null>('tblao.dl.height', 1080)
