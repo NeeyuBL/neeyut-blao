@@ -1,7 +1,9 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import logoSrc from '../assets/neeyuvoice-logo.png'
-import previewSrc from '../assets/neeyuvoice-preview.jpg'
+import preview0 from '../assets/preview.png'
+import preview1 from '../assets/preview1.png'
+import preview2 from '../assets/preview2.png'
 
 interface PromoApp {
   id: string
@@ -9,28 +11,45 @@ interface PromoApp {
   url: string
   blurb: string
   logoSrc: string
-  previewSrc: string
+  previewSrcs: string[]
 }
 
 const APPS: PromoApp[] = [
   {
     id: 'neeyuvoice',
     name: 'NeeyuVoice',
-    url: 'https://example.com/',
+    url: 'https://drive.google.com/drive/folders/1sx-uhREcoTiah-484XZr5MnRg8k6L2DM',
     blurb:
-      'Sắp ra mắt app TTS Neeyuvoice, ấn liên hệ tham gia nhóm zalo để cập nhật thông tin nhanh nhất',
+      'NeeyuVoice: Tạo giọng nói, đọc phụ đề và lồng tiếng nhân vật ngay trên máy tính của bạn, chạy local 100%, khuyến nghị GPU NVIDIA có ít nhất 6 GB VRAM.\n\nBạn đang làm video, audiobook, podcast, khóa học hoặc nội dung đa ngôn ngữ nhưng không muốn mất nhiều thời gian thu âm?\n\nNeeyuVoice giúp chuyển văn bản và phụ đề thành giọng nói, clone giọng mẫu và lồng tiếng nhiều nhân vật trong cùng một dự án.',
     logoSrc,
-    previewSrc
+    previewSrcs: [preview0, preview1, preview2]
   }
 ]
 
 export default function EcoNeeyu(): JSX.Element {
   const [preview, setPreview] = useState<PromoApp | null>(null)
+  const [slide, setSlide] = useState(0)
+
+  const openPreview = (app: PromoApp): void => {
+    setSlide(0)
+    setPreview(app)
+  }
 
   useEffect(() => {
     if (!preview) return
+    const n = preview.previewSrcs.length
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setPreview(null)
+      if (e.key === 'Escape') {
+        setPreview(null)
+        return
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setSlide((i) => (i - 1 + n) % n)
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        setSlide((i) => (i + 1) % n)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -44,7 +63,7 @@ export default function EcoNeeyu(): JSX.Element {
             <button
               type="button"
               className="eco-logo"
-              onClick={() => setPreview(app)}
+              onClick={() => openPreview(app)}
               title="Xem ảnh preview"
               aria-label={`Xem preview ${app.name}`}
             >
@@ -72,17 +91,41 @@ export default function EcoNeeyu(): JSX.Element {
         <div className="modal-nen" onClick={() => setPreview(null)}>
           <div className="modal eco-preview-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <span className="modal-title">{preview.name}</span>
+              <span className="modal-title">
+                {preview.name} ({slide + 1}/{preview.previewSrcs.length})
+              </span>
               <button className="modal-x" onClick={() => setPreview(null)}>
                 ✕
               </button>
             </div>
             <div className="modal-body eco-preview-body">
-              <img
-                src={preview.previewSrc}
-                alt={`Preview ${preview.name}`}
-                className="eco-preview-img"
-              />
+              <div className="eco-preview-stage">
+                <button
+                  type="button"
+                  className="eco-preview-nav eco-preview-nav-prev"
+                  onClick={() =>
+                    setSlide((i) => (i - 1 + preview.previewSrcs.length) % preview.previewSrcs.length)
+                  }
+                  aria-label="Ảnh trước"
+                  title="Mũi tên trái"
+                >
+                  ‹
+                </button>
+                <img
+                  src={preview.previewSrcs[slide]}
+                  alt={`Preview ${preview.name} ${slide + 1}`}
+                  className="eco-preview-img"
+                />
+                <button
+                  type="button"
+                  className="eco-preview-nav eco-preview-nav-next"
+                  onClick={() => setSlide((i) => (i + 1) % preview.previewSrcs.length)}
+                  aria-label="Ảnh sau"
+                  title="Mũi tên phải"
+                >
+                  ›
+                </button>
+              </div>
             </div>
           </div>
         </div>

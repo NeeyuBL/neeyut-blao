@@ -1,6 +1,5 @@
-## T-blao v0.1.15
+## T-blao v0.1.16
 
-### Sửa
-- Xuống dòng phụ đề theo chiều ngang khung (đo đúng font khi burn).
-- Màu nền hộp phụ đề khi xuất video (ASS BorderStyle).
-- Preview mẫu chữ gọn hơn; bo góc preview gần với file xuất.
+### Cập nhật
+- Hệ sinh thái NeeyuVoice: link tải Drive, mô tả sản phẩm mới, gallery preview 3 ảnh.
+- Ảnh QR ủng hộ (nút Cafe) mới.

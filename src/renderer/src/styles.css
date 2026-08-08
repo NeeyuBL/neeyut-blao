@@ -1598,19 +1598,57 @@ select {
   font-size: 12.5px;
   line-height: 1.45;
   color: var(--muted);
-  text-align: center;
+  text-align: left;
+  white-space: pre-line;
 }
-.eco-preview-modal {
-  width: min(720px, 100%);
+/* Thắng .modal { max-width: 620px } phía dưới file (~70% so với bản gần full) */
+.modal.eco-preview-modal {
+  width: min(1120px, 70vw);
+  max-width: 70vw;
+  max-height: 70vh;
 }
 .eco-preview-body {
   align-items: center;
+  padding: 8px 12px 14px;
+}
+.eco-preview-stage {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 .eco-preview-img {
+  flex: 1;
+  min-width: 0;
   width: 100%;
+  max-height: min(58vh, 640px);
   height: auto;
+  object-fit: contain;
   border-radius: 10px;
   border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.eco-preview-nav {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.eco-preview-nav:hover {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 .eco-preview-placeholder {
   width: 100%;

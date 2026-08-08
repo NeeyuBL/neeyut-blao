@@ -9,7 +9,7 @@ import VideoEnhance from './components/VideoEnhance'
 import License from './components/License'
 import Logs from './components/Logs'
 import EcoNeeyu from './components/EcoNeeyu'
-import qrImg from './assets/qr.jpg'
+import qrImg from './assets/qr.png'
 import zaloImg from './assets/zalo.jpg'
 import type { UpdateStatus } from '../../shared/types'
 
