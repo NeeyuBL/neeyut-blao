@@ -6,38 +6,99 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: release-app-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  release:
-    name: Build & Release (macOS)
-    runs-on: macos-latest
-    permissions:
-      contents: write
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            package_script: package:win
+            artifact_name: release-windows
+            artifact_paths: |
+              dist/*.exe
+              dist/*.blockmap
+              dist/latest.yml
+          - name: macOS
+            os: macos-latest
+            package_script: package:mac
+            artifact_name: release-macos
+            artifact_paths: |
+              dist/*.dmg
+              dist/*.zip
+              dist/*.blockmap
+              dist/latest-mac.yml
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: package-lock.json
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build and Package App
-        run: npm run package:mac
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Publish Release Assets
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Build and package app
+        run: npm run ${{ matrix.package_script }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_paths }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create draft release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify update payloads
+        shell: bash
+        run: |
+          test -n "$(find release-assets -maxdepth 1 -name '*.exe' -print -quit)"
+          test -f release-assets/latest.yml
+          test -n "$(find release-assets -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$(find release-assets -maxdepth 1 -name '*.zip' -print -quit)"
+          test -f release-assets/latest-mac.yml
+
+      - name: Create draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: T-blao ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-          files: |
-            dist/*.dmg
-            dist/latest-mac.yml
-          fail_on_unmatched_files: false
+          draft: true
+          fail_on_unmatched_files: true
+          files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

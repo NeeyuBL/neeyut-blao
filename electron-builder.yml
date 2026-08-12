@@ -45,6 +45,7 @@ nsis:
 mac:
   target:
     - dmg
+    - zip
   icon: build/icon.png
   category: public.app-category.utilities
   artifactName: ${productName}-${version}.${ext}
