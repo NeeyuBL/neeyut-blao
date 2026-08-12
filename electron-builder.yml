@@ -10,6 +10,16 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!font/**'
   - '!resources/fonts/**'
+  # Never package local sessions or credential files, even if copied into the repo.
+  - '!cookies{,/**}'
+  - '!cookies.txt'
+  - '!cookies-*.txt'
+  - '!**/*.cookies.json'
+  - '!**/Network/Cookies'
+  - '!**/Network/Cookies-journal'
+  - '!**/.env{,.*}'
+  - '!**/*.pem'
+  - '!**/*.key'
   # Khong nhet engine/clone/zip vao installer (tai tu assets-v1 luc chay)
   - '!repo test{,/**}'
   - '!dist-engine{,/**}'

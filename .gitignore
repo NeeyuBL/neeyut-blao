@@ -20,8 +20,13 @@ Thumbs.db
 .env.*
 *.local
 cookies.txt
+cookies-*.txt
+cookies/
 *.cookies.json
 .cookies.json
+# Chromium/Electron cookie databases if a userData folder is copied here by mistake
+**/Network/Cookies
+**/Network/Cookies-journal
 config.yml
 *.secret
 *.pem
