@@ -1,8 +1,8 @@
 import type { JSX, KeyboardEvent } from 'react'
 import { useEffect, useRef } from 'react'
 
-// O nhap link dung chung: textarea tu gian toi ~5 dong roi cuon.
-// Enter = gui (them/tai) · Shift+Enter = xuong dong.
+// O nhap link dung chung: trang thai rong du cao de doc huong dan,
+// sau do textarea tu gian theo noi dung toi khoang 5 dong roi cuon.
 export default function LinkInput({
   value,
   onChange,
@@ -22,7 +22,8 @@ export default function LinkInput({
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 140) + 'px' // ~5 dong roi cuon
+    const minimumHeight = value.trim() ? 44 : 72
+    el.style.height = Math.min(Math.max(el.scrollHeight, minimumHeight), 140) + 'px'
   }
 
   // Gian lai moi khi noi dung doi (ke ca khi bi xoa trang sau khi them)
@@ -41,6 +42,7 @@ export default function LinkInput({
       ref={ref}
       className="url-input url-textarea"
       rows={1}
+      aria-label="Nhập liên kết cần thêm"
       placeholder={placeholder}
       value={value}
       disabled={disabled}

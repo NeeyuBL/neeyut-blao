@@ -66,7 +66,7 @@ export default function GeminiKey({
     <div className="card gk">
       <button className="gk-head" onClick={() => setMoRong(!moRong)}>
         <span className="gk-title">✨ Dịch phụ đề bằng AI</span>
-        <span className={`gk-badge ${daLuu ? 'ok' : ''}`}>{daLuu ? 'Đã có khoá' : 'Tuỳ chọn'}</span>
+        <span className={`gk-badge ${daLuu ? 'ok' : ''}`}>{daLuu ? 'Đã kết nối' : 'Tuỳ chọn'}</span>
         <span className="gk-caret">{moRong ? '▴' : '▾'}</span>
       </button>
 
@@ -85,20 +85,19 @@ export default function GeminiKey({
               className={`gk-prov ${!laGemini ? 'active' : ''}`}
               onClick={() => chonProvider('openai')}
             >
-              ChatGPT
+              OpenAI
             </button>
           </div>
 
           <p className="muted small">
             {laGemini ? (
               <>
-                Dùng <b>API key Google AI Studio của bạn</b> để dịch phụ đề sang mọi ngôn ngữ, chất
-                lượng cao hơn hẳn bộ dịch có sẵn. Miễn phí, khoá chỉ lưu trên máy bạn.
+                Kết nối Google AI Studio để dịch phụ đề. Thông tin kết nối chỉ được lưu trên máy bạn.
               </>
             ) : (
               <>
-                Dùng <b>API key OpenAI (ChatGPT) của bạn</b> để dịch phụ đề. Khoá chỉ lưu trên máy
-                bạn. OpenAI tính phí theo lượng dùng.
+                Kết nối OpenAI để dịch phụ đề. Thông tin kết nối chỉ được lưu trên máy bạn; OpenAI
+                tính phí theo lượng sử dụng.
               </>
             )}
           </p>
@@ -118,11 +117,11 @@ export default function GeminiKey({
               spellCheck={false}
             />
             <button className="btn" disabled={dangKiem || (!key.trim() && !daLuu)} onClick={kiem}>
-              {dangKiem ? 'Đang kiểm…' : 'Kiểm tra key'}
+              {dangKiem ? 'Đang kiểm tra…' : 'Kiểm tra kết nối'}
             </button>
             {daLuu && (
               <button className="btn" onClick={xoa}>
-                Xoá khoá
+                Ngắt kết nối
               </button>
             )}
           </div>
@@ -135,8 +134,8 @@ export default function GeminiKey({
 
           <div className="muted small gk-note">
             {laGemini
-              ? 'Việc dùng 1 API KEY quá nhiều lần trong ngày sẽ giảm chất lượng dịch.'
-              : 'Nên dùng model gpt-4o-mini để tiết kiệm chi phí — app tự chọn model phù hợp.'}
+              ? 'Google có thể giới hạn số lượt dịch trong ngày.'
+              : 'T-blao tự chọn cách xử lý phù hợp để cân bằng chất lượng và chi phí.'}
           </div>
 
           <div className="gk-row2">
@@ -152,7 +151,7 @@ export default function GeminiKey({
               </select>
             </label>
             <button className="btn" onClick={() => setHienHd(true)}>
-              📖 Hướng dẫn lấy key
+              📖 Hướng dẫn kết nối
             </button>
           </div>
         </div>

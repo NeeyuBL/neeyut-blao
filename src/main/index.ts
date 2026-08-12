@@ -38,8 +38,18 @@ import {
   hasLocalYtDlp
 } from './deps'
 import { readFile, writeFile } from 'node:fs/promises'
-import { fetchInfo, fetchPlaylist, download } from './ytdlp'
-import { captureCookies, clearCookies, cookieStatus } from './cookies'
+import { fetchInfo, fetchPlaylist, download, ytdlpErrorPayload } from './ytdlp'
+import {
+  captureDomainCookies,
+  clearDomainCookies,
+  domainCookieStatus,
+  listDomainCookieStatuses,
+  captureSiteCookies,
+  clearSiteCookies,
+  isCookieSite,
+  siteCookieStatus
+} from './cookies'
+import { invalidateYtDlpCapabilities, ytdlpCapabilityStatus } from './sitePolicy'
 import { testProxy } from './proxy'
 import { initAutoUpdate, checkForUpdates, quitAndInstall } from './updater'
 import { dyEngineStatus, installDyEngine, downloadDouyin, getChannels, removeChannel } from './douyin'
@@ -103,6 +113,16 @@ import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
 import type { BurnReq } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
+const isPrimaryInstance = app.requestSingleInstanceLock()
+
+if (!isPrimaryInstance) app.quit()
+
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -124,6 +144,9 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
 
   // Day nhat ky realtime len giao dien
   logEmitter.on('entry', (e: LogEntry) => mainWindow?.webContents.send('logs:entry', e))
@@ -159,6 +182,7 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
     await writeFile(stampFile, JSON.stringify({ ytdlp: now }), 'utf-8')
     logInfo('Tự kiểm tra cập nhật công cụ tải…')
     const r = await updateYtDlp()
+    invalidateYtDlpCapabilities()
     logInfo(`Tự cập nhật công cụ tải: ${r.message}`)
   } catch {
     /* bo qua loi tu cap nhat */
@@ -166,6 +190,7 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
 }
 
 app.whenReady().then(() => {
+  if (!isPrimaryInstance) return
   // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
   // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
   //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
@@ -252,40 +277,72 @@ function registerIpc(): void {
   // Lay thong tin video
   ipcMain.handle(
     'ytdlp:info',
-    async (_e, url: string, cookiesFile?: string | null, proxy?: string | null) => {
+    async (
+      _e,
+      url: string,
+      proxy?: string | null,
+      useCookies = false
+    ) => {
       try {
-        const info = await fetchInfo(url, cookiesFile, proxy)
+        const info = await fetchInfo(url, proxy, useCookies)
         return { ok: true, info }
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return { ok: false, ...ytdlpErrorPayload(err) }
       }
     }
   )
 
   // ---- Cookie dang nhap (Electron native) ----
-  ipcMain.handle('cookies:status', async () => cookieStatus())
-  ipcMain.handle('cookies:clear', async () => {
+  ipcMain.handle('cookies:status', async (_event, url: string) => domainCookieStatus(url))
+  ipcMain.handle('cookies:list', async () => listDomainCookieStatuses())
+  ipcMain.handle('cookies:clear', async (_event, url: string) => {
     logInfo('Xóa cookie đăng nhập.')
-    return clearCookies()
+    return clearDomainCookies(url)
   })
   ipcMain.handle('cookies:capture', async (event, url: string) => {
     // Chi ghi TEN MIEN — nhat ky khong can biet user dang nhap vao trang nao cu the
     logInfo(`Mở cửa sổ đăng nhập lấy cookie${url ? ` (${domainOf(url)})` : ''}…`)
-    const res = await captureCookies(url, (e) => event.sender.send('cookies:capture-event', e))
+    const res = await captureDomainCookies(url, (e) => event.sender.send('cookies:capture-event', e))
     if (res.ok) logInfo(`Đã lưu ${res.count} cookie.`)
     else logError(`Lấy cookie thất bại: ${res.error ?? ''}`)
+    return res
+  })
+
+  // Cookie rieng Facebook/Bilibili: file, partition va marker dang nhap tach biet.
+  ipcMain.handle('cookies:siteStatus', async (_event, site: unknown) => {
+    if (!isCookieSite(site)) throw new Error('Website cookie không được hỗ trợ.')
+    return siteCookieStatus(site)
+  })
+  ipcMain.handle('cookies:siteClear', async (_event, site: unknown) => {
+    if (!isCookieSite(site)) throw new Error('Website cookie không được hỗ trợ.')
+    logInfo(`Xóa cookie đăng nhập ${site}.`)
+    return clearSiteCookies(site)
+  })
+  ipcMain.handle('cookies:siteCapture', async (event, site: unknown, url?: string | null) => {
+    if (!isCookieSite(site)) throw new Error('Website cookie không được hỗ trợ.')
+    logInfo(`Mở cửa sổ đăng nhập ${site}…`)
+    const res = await captureSiteCookies(site, url, (captureEvent) =>
+      event.sender.send('cookies:site-capture-event', { site, ...captureEvent })
+    )
+    if (res.ok) logInfo(`Đã lưu cookie đăng nhập ${site}.`)
+    else logError(`Lấy cookie ${site} thất bại.`)
     return res
   })
 
   // Kiem tra playlist
   ipcMain.handle(
     'ytdlp:playlist',
-    async (_e, url: string, cookiesFile?: string | null, proxy?: string | null) => {
+    async (
+      _e,
+      url: string,
+      proxy?: string | null,
+      useCookies = false
+    ) => {
       try {
-        const playlist = await fetchPlaylist(url, cookiesFile, proxy)
+        const playlist = await fetchPlaylist(url, proxy, useCookies)
         return { ok: true, playlist }
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return { ok: false, ...ytdlpErrorPayload(err) }
       }
     }
   )
@@ -366,9 +423,11 @@ function registerIpc(): void {
 
   // Cong cu tai: phien ban + cap nhat thu cong
   ipcMain.handle('ytdlp:version', async () => ytDlpVersion())
+  ipcMain.handle('ytdlp:capabilities', async () => ytdlpCapabilityStatus())
   ipcMain.handle('ytdlp:update', async () => {
     logInfo('Đang cập nhật công cụ tải…')
     const r = await updateYtDlp()
+    invalidateYtDlpCapabilities()
     logInfo(`Cập nhật công cụ tải: ${r.ok ? 'OK' : 'LỖI'} — ${r.message}`)
     return r
   })
@@ -530,8 +589,13 @@ function registerIpc(): void {
 
   // Tai xuong
   ipcMain.handle('ytdlp:download', async (event, id: string, req: DownloadRequest) => {
-    const result = await download(id, req, (p) => event.sender.send('ytdlp:progress', p))
-    return result
+    try {
+      return await download(id, req, (p) => event.sender.send('ytdlp:progress', p))
+    } catch (err) {
+      const payload = ytdlpErrorPayload(err)
+      logError(`Tải xuống thất bại: ${payload.error}`)
+      return { id, ok: false, file: null, ...payload }
+    }
   })
 
   // Mo file/thu muc sau khi tai

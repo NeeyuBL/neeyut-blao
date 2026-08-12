@@ -25,9 +25,9 @@ interface WhItem {
 
 // Cac muc model cho user chon (can bang toc do / chinh xac / dung luong tai).
 const MODELS: { value: string; label: string; note: string }[] = [
-  { value: 'base', label: 'Nhanh (base)', note: '~145MB · nhanh, độ chính xác vừa' },
-  { value: 'small', label: 'Cân bằng (small)', note: '~484MB · khuyên dùng' },
-  { value: 'medium', label: 'Chính xác (medium)', note: '~1.5GB · chậm hơn, chính xác cao' }
+  { value: 'base', label: 'Nhanh', note: 'Tải thêm khoảng 145 MB · phù hợp bản nháp' },
+  { value: 'small', label: 'Cân bằng — khuyên dùng', note: 'Tải thêm khoảng 484 MB' },
+  { value: 'medium', label: 'Chính xác cao', note: 'Tải thêm khoảng 1,5 GB · xử lý lâu hơn' }
 ]
 
 const LANGS: { value: string; label: string }[] = [
@@ -206,7 +206,7 @@ export default function AudioText({
     off()
     setInstalling(false)
     if (res.ok) setHasEngine(true)
-    else setInstallErr(res.error ?? 'Tải công cụ Audio→Text thất bại.')
+    else setInstallErr(res.error ?? 'Không thể cài tính năng tạo phụ đề.')
   }
 
   const buildReq = (it: WhItem): WhisperRequest => {
@@ -288,16 +288,15 @@ export default function AudioText({
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">
-            {dangCapNhat ? '🔄 Đang cập nhật công cụ Audio→Text' : '📝 Cần tải công cụ Audio→Text'}
+            {dangCapNhat ? '🔄 Đang cập nhật tính năng tạo phụ đề' : '📝 Cài tính năng tạo phụ đề'}
           </div>
           <p className="muted">
             {dangCapNhat ? (
               <>Đã có bản công cụ mới — đang tải và cài đè bản cũ (~240MB).</>
             ) : (
               <>
-                Tính năng chuyển giọng nói thành phụ đề dùng AI chạy <b>ngay trên máy bạn</b> (không
-                cần mạng sau khi tải, không lộ dữ liệu). Bấm để tải một lần (~240MB), sau đó dùng
-                thoải mái.
+                Việc nhận diện giọng nói chạy <b>ngay trên máy bạn</b>. Sau khi cài khoảng 240 MB,
+                tệp của bạn không cần gửi lên mạng để tạo phụ đề.
               </>
             )}
           </p>
@@ -312,7 +311,7 @@ export default function AudioText({
             </>
           ) : (
             <button className="btn primary" onClick={installEngine}>
-              Tải công cụ Audio→Text
+              Cài tính năng tạo phụ đề
             </button>
           )}
           {installErr && <div className="dy-err small">{installErr}</div>}
@@ -343,7 +342,7 @@ export default function AudioText({
 
         <div className="options" style={{ marginTop: 12 }}>
           <label className="field">
-            <span>Chất lượng (model)</span>
+            <span>Mức nhận diện</span>
             <select className="mini-input" value={model} onChange={(e) => setModel(e.target.value)}>
               {MODELS.map((m) => (
                 <option key={m.value} value={m.value}>
@@ -369,21 +368,21 @@ export default function AudioText({
         </div>
         <div className="muted small" style={{ marginTop: 6 }}>
           {MODELS.find((m) => m.value === model)?.note}
-          {model === 'medium' && ' — máy không có GPU sẽ chạy khá chậm.'}
+          {model === 'medium' && ' Máy cấu hình thấp có thể cần nhiều thời gian hơn.'}
         </div>
 
         <div className="options" style={{ marginTop: 12 }}>
           <label className="check">
             <input type="checkbox" checked={fmtSrt} onChange={(e) => setFmtSrt(e.target.checked)} />
-            Xuất .srt (phụ đề)
+            Phụ đề thông thường (.srt)
           </label>
           <label className="check">
             <input type="checkbox" checked={fmtTxt} onChange={(e) => setFmtTxt(e.target.checked)} />
-            Xuất .txt (văn bản)
+            Văn bản (.txt)
           </label>
           <label className="check">
             <input type="checkbox" checked={fmtVtt} onChange={(e) => setFmtVtt(e.target.checked)} />
-            Xuất .vtt (sub web)
+            Phụ đề dùng trên web (.vtt)
           </label>
           <label className="check">
             <input
@@ -423,9 +422,9 @@ export default function AudioText({
         </div>
         {diarize && (
           <div className="muted small" style={{ marginTop: 6 }}>
-            Phụ đề sẽ có nhãn <code>[SPEAKER_00]</code>, <code>[SPEAKER_01]</code>… ·{' '}
-            {numSpeakers > 0 ? `ép đúng ${numSpeakers} người` : 'để 0 = tự đoán số người'} · hợp
-            phỏng vấn, podcast. Xử lý lâu hơn một chút.
+            Phụ đề sẽ phân biệt Người nói 1, Người nói 2… ·{' '}
+            {numSpeakers > 0 ? `nhận diện theo ${numSpeakers} người` : 'tự nhận biết số người'} · phù
+            hợp phỏng vấn và podcast. Xử lý sẽ lâu hơn một chút.
           </div>
         )}
       </div>
@@ -433,26 +432,26 @@ export default function AudioText({
       <GeminiKey dich={dich} setDich={setDich} />
       {dichErr && <div className="dy-err small">Dịch phụ đề: {dichErr}</div>}
 
-      {/* Tang toc GPU (tuy chon) */}
-      <div className="card">
+      {/* Tang toc duoc dien dat theo loi ich; thong so phan cung nam trong chi tiet. */}
+      <div className="card acceleration-card">
         <div className="cookie-head">
           <div>
-            <div className="cookie-title">Tăng tốc GPU (không bắt buộc)</div>
+            <div className="cookie-title">Tăng tốc xử lý</div>
             <div className="muted small">
-              Máy có card <b>NVIDIA</b> sẽ xử lý nhanh hơn nhiều lần. Máy khác vẫn chạy tốt bằng CPU.
+              Nếu máy tương thích, T-blao có thể xử lý nhanh hơn đáng kể.
             </div>
           </div>
           {gpu &&
             (gpu.canAccelerate ? (
               <span className="cookie-status ok">Sẵn sàng tăng tốc</span>
             ) : (
-              <span className="cookie-status">Dùng CPU</span>
+              <span className="cookie-status">Chế độ tiêu chuẩn</span>
             ))}
         </div>
 
         <div className="cookie-actions">
           <button className="btn" onClick={detectGpu} disabled={gpuBusy || cudaInstalling}>
-            {gpuBusy ? 'Đang kiểm tra…' : 'Kiểm tra lại GPU'}
+            {gpuBusy ? 'Đang kiểm tra…' : 'Kiểm tra khả năng tăng tốc'}
           </button>
           {gpu?.canAccelerate && !cudaHas && !cudaInstalling && (
             <button className="btn primary" onClick={installCuda}>
@@ -466,7 +465,7 @@ export default function AudioText({
                 checked={useGpu}
                 onChange={(e) => setUseGpu(e.target.checked)}
               />
-              Dùng GPU khi xử lý
+              Dùng tăng tốc khi xử lý
             </label>
           )}
         </div>
@@ -476,26 +475,27 @@ export default function AudioText({
             <div className="bar" style={{ marginTop: 8 }}>
               <div className="bar-fill" style={{ width: `${cudaPct}%` }} />
             </div>
-            <div className="muted small">Đang tải gói tăng tốc GPU… {cudaPct}%</div>
+            <div className="muted small">Đang tải gói tăng tốc… {cudaPct}%</div>
           </>
         )}
         {cudaErr && <div className="dy-err small">{cudaErr}</div>}
 
         {gpu && !cudaInstalling && (
           <div className="muted small cookie-msg">
-            {gpu.hasNvidia ? (
-              <>
-                Phát hiện: <b>{gpu.name}</b>
-                {gpu.driverVersion ? ` · driver ${gpu.driverVersion}` : ''}
-                {gpu.cudaVersion ? ` · CUDA ${gpu.cudaVersion}` : ''}
-                {cudaHas && (
-                  <span> · {gpuActive ? 'đang dùng GPU ⚡' : 'đã cài gói (đang tắt)'}</span>
-                )}
-              </>
-            ) : (
-              'Không thấy GPU NVIDIA trên máy — dùng CPU (vẫn nhanh).'
-            )}
-            {gpu.reason && gpu.hasNvidia && <div className="qwarn small">{gpu.reason}</div>}
+            {gpu.canAccelerate
+              ? cudaHas
+                ? gpuActive
+                  ? 'Đang dùng chế độ tăng tốc ⚡'
+                  : 'Gói tăng tốc đã cài và hiện đang tắt.'
+                : 'Máy này hỗ trợ tăng tốc.'
+              : 'T-blao sẽ dùng chế độ tiêu chuẩn.'}
+            <details className="tech-details compact">
+              <summary>Chi tiết phần cứng</summary>
+              {gpu.reason && gpu.hasNvidia && <div className="qwarn small">{gpu.reason}</div>}
+              <div>{gpu.hasNvidia ? gpu.name : 'Không phát hiện GPU NVIDIA'}</div>
+              {gpu.driverVersion && <div>Driver: {gpu.driverVersion}</div>}
+              {gpu.cudaVersion && <div>CUDA: {gpu.cudaVersion}</div>}
+            </details>
           </div>
         )}
       </div>
@@ -505,7 +505,7 @@ export default function AudioText({
         <button className="btn primary" onClick={chooseFiles}>
           📂 Chọn file audio/video
         </button>
-        <span className="muted small">Hỗ trợ mp3, m4a, wav… và cả file video (tự tách tiếng).</span>
+        <span className="muted small">Hỗ trợ hầu hết tệp âm thanh và video thông dụng.</span>
       </div>
       </div>
 
@@ -600,7 +600,7 @@ export default function AudioText({
       {items.length === 0 && (
         <p className="hint muted small">
           💡 Chọn file (hoặc bấm <b>Lấy sub</b> ở tab Tải xuống) → chọn định dạng → <b>Bắt đầu</b>.
-          Lần đầu mỗi model sẽ tải thêm một lần rồi chạy offline.
+          Lần đầu dùng một mức nhận diện, T-blao có thể cần tải thêm dữ liệu rồi sẽ xử lý ngay trên máy.
         </p>
       )}
       </div>

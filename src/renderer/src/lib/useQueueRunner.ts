@@ -29,26 +29,31 @@ export function useQueueRunner<T>(): QueueRunner<T> {
     pauseRef.current = false
     setRunState('running')
 
-    for (const it of items) {
-      if (stopRef.current) break
+    try {
+      for (const it of items) {
+        if (stopRef.current) break
 
-      // Neu da bam Tam dung: muc TRUOC da chay xong, gio moi thuc su dung tai day.
-      if (pauseRef.current) {
-        setRunState('paused')
-        await new Promise<void>((resolve) => {
-          resumeRef.current = resolve
-        })
-        resumeRef.current = null
-        if (stopRef.current) break // bam Dung trong luc dang tam dung
-        setRunState('running')
+        // Neu da bam Tam dung: muc TRUOC da chay xong, gio moi thuc su dung tai day.
+        if (pauseRef.current) {
+          setRunState('paused')
+          await new Promise<void>((resolve) => {
+            resumeRef.current = resolve
+          })
+          resumeRef.current = null
+          if (stopRef.current) break // bam Dung trong luc dang tam dung
+          setRunState('running')
+        }
+
+        await processOne(it) // muc hien tai chay TOI XONG (khong cat ngang)
       }
-
-      await processOne(it) // muc hien tai chay TOI XONG (khong cat ngang)
+    } finally {
+      // Ke ca IPC/processOne nem loi bat ngo, mo khoa runner de user co the
+      // thu lai thay vi bi ket vinh vien o trang thai "dang tai".
+      resumeRef.current = null
+      stopRef.current = false
+      pauseRef.current = false
+      setRunState('idle')
     }
-
-    stopRef.current = false
-    pauseRef.current = false
-    setRunState('idle') // ve idle -> mo lai nut Bat dau
   }
 
   const pause = (): void => {

@@ -1,5 +1,10 @@
 // Kieu du lieu dung chung giua main <-> preload <-> renderer
 
+import type { CookieSite } from './sites'
+import type { YtDlpErrorCode } from './ytdlpErrors'
+export type { CookieSite, SiteId } from './sites'
+export type { YtDlpErrorCode } from './ytdlpErrors'
+
 export type LogLevel = 'info' | 'warn' | 'error'
 export interface LogEntry {
   time: string // ISO
@@ -11,6 +16,14 @@ export interface DepStatus {
   ytdlp: boolean
   ffmpeg: boolean
   platform: NodeJS.Platform
+}
+
+export interface YtDlpCapabilityStatus {
+  installed: boolean
+  source: 'managed' | 'path' | null
+  version: string | null
+  impersonationAvailable: boolean
+  impersonateTargets: string[]
 }
 
 export type SetupPhase = 'checking' | 'downloading-ytdlp' | 'downloading-ffmpeg' | 'extracting' | 'done' | 'error'
@@ -71,13 +84,18 @@ export type DownloadKind = 'video' | 'audio'
 
 export interface DownloadRequest {
   url: string
+  /** ID video do yt-dlp tra ve; chi dung de doi chieu fallback file dau ra. */
+  mediaId: string | null
   kind: DownloadKind
   height: number | null // do phan giai mong muon cho video (null = tot nhat)
   audioFormat: string // vd 'mp3'
   outputDir: string
   embedThumbnail: boolean
   embedMetadata: boolean
-  cookiesFile: string | null // duong dan cookies.txt neu dung cookie dang nhap
+  /** Main process tu chon dung file cookie theo ten mien cua URL. */
+  useCookies: boolean
+  /** Neu true, file video khong phai H.264 se duoc FFmpeg chuyen sang H.264/MP4. */
+  ensureH264: boolean
   formatId: string | null // bo chon dinh dang tuy chon (vd '137+bestaudio'); null = dung kind/height
   // --- P1 nang cao ---
   container: string // dinh dang file video khi ghep: mp4/mkv/webm
@@ -337,7 +355,13 @@ export interface GpuInfo {
   reason: string | null // ly do KHONG tang toc duoc (de bao user)
 }
 
-export type DownloadStatus = 'preparing' | 'downloading' | 'postprocessing' | 'finished' | 'error'
+export type DownloadStatus =
+  | 'preparing'
+  | 'downloading'
+  | 'postprocessing'
+  | 'converting'
+  | 'finished'
+  | 'error'
 
 export interface DownloadProgress {
   id: string
@@ -357,6 +381,7 @@ export interface DownloadResult {
   error: string | null
   /** true = yt-dlp bo qua vi ID da co trong download-archive (khong ghi file moi). */
   skipped?: boolean
+  errorCode?: YtDlpErrorCode | null
 }
 
 // ---- Cookie dang nhap (Playwright) ----
@@ -369,8 +394,18 @@ export interface CookieDepStatus {
 
 export interface CookieStatus {
   has: boolean
-  path: string
   count: number
+  /** Ten mien chinh dung lam khoa kho cookie; null neu URL khong hop le. */
+  domain: string | null
+  /** Co cookie da het han trong file; khong chua ten/gia tri cookie. */
+  expiredCount: number
+}
+
+export interface SiteCookieStatus extends CookieStatus {
+  site: CookieSite
+  loggedIn: boolean
+  /** Chi la ten cookie con thieu; khong chua gia tri cookie. */
+  missingLoginMarkers: string[]
 }
 
 export type CookieInstallPhase =
@@ -393,10 +428,16 @@ export interface CookieCaptureEvent {
   count?: number
 }
 
+export interface SiteCookieCaptureEvent extends CookieCaptureEvent {
+  site: CookieSite
+}
+
 export interface CookieCaptureResult {
   ok: boolean
   count: number
-  path: string | null
+  domain?: string | null
+  /** Chi cac engine cu co the tra ve; downloader chung khong dung duong dan nay. */
+  path?: string | null
   error: string | null
 }
 

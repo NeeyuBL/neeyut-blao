@@ -47,24 +47,24 @@ const TABS: Tab[] = [
     key: 'audiotext',
     label: 'Phụ đề',
     icon: '📝',
-    title: 'Audio → Text',
-    subtitle: 'Tạo phụ đề .srt từ giọng nói bằng AI'
+    title: 'Tạo phụ đề',
+    subtitle: 'Chuyển lời nói trong video thành phụ đề'
   },
   {
     key: 'screen',
-    label: 'Dịch màn hình',
+    label: 'Đọc chữ video',
     icon: '🔍',
-    title: 'Dịch màn hình',
+    title: 'Đọc chữ trong video',
     // Anh em voi tab Phu de: mot ben tu TIENG, mot ben tu HINH.
     // Danh cho video chi co chu chay, khong co tieng -> tab Phu de bo tay.
-    subtitle: 'Đọc chữ chạy trên video → tạo phụ đề .srt'
+    subtitle: 'Nhận diện chữ xuất hiện trong video và tạo phụ đề'
   },
   {
     key: 'enhance',
     label: 'Nâng cấp video',
     icon: '✨',
     title: 'Nâng cấp video',
-    subtitle: 'Upscale & tăng FPS (Video2X)'
+    subtitle: 'Làm video rõ nét hoặc mượt hơn'
   },
   {
     key: 'eco',
@@ -79,10 +79,10 @@ const TABS: Tab[] = [
 const BOTTOM_TABS: Tab[] = [
   {
     key: 'logs',
-    label: 'Nhật ký',
-    icon: '📋',
-    title: 'Nhật ký hoạt động',
-    subtitle: 'Theo dõi hoạt động & lỗi phát sinh'
+    label: 'Hỗ trợ',
+    icon: '🛟',
+    title: 'Hỗ trợ & chẩn đoán',
+    subtitle: 'Thông tin giúp kiểm tra khi ứng dụng gặp lỗi'
   },
   {
     key: 'license',
@@ -162,7 +162,7 @@ export default function App(): JSX.Element {
       <div className="boot">
         <div className="center">
           <div className="spinner" />
-          <p>Đang kiểm tra môi trường…</p>
+          <p>Đang chuẩn bị T-blao…</p>
         </div>
       </div>
     )
@@ -177,6 +177,12 @@ export default function App(): JSX.Element {
   }
 
   const active = [...TABS, ...BOTTOM_TABS].find((t) => t.key === tab) ?? TABS[0]
+  const journeyTone =
+    tab === 'download' || tab === 'douyin'
+      ? 'ingest'
+      : tab === 'audiotext' || tab === 'screen' || tab === 'enhance'
+        ? 'render'
+        : 'neutral'
 
   const renderTab = (t: Tab): JSX.Element => (
     <button
@@ -190,13 +196,13 @@ export default function App(): JSX.Element {
   )
 
   return (
-    <div className="shell">
+    <div className={`shell journey-${journeyTone}`}>
       <aside className="sidebar">
         <div className="side-brand">
           <span className="side-logo">T-blao</span>
         </div>
         <nav className="side-nav">{TABS.map(renderTab)}</nav>
-        <div className="side-hint muted small">Sắp có thêm tính năng…</div>
+        <div className="side-hint muted small">Công cụ video gọn trong một nơi</div>
 
         <div className="side-bottom">
           {BOTTOM_TABS.map(renderTab)}
@@ -214,7 +220,10 @@ export default function App(): JSX.Element {
             </button>
           </div>
 
-          <div className="side-version">Phiên bản {version || '…'}</div>
+          <details className="side-about">
+            <summary>Thông tin ứng dụng</summary>
+            <div className="side-version">Phiên bản {version || '…'}</div>
+          </details>
 
           {update?.state === 'downloaded' && (
             <button

@@ -451,15 +451,15 @@ export default function ScreenText(): JSX.Element {
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">
-            {dangCapNhat ? '🔄 Đang cập nhật công cụ Dịch màn hình' : '🔍 Cần tải công cụ Dịch màn hình'}
+            {dangCapNhat ? '🔄 Đang cập nhật tính năng đọc chữ' : '🔍 Cài tính năng đọc chữ trong video'}
           </div>
           <p className="muted">
             {dangCapNhat ? (
               <>Đã có bản công cụ mới — đang tải và cài đè bản cũ (~230MB).</>
             ) : (
               <>
-                Tính năng đọc chữ trên video chạy <b>ngay trên máy bạn</b>. Bấm để tải một lần
-                (~230MB).
+                Việc nhận diện chữ chạy <b>ngay trên máy bạn</b>. T-blao cần tải thêm khoảng 230 MB
+                trong lần cài đầu tiên.
               </>
             )}
           </p>
@@ -474,7 +474,7 @@ export default function ScreenText(): JSX.Element {
             </>
           ) : (
             <button className="btn primary" onClick={caiCongCu}>
-              Tải công cụ Dịch màn hình
+              Cài tính năng đọc chữ
             </button>
           )}
           {installErr && <div className="dy-err small">{installErr}</div>}
@@ -532,7 +532,7 @@ export default function ScreenText(): JSX.Element {
         {video && (
           <div className="card">
             <div className="cot-tieude" style={{ fontSize: 13, marginBottom: 6 }}>
-              🔍 Đọc chữ trên video (OCR)
+              🔍 Đọc chữ trong video
             </div>
 
             {/* Checkbox Cấu hình vùng quét OCR */}
@@ -543,36 +543,39 @@ export default function ScreenText(): JSX.Element {
                   checked={batOcrBox}
                   onChange={(e) => setBatOcrBox(e.target.checked)}
                 />
-                <span>Cấu hình vùng quét OCR</span>
+                <span>Chỉ đọc chữ trong vùng đã chọn</span>
               </label>
               {batOcrBox && (
                 <div className="muted small" style={{ marginTop: 4, marginLeft: 22, color: '#eab308' }}>
-                  💡 Kéo di chuyển và kéo giãn <b>Vùng quét OCR màu vàng</b> trên màn hình xem trước để giới hạn phạm vi quét chữ.
+                  Kéo và thay đổi kích thước <b>khung màu vàng</b> trên video để chọn vùng có chữ.
                 </div>
               )}
             </div>
 
             {/* Tùy chọn định dạng xuất file */}
             <div style={{ marginBottom: 12 }}>
-              <div className="muted small" style={{ marginBottom: 4 }}>Định dạng xuất file:</div>
+              <div className="muted small" style={{ marginBottom: 4 }}>Kết quả muốn lưu:</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', paddingLeft: 2 }}>
                 <label className="gk-check">
                   <input type="checkbox" checked={fmtSrt} onChange={(e) => setFmtSrt(e.target.checked)} />
-                  <span>.srt</span>
+                  <span>Phụ đề (.srt)</span>
                 </label>
                 <label className="gk-check">
                   <input type="checkbox" checked={fmtTxt} onChange={(e) => setFmtTxt(e.target.checked)} />
-                  <span>.txt</span>
+                  <span>Văn bản (.txt)</span>
                 </label>
                 <label className="gk-check">
                   <input type="checkbox" checked={fmtVtt} onChange={(e) => setFmtVtt(e.target.checked)} />
-                  <span>.vtt</span>
-                </label>
-                <label className="gk-check">
-                  <input type="checkbox" checked={fmtJson} onChange={(e) => setFmtJson(e.target.checked)} />
-                  <span>.json</span>
+                  <span>Phụ đề web (.vtt)</span>
                 </label>
               </div>
+              <details className="tech-details compact">
+                <summary>Kết quả dành cho ứng dụng khác</summary>
+                <label className="gk-check">
+                  <input type="checkbox" checked={fmtJson} onChange={(e) => setFmtJson(e.target.checked)} />
+                  <span>Dữ liệu chi tiết (.json)</span>
+                </label>
+              </details>
             </div>
 
             <div className="cookie-actions" style={{ flexDirection: 'column', gap: 8 }}>
@@ -583,7 +586,7 @@ export default function ScreenText(): JSX.Element {
                   onClick={chay}
                   style={{ width: '100%', justifyContent: 'center', fontSize: 14, padding: '10px 16px' }}
                 >
-                  ▶ Bắt đầu đọc chữ OCR
+                  ▶ Bắt đầu đọc chữ
                 </button>
               )}
               {buoc === 'doc' && (
@@ -652,7 +655,8 @@ export default function ScreenText(): JSX.Element {
                         >
                           <div className="blur-color-badge" style={{ background: r.color }} />
                           <div className="blur-toado">
-                            <b>Vùng {idx + 1}:</b> {r.y0} → {r.y1} px (Ngang: {r.x0} → {r.x1} px)
+                            <b>Vùng {idx + 1}</b>
+                            <span className="blur-coords">{r.y0} → {r.y1} px · ngang {r.x0} → {r.x1} px</span>
                           </div>
                           {blurRegions.length > 1 && (
                             <button
@@ -909,7 +913,7 @@ export default function ScreenText(): JSX.Element {
                   ref={vidRef}
                   src={srcVideo(video)}
                   onLoadedMetadata={onMeta}
-                  onError={() => setLoi('Không mở được video này. Thử định dạng khác (mp4/webm).')}
+                  onError={() => setLoi('T-blao không mở được video này. Hãy thử một video MP4 khác.')}
                   controls
                   muted
                 />

@@ -386,7 +386,7 @@ export default function RegionBox({
             width: pctX(ocrRegion.x1 - ocrRegion.x0)
           }}
           onMouseDown={batOcr('move')}
-          title="Vùng quét OCR: Kéo di chuyển vị trí · Kéo các điểm mút góc/cạnh để co giãn"
+          title="Khung đọc chữ: kéo để di chuyển, kéo các cạnh để thay đổi kích thước"
         >
           {/* Nút kéo góc & cạnh */}
           <div className="rbox-tay rbox-goc-tl" onMouseDown={batOcr('top-left')} />
@@ -399,7 +399,7 @@ export default function RegionBox({
           <div className="rbox-tay rbox-phai" onMouseDown={batOcr('right')} />
 
           <div className="rbox-nhan rbox-nhan-ocr">
-            Vùng quét OCR
+            Khung đọc chữ
           </div>
         </div>
       )}

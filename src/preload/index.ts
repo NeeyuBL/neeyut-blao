@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import {
   CookieCaptureEvent,
   CookieCaptureResult,
+  CookieSite,
   CookieStatus,
   DepStatus,
   DouyinProgress,
@@ -27,6 +28,8 @@ import {
   PlaylistProbe,
   ProxyTestResult,
   SetupProgress,
+  SiteCookieCaptureEvent,
+  SiteCookieStatus,
   UpdateStatus,
   VideoInfo,
   Video2xDevice,
@@ -38,7 +41,9 @@ import {
   WhisperEngineStatus,
   WhisperProgress,
   WhisperRequest,
-  WhisperResult
+  WhisperResult,
+  YtDlpCapabilityStatus,
+  YtDlpErrorCode
 } from '../shared/types'
 
 const api = {
@@ -53,17 +58,17 @@ const api = {
 
   getInfo: (
     url: string,
-    cookiesFile?: string | null,
-    proxy?: string | null
-  ): Promise<{ ok: boolean; info?: VideoInfo; error?: string }> =>
-    ipcRenderer.invoke('ytdlp:info', url, cookiesFile, proxy),
+    proxy?: string | null,
+    useCookies = false
+  ): Promise<{ ok: boolean; info?: VideoInfo; error?: string; errorCode?: YtDlpErrorCode }> =>
+    ipcRenderer.invoke('ytdlp:info', url, proxy, useCookies),
 
   getPlaylist: (
     url: string,
-    cookiesFile?: string | null,
-    proxy?: string | null
-  ): Promise<{ ok: boolean; playlist?: PlaylistProbe; error?: string }> =>
-    ipcRenderer.invoke('ytdlp:playlist', url, cookiesFile, proxy),
+    proxy?: string | null,
+    useCookies = false
+  ): Promise<{ ok: boolean; playlist?: PlaylistProbe; error?: string; errorCode?: YtDlpErrorCode }> =>
+    ipcRenderer.invoke('ytdlp:playlist', url, proxy, useCookies),
 
   testProxy: (proxy: string): Promise<ProxyTestResult> => ipcRenderer.invoke('proxy:test', proxy),
 
@@ -85,6 +90,8 @@ const api = {
   },
 
   ytdlpVersion: (): Promise<string | null> => ipcRenderer.invoke('ytdlp:version'),
+  ytdlpCapabilities: (): Promise<YtDlpCapabilityStatus> =>
+    ipcRenderer.invoke('ytdlp:capabilities'),
   ytdlpUpdate: (): Promise<{ ok: boolean; message: string }> =>
     ipcRenderer.invoke('ytdlp:update'),
 
@@ -266,14 +273,26 @@ const api = {
   },
 
   // ---- Cookie dang nhap ----
-  cookieStatus: (): Promise<CookieStatus> => ipcRenderer.invoke('cookies:status'),
-  cookieClear: (): Promise<void> => ipcRenderer.invoke('cookies:clear'),
+  cookieStatus: (url: string): Promise<CookieStatus> => ipcRenderer.invoke('cookies:status', url),
+  cookieList: (): Promise<CookieStatus[]> => ipcRenderer.invoke('cookies:list'),
+  cookieClear: (url: string): Promise<void> => ipcRenderer.invoke('cookies:clear', url),
   cookieCapture: (url: string): Promise<CookieCaptureResult> =>
     ipcRenderer.invoke('cookies:capture', url),
   onCookieCaptureEvent: (cb: (e: CookieCaptureEvent) => void): (() => void) => {
     const listener = (_e: unknown, ev: CookieCaptureEvent): void => cb(ev)
     ipcRenderer.on('cookies:capture-event', listener)
     return () => ipcRenderer.removeListener('cookies:capture-event', listener)
+  },
+  siteCookieStatus: (site: CookieSite): Promise<SiteCookieStatus> =>
+    ipcRenderer.invoke('cookies:siteStatus', site),
+  siteCookieClear: (site: CookieSite): Promise<void> =>
+    ipcRenderer.invoke('cookies:siteClear', site),
+  siteCookieCapture: (site: CookieSite, url?: string | null): Promise<CookieCaptureResult> =>
+    ipcRenderer.invoke('cookies:siteCapture', site, url),
+  onSiteCookieCaptureEvent: (cb: (e: SiteCookieCaptureEvent) => void): (() => void) => {
+    const listener = (_e: unknown, ev: SiteCookieCaptureEvent): void => cb(ev)
+    ipcRenderer.on('cookies:site-capture-event', listener)
+    return () => ipcRenderer.removeListener('cookies:site-capture-event', listener)
   }
 }
 

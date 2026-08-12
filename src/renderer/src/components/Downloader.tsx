@@ -1,15 +1,19 @@
 import type { JSX } from 'react'
 import { useEffect, useState } from 'react'
 import type {
+  CookieSite,
   CookieStatus,
   DownloadKind,
   DownloadProgress,
   DownloadRequest,
   DownloadResult,
   PlaylistEntry,
+  SiteCookieStatus,
   VideoFormat,
-  VideoInfo
+  VideoInfo,
+  YtDlpCapabilityStatus
 } from '../../../shared/types'
+import { cookieSiteForUrl, isKnownSingleVideoUrl } from '../../../shared/sites'
 import { formatBytes, formatEta, formatSpeed } from '../lib/format'
 import { useTabOutputDir } from '../lib/outputDir'
 import { usePersistedState } from '../lib/persist'
@@ -18,6 +22,11 @@ import LinkInput from './LinkInput'
 import RunControls from './RunControls'
 
 const AUDIO_FORMATS = ['mp3', 'm4a', 'opus', 'flac', 'wav']
+const COOKIE_SITE_LABEL: Record<CookieSite, string> = {
+  facebook: 'Facebook',
+  bilibili: 'Bilibili'
+}
+const SPECIAL_COOKIE_DOMAINS = new Set(['facebook.com', 'bilibili.com'])
 // Do phan giai muc tieu (lay ban tot nhat <= gia tri nay)
 const RES_PRESETS: { label: string; value: number | null }[] = [
   { label: 'Tốt nhất', value: null },
@@ -49,6 +58,7 @@ type FolderMode = 'flat' | 'playlist' | 'channel'
 
 interface QueueItem {
   id: string
+  mediaId: string | null
   url: string
   title: string
   info: VideoInfo | null
@@ -113,6 +123,7 @@ export default function Downloader({
   const [embedSubs, setEmbedSubs] = usePersistedState('tblao.dl.embedSubs', true)
   const [useArchive, setUseArchive] = usePersistedState('tblao.dl.useArchive', false)
   const [forceOverwrite, setForceOverwrite] = usePersistedState('tblao.dl.forceOverwrite', false)
+  const [ensureH264, setEnsureH264] = usePersistedState('tblao.dl.ensureH264', false)
 
   // Proxy (vuot khoa vung) — nho lai chuoi da nhap
   const [proxyVal, setProxyVal] = usePersistedState('tblao.dl.proxy', '')
@@ -123,6 +134,7 @@ export default function Downloader({
 
   // Cong cu tai: phien ban + cap nhat
   const [ytVer, setYtVer] = useState<string | null>(null)
+  const [ytCaps, setYtCaps] = useState<YtDlpCapabilityStatus | null>(null)
   const [toolUpdating, setToolUpdating] = useState(false)
   const [toolMsg, setToolMsg] = useState<string | null>(null)
 
@@ -151,61 +163,174 @@ export default function Downloader({
     itemId: string | null
     formats: VideoFormat[]
   }>({ open: false, itemId: null, formats: [] })
+  const [showFormatDetails, setShowFormatDetails] = useState(false)
 
-  // Dang nhap bang cookie
-  const [cookieStat, setCookieStat] = useState<CookieStatus | null>(null)
+  // Cookie rieng theo website: tranh dung cookie Facebook cho Bilibili va nguoc lai.
+  const [domainCookieStats, setDomainCookieStats] = useState<CookieStatus[]>([])
   const [useCookies, setUseCookies] = usePersistedState('tblao.dl.useCookies', false)
-  const [cookieBusy, setCookieBusy] = useState(false)
+  const [siteCookieStats, setSiteCookieStats] = useState<
+    Record<CookieSite, SiteCookieStatus | null>
+  >({ facebook: null, bilibili: null })
+  const [useFacebookCookies, setUseFacebookCookies] = usePersistedState(
+    'tblao.dl.useFacebookCookies',
+    false
+  )
+  const [useBilibiliCookies, setUseBilibiliCookies] = usePersistedState(
+    'tblao.dl.useBilibiliCookies',
+    false
+  )
+  const [cookieBusy, setCookieBusy] = useState<CookieSite | 'generic' | null>(null)
   const [cookieMsg, setCookieMsg] = useState<string | null>(null)
   const [loginUrl, setLoginUrl] = useState('')
 
-  const cookiesFile = (): string | null =>
-    useCookies && cookieStat?.has ? cookieStat.path : null
+  const useCookiesForUrl = (url: string): boolean => {
+    const site = cookieSiteForUrl(url)
+    if (site === 'facebook') return useFacebookCookies && !!siteCookieStats.facebook?.has
+    if (site === 'bilibili') return useBilibiliCookies && !!siteCookieStats.bilibili?.has
+    return useCookies
+  }
 
   const refreshToolVer = (): void => {
-    void window.api.ytdlpVersion().then(setYtVer)
+    void window.api.ytdlpVersion().then(setYtVer).catch(() => setYtVer(null))
+    void window.api.ytdlpCapabilities().then(setYtCaps).catch(() => setYtCaps(null))
   }
   const updateTool = async (): Promise<void> => {
     setToolUpdating(true)
     setToolMsg(null)
-    const r = await window.api.ytdlpUpdate()
-    setToolMsg(r.message)
-    setToolUpdating(false)
-    refreshToolVer()
+    try {
+      const r = await window.api.ytdlpUpdate()
+      setToolMsg(r.message)
+      refreshToolVer()
+    } catch (err) {
+      setToolMsg(err instanceof Error ? err.message : 'Không thể cập nhật công cụ tải.')
+    } finally {
+      setToolUpdating(false)
+    }
+  }
+
+  const refreshSiteCookies = async (): Promise<void> => {
+    const [facebook, bilibili] = await Promise.all([
+      window.api.siteCookieStatus('facebook'),
+      window.api.siteCookieStatus('bilibili')
+    ])
+    setSiteCookieStats({ facebook, bilibili })
+  }
+
+  const refreshDomainCookies = async (): Promise<void> => {
+    const statuses = await window.api.cookieList()
+    setDomainCookieStats(statuses.filter((status) => !SPECIAL_COOKIE_DOMAINS.has(status.domain ?? '')))
   }
 
   useEffect(() => {
     refreshToolVer()
-    void window.api.cookieStatus().then(setCookieStat)
+    void refreshDomainCookies().catch(() => setDomainCookieStats([]))
+    void refreshSiteCookies().catch(() =>
+      setCookieMsg('Không thể đọc trạng thái đăng nhập đã lưu.')
+    )
     const off = window.api.onProgress((p) => {
       setItems((prev) => prev.map((it) => (it.id === p.id ? { ...it, progress: p } : it)))
     })
     return off
   }, [])
 
-  const openLogin = async (): Promise<void> => {
-    setCookieBusy(true)
-    const offEvent = window.api.onCookieCaptureEvent((e) => setCookieMsg(e.message))
-    const res = await window.api.cookieCapture(loginUrl.trim())
-    offEvent()
-
-    if (res.ok) {
-      const s = await window.api.cookieStatus()
-      setCookieStat(s)
-      setUseCookies(true)
-      setCookieMsg(`Đã lưu ${res.count} cookie. Sẵn sàng tải nội dung cần đăng nhập.`)
-    } else {
-      setCookieMsg('Lỗi lấy cookie: ' + (res.error ?? ''))
+  const openSiteLogin = async (site: CookieSite): Promise<void> => {
+    setCookieBusy(site)
+    setCookieMsg(null)
+    const offEvent = window.api.onSiteCookieCaptureEvent((e) => {
+      if (e.site !== site) return
+      setCookieMsg(
+        e.phase === 'launching'
+          ? `Đang mở cửa sổ đăng nhập ${COOKIE_SITE_LABEL[site]}…`
+          : e.phase === 'ready'
+            ? `Hãy đăng nhập ${COOKIE_SITE_LABEL[site]}, sau đó đóng cửa sổ để hoàn tất.`
+            : e.phase === 'saved'
+              ? `Đã kết nối tài khoản ${COOKIE_SITE_LABEL[site]}.`
+              : 'Không thể lưu phiên đăng nhập. Hãy thử lại.'
+      )
+    })
+    try {
+      const res = await window.api.siteCookieCapture(site)
+      if (!res.ok) {
+        setCookieMsg(`Không thể lưu phiên đăng nhập ${COOKIE_SITE_LABEL[site]}: ${res.error ?? ''}`)
+        return
+      }
+      const status = await window.api.siteCookieStatus(site)
+      setSiteCookieStats((prev) => ({ ...prev, [site]: status }))
+      if (site === 'facebook') setUseFacebookCookies(true)
+      else setUseBilibiliCookies(true)
+      setCookieMsg(
+        status.loggedIn
+          ? `Đã kết nối tài khoản ${COOKIE_SITE_LABEL[site]}.`
+          : `Chưa hoàn tất đăng nhập ${COOKIE_SITE_LABEL[site]}. Hãy mở lại cửa sổ và đăng nhập.`
+      )
+    } catch (err) {
+      setCookieMsg(err instanceof Error ? err.message : 'Không thể lưu phiên đăng nhập.')
+    } finally {
+      offEvent()
+      setCookieBusy(null)
     }
-    setCookieBusy(false)
   }
 
-  const clearCookie = async (): Promise<void> => {
-    await window.api.cookieClear()
-    const s = await window.api.cookieStatus()
-    setCookieStat(s)
-    setUseCookies(false)
-    setCookieMsg('Đã xóa cookie.')
+  const clearSiteCookie = async (site: CookieSite): Promise<void> => {
+    setCookieBusy(site)
+    try {
+      await window.api.siteCookieClear(site)
+      const status = await window.api.siteCookieStatus(site)
+      setSiteCookieStats((prev) => ({ ...prev, [site]: status }))
+      if (site === 'facebook') setUseFacebookCookies(false)
+      else setUseBilibiliCookies(false)
+      setCookieMsg(`Đã đăng xuất ${COOKIE_SITE_LABEL[site]}.`)
+    } catch (err) {
+      setCookieMsg(err instanceof Error ? err.message : 'Không thể đăng xuất.')
+    } finally {
+      setCookieBusy(null)
+    }
+  }
+
+  const openGenericLogin = async (): Promise<void> => {
+    setCookieBusy('generic')
+    setCookieMsg(null)
+    const offEvent = window.api.onCookieCaptureEvent((e) =>
+      setCookieMsg(
+        e.phase === 'launching'
+          ? 'Đang mở cửa sổ đăng nhập…'
+          : e.phase === 'ready'
+            ? 'Hãy đăng nhập, sau đó đóng cửa sổ để hoàn tất.'
+            : e.phase === 'saved'
+              ? 'Đã kết nối website.'
+              : 'Không thể lưu phiên đăng nhập. Hãy thử lại.'
+      )
+    )
+    try {
+      const res = await window.api.cookieCapture(loginUrl.trim())
+      if (!res.ok) {
+        setCookieMsg('Không thể lưu phiên đăng nhập: ' + (res.error ?? ''))
+        return
+      }
+      await Promise.all([refreshDomainCookies(), refreshSiteCookies()])
+      if (res.domain === 'facebook.com') setUseFacebookCookies(true)
+      else if (res.domain === 'bilibili.com') setUseBilibiliCookies(true)
+      else setUseCookies(true)
+      setCookieMsg(`Đã kết nối ${res.domain ?? 'website'}.`)
+    } catch (err) {
+      setCookieMsg(err instanceof Error ? err.message : 'Không thể lưu phiên đăng nhập.')
+    } finally {
+      offEvent()
+      setCookieBusy(null)
+    }
+  }
+
+  const clearGenericCookie = async (domain: string): Promise<void> => {
+    setCookieBusy('generic')
+    try {
+      await window.api.cookieClear(`https://${domain}/`)
+      await refreshDomainCookies()
+      setCookieMsg(`Đã đăng xuất ${domain}.`)
+    } catch (err) {
+      setCookieMsg(err instanceof Error ? err.message : 'Không thể đăng xuất.')
+    } finally {
+      setCookieBusy(null)
+    }
   }
 
   const testProxyNow = async (): Promise<void> => {
@@ -220,10 +345,31 @@ export default function Downloader({
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...upd } : it)))
   }
 
+  const addProbeFailure = (url: string, error: string): void => {
+    setItems((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        mediaId: null,
+        url,
+        title: url,
+        info: null,
+        status: 'error',
+        progress: null,
+        result: null,
+        error,
+        formatId: null,
+        formatLabel: null,
+        subfolder: null
+      }
+    ])
+  }
+
   // Them cac URL video don, lay thong tin day du (kem thumbnail)
-  const addSingles = async (urls: string[], cf: string | null): Promise<void> => {
+  const addSingles = async (urls: string[]): Promise<void> => {
     const newItems: QueueItem[] = urls.map((url) => ({
       id: crypto.randomUUID(),
+      mediaId: null,
       url,
       title: url,
       info: null,
@@ -238,10 +384,26 @@ export default function Downloader({
     setItems((prev) => [...prev, ...newItems])
     await Promise.all(
       newItems.map(async (it) => {
-        const res = await window.api.getInfo(it.url, cf, proxyArg())
-        if (res.ok && res.info)
-          patch(it.id, { info: res.info, title: res.info.title, status: 'ready' })
-        else patch(it.id, { status: 'error', error: res.error ?? 'Không lấy được thông tin.' })
+        try {
+          const res = await window.api.getInfo(
+            it.url,
+            proxyArg(),
+            useCookiesForUrl(it.url)
+          )
+          if (res.ok && res.info)
+            patch(it.id, {
+              info: res.info,
+              mediaId: res.info.id || null,
+              title: res.info.title,
+              status: 'ready'
+            })
+          else patch(it.id, { status: 'error', error: res.error ?? 'Không lấy được thông tin.' })
+        } catch (err) {
+          patch(it.id, {
+            status: 'error',
+            error: err instanceof Error ? err.message : 'Không lấy được thông tin.'
+          })
+        }
       })
     )
   }
@@ -254,15 +416,25 @@ export default function Downloader({
     if (urls.length === 0) return
     setUrlInput('')
     setProbing(true)
-    const cf = cookiesFile()
-
     const singles: string[] = []
     const collected: SelEntry[] = []
     const sublists: { title: string; url: string; count: number | null }[] = []
     for (const url of urls) {
+      if (isKnownSingleVideoUrl(url)) {
+        singles.push(url)
+        continue
+      }
       try {
-        const res = await window.api.getPlaylist(url, cf, proxyArg())
-        if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
+        const res = await window.api.getPlaylist(
+          url,
+          proxyArg(),
+          useCookiesForUrl(url)
+        )
+        if (!res.ok && res.errorCode) {
+          // Lenh probe da tra loi ro (412, login, rate-limit...). Khong lap tuc
+          // goi getInfo lan hai vi co the lam anti-bot tang muc chan.
+          addProbeFailure(url, res.error ?? 'Không phân tích được liên kết.')
+        } else if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
           const plTitle = res.playlist.title ?? 'Playlist'
           for (const e of res.playlist.entries) {
             if (e.isPlaylist) {
@@ -279,7 +451,7 @@ export default function Downloader({
       }
     }
 
-    if (singles.length) await addSingles(singles, cf)
+    if (singles.length) await addSingles(singles)
     // Uu tien: neu co danh sach con (tab kenh) -> mo bang chon danh sach truoc
     if (sublists.length) {
       setSubChooser({ open: true, parent: urls[0], lists: sublists })
@@ -309,10 +481,15 @@ export default function Downloader({
   const openSubList = async (url: string): Promise<void> => {
     setSubChooser({ open: false, parent: '', lists: [] })
     setProbing(true)
-    const cf = cookiesFile()
     try {
-      const res = await window.api.getPlaylist(url, cf, proxyArg())
-      if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
+      const res = await window.api.getPlaylist(
+        url,
+        proxyArg(),
+        useCookiesForUrl(url)
+      )
+      if (!res.ok && res.errorCode) {
+        addProbeFailure(url, res.error ?? 'Không phân tích được liên kết.')
+      } else if (res.ok && res.playlist?.isPlaylist && res.playlist.entries.length > 0) {
         const nested = res.playlist.entries.filter((e) => e.isPlaylist)
         if (nested.length > 0) {
           setSubChooser({
@@ -332,10 +509,10 @@ export default function Downloader({
         }
       } else {
         // Khong phai playlist -> coi nhu 1 video don
-        await addSingles([url], cf)
+        await addSingles([url])
       }
     } catch {
-      await addSingles([url], cf)
+      await addSingles([url])
     }
     setProbing(false)
   }
@@ -344,6 +521,7 @@ export default function Downloader({
     const chosen = playlistSel.entries.filter((e) => e.checked)
     const newItems: QueueItem[] = chosen.map((e) => ({
       id: crypto.randomUUID(),
+      mediaId: e.id || null,
       url: e.url,
       title: e.title,
       info: null,
@@ -384,16 +562,20 @@ export default function Downloader({
   }
 
   const buildReq = (item: QueueItem): DownloadRequest => ({
-    url: item.info?.webpageUrl ?? item.url,
+    // Giu URL nguoi dung/playlist cung cap. Main se tu chon cookie dung domain;
+    // khong doi sang webpage_url cua extractor (co the la host mobile/redirect).
+    url: item.url,
+    mediaId: item.info?.id || item.mediaId,
     kind,
     height: kind === 'video' ? height : null,
     audioFormat,
     outputDir,
     embedThumbnail,
     embedMetadata,
-    cookiesFile: cookiesFile(),
+    useCookies: useCookiesForUrl(item.info?.webpageUrl ?? item.url),
+    ensureH264: kind === 'video' && ensureH264,
     formatId: item.formatId,
-    container,
+    container: kind === 'video' && ensureH264 ? 'mp4' : container,
     outputTemplate: templateFor(item),
     writeSubs,
     autoSubs,
@@ -406,12 +588,19 @@ export default function Downloader({
 
   const runItem = async (it: QueueItem): Promise<void> => {
     patch(it.id, { status: 'downloading', progress: null, result: null, error: null })
-    const result = await window.api.download(it.id, buildReq(it))
-    patch(it.id, {
-      status: result.ok ? (result.skipped ? 'skipped' : 'done') : 'error',
-      result,
-      error: result.ok ? null : result.error
-    })
+    try {
+      const result = await window.api.download(it.id, buildReq(it))
+      patch(it.id, {
+        status: result.ok ? (result.skipped ? 'skipped' : 'done') : 'error',
+        result,
+        error: result.ok ? null : result.error
+      })
+    } catch (err) {
+      patch(it.id, {
+        status: 'error',
+        error: err instanceof Error ? err.message : 'Không thể bắt đầu lượt tải này.'
+      })
+    }
   }
 
   const startRun = (): void => {
@@ -450,7 +639,7 @@ export default function Downloader({
               className={`seg-btn ${kind === 'video' ? 'active' : ''}`}
               onClick={() => setKind('video')}
             >
-              🎬 Video (mp4)
+              🎬 Video
             </button>
             <button
               className={`seg-btn ${kind === 'audio' ? 'active' : ''}`}
@@ -539,7 +728,11 @@ export default function Downloader({
             <div className="adv-row">
               <label className="field">
                 <span>Định dạng file (video)</span>
-                <select value={container} onChange={(e) => setContainer(e.target.value)}>
+                <select
+                  value={ensureH264 ? 'mp4' : container}
+                  disabled={kind === 'video' && ensureH264}
+                  onChange={(e) => setContainer(e.target.value)}
+                >
                   <option value="mp4">MP4</option>
                   <option value="mkv">MKV</option>
                   <option value="webm">WEBM</option>
@@ -634,6 +827,18 @@ export default function Downloader({
 
             <div className="adv-checks">
               <label
+                className={`check ${kind === 'video' ? '' : 'disabled'}`}
+                title="T-blao sẽ ưu tiên định dạng phát được trên nhiều thiết bị."
+              >
+                <input
+                  type="checkbox"
+                  checked={ensureH264}
+                  disabled={kind !== 'video'}
+                  onChange={(e) => setEnsureH264(e.target.checked)}
+                />
+                Ưu tiên video dễ phát
+              </label>
+              <label
                 className="check"
                 title="Lịch sử toàn cục trên máy — đổi thư mục lưu cũng vẫn bỏ qua video đã từng tải. Muốn tải lại: tắt mục này."
               >
@@ -656,6 +861,11 @@ export default function Downloader({
                 Ghi đè file trùng tên
               </label>
             </div>
+            {kind === 'video' && ensureH264 && (
+              <div className="muted small" style={{ marginTop: -8 }}>
+                Nếu cần, T-blao sẽ chuyển đổi video sau khi tải. Quá trình có thể lâu hơn.
+              </div>
+            )}
             {useArchive && (
               <div className="muted small" style={{ marginTop: 4 }}>
                 Đang bật lịch sử: video đã tải trước sẽ hiện “Bỏ qua”, không ghi file mới vào thư mục
@@ -663,81 +873,213 @@ export default function Downloader({
               </div>
             )}
 
-            {/* Cong cu tai: phien ban + cap nhat */}
-            <div className="adv-tools">
-              <div className="muted small">
-                Công cụ tải: <b>{ytVer || '…'}</b>
-                <span className="muted small"> · tự cập nhật hằng ngày</span>
+            <details className="tech-details">
+              <summary>Thông tin công cụ tải</summary>
+              <div className="adv-tools">
+                <div className="muted small">
+                  Phiên bản: <b>{ytVer || '…'}</b>
+                  <span className="muted small"> · tự cập nhật hằng ngày</span>
+                </div>
+                <button className="btn small-btn" onClick={updateTool} disabled={toolUpdating}>
+                  {toolUpdating ? 'Đang cập nhật…' : '⟳ Kiểm tra cập nhật'}
+                </button>
+                {toolMsg && <div className="muted small adv-tool-msg">{toolMsg}</div>}
               </div>
-              <button className="btn small-btn" onClick={updateTool} disabled={toolUpdating}>
-                {toolUpdating ? 'Đang cập nhật…' : '⟳ Cập nhật công cụ'}
-              </button>
-              {toolMsg && <div className="muted small adv-tool-msg">{toolMsg}</div>}
-            </div>
+              {ytCaps && (
+                <div
+                  className={`capability-note small ${
+                    ytCaps.impersonationAvailable ? 'ok' : 'warn'
+                  }`}
+                >
+                  {ytCaps.impersonationAvailable
+                    ? '✓ Thành phần hỗ trợ Facebook đã sẵn sàng.'
+                    : '⚠ Thành phần hỗ trợ Facebook chưa sẵn sàng. Hãy kiểm tra cập nhật công cụ.'}
+                </div>
+              )}
+            </details>
           </div>
         )}
       </div>
 
-      {/* Dang nhap bang cookie */}
+      {/* Dang nhap bang cookie rieng cho tung website */}
       <div className="card cookie-card">
         <div className="cookie-head">
           <div>
-            <div className="cookie-title">🔑 Đăng nhập bằng cookie</div>
+            <div className="cookie-title">Tài khoản website</div>
             <div className="muted small">
-              Dành cho video cần đăng nhập. Bấm nút để mở cửa sổ đăng nhập, đăng nhập xong rồi{' '}
-              <b>đóng cửa sổ</b> — cookie sẽ tự lưu.
+              Dùng tài khoản của bạn để tải nội dung cần đăng nhập. Mỗi website được lưu riêng.
             </div>
           </div>
-          {cookieStat?.has ? (
-            <span className="cookie-status ok">Đã lưu · {cookieStat.count} cookie</span>
-          ) : (
-            <span className="cookie-status">Chưa có cookie</span>
-          )}
         </div>
 
-        <div className="cookie-actions">
-          <input
-            className="url-input small-input"
-            placeholder="Trang cần đăng nhập (vd: https://youtube.com) — để trống cũng được"
-            value={loginUrl}
-            onChange={(e) => setLoginUrl(e.target.value)}
-            disabled={cookieBusy}
-          />
-          <button className="btn primary" onClick={openLogin} disabled={cookieBusy}>
-            {cookieBusy ? 'Đang xử lý…' : 'Mở cửa sổ đăng nhập'}
-          </button>
+        <div className="site-cookie-list">
+          <div className="site-cookie-row">
+            <div className="site-cookie-info">
+              <b>Facebook</b>
+              {siteCookieStats.facebook?.loggedIn ? (
+                <span className="cookie-status ok">
+                  Đã kết nối
+                </span>
+              ) : (siteCookieStats.facebook?.count ?? 0) > 0 ? (
+                <span className="cookie-status warn">Chưa hoàn tất đăng nhập</span>
+              ) : (siteCookieStats.facebook?.expiredCount ?? 0) > 0 ? (
+                <span className="cookie-status warn">
+                  Phiên đăng nhập đã hết hạn
+                </span>
+              ) : (
+                <span className="cookie-status">Chưa đăng nhập</span>
+              )}
+            </div>
+            <div className="site-cookie-actions">
+              <label className={`check ${siteCookieStats.facebook?.has ? '' : 'disabled'}`}>
+                <input
+                  type="checkbox"
+                  checked={useFacebookCookies && !!siteCookieStats.facebook?.has}
+                  disabled={!siteCookieStats.facebook?.has || cookieBusy !== null}
+                  onChange={(e) => setUseFacebookCookies(e.target.checked)}
+                />
+                Dùng tài khoản này
+              </label>
+              <button
+                className="btn small-btn"
+                onClick={() => void openSiteLogin('facebook')}
+                disabled={cookieBusy !== null}
+              >
+                {cookieBusy === 'facebook' ? 'Đang xử lý…' : 'Đăng nhập'}
+              </button>
+              {((siteCookieStats.facebook?.count ?? 0) > 0 ||
+                (siteCookieStats.facebook?.expiredCount ?? 0) > 0) && (
+                <button
+                  className="link-btn"
+                  onClick={() => void clearSiteCookie('facebook')}
+                  disabled={cookieBusy !== null}
+                >
+                  Xóa
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="site-cookie-row">
+            <div className="site-cookie-info">
+              <b>Bilibili</b>
+              {siteCookieStats.bilibili?.loggedIn ? (
+                <span className="cookie-status ok">
+                  Đã kết nối
+                </span>
+              ) : (siteCookieStats.bilibili?.count ?? 0) > 0 ? (
+                <span className="cookie-status warn">Chưa hoàn tất đăng nhập</span>
+              ) : (siteCookieStats.bilibili?.expiredCount ?? 0) > 0 ? (
+                <span className="cookie-status warn">
+                  Phiên đăng nhập đã hết hạn
+                </span>
+              ) : (
+                <span className="cookie-status">Chưa đăng nhập</span>
+              )}
+            </div>
+            <div className="site-cookie-actions">
+              <label className={`check ${siteCookieStats.bilibili?.has ? '' : 'disabled'}`}>
+                <input
+                  type="checkbox"
+                  checked={useBilibiliCookies && !!siteCookieStats.bilibili?.has}
+                  disabled={!siteCookieStats.bilibili?.has || cookieBusy !== null}
+                  onChange={(e) => setUseBilibiliCookies(e.target.checked)}
+                />
+                Dùng tài khoản này
+              </label>
+              <button
+                className="btn small-btn"
+                onClick={() => void openSiteLogin('bilibili')}
+                disabled={cookieBusy !== null}
+              >
+                {cookieBusy === 'bilibili' ? 'Đang xử lý…' : 'Đăng nhập'}
+              </button>
+              {((siteCookieStats.bilibili?.count ?? 0) > 0 ||
+                (siteCookieStats.bilibili?.expiredCount ?? 0) > 0) && (
+                <button
+                  className="link-btn"
+                  onClick={() => void clearSiteCookie('bilibili')}
+                  disabled={cookieBusy !== null}
+                >
+                  Xóa
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="cookie-foot">
-          <label className={`check ${cookieStat?.has ? '' : 'disabled'}`}>
-            <input
-              type="checkbox"
-              checked={useCookies}
-              disabled={!cookieStat?.has}
-              onChange={(e) => setUseCookies(e.target.checked)}
-            />
-            Dùng cookie khi tải
-          </label>
-          {cookieStat?.has && (
-            <button className="link-btn" onClick={clearCookie} disabled={cookieBusy}>
-              Xóa cookie
-            </button>
-          )}
-        </div>
         <div className="muted small cookie-tip">
-          💡 Chỉ bật khi tải nội dung <b>cần đăng nhập</b>. Với video công khai (YouTube…), cookie có
-          thể gây lỗi — cứ để tắt. Nếu lỡ bật mà lỗi, app sẽ tự thử lại không cookie.
+          T-blao tự dùng đúng phiên đăng nhập cho từng website khi cần.
         </div>
+
+        <details className="generic-cookie">
+          <summary>Đăng nhập website khác</summary>
+          <div className="generic-cookie-body">
+            <div className="cookie-actions">
+              <input
+                className="url-input small-input"
+                placeholder="Website cần tải, ví dụ https://youtube.com"
+                value={loginUrl}
+                onChange={(e) => setLoginUrl(e.target.value)}
+                disabled={cookieBusy !== null}
+              />
+              <button
+                className="btn"
+                onClick={() => void openGenericLogin()}
+                disabled={cookieBusy !== null || !loginUrl.trim()}
+              >
+                {cookieBusy === 'generic' ? 'Đang xử lý…' : 'Mở đăng nhập'}
+              </button>
+            </div>
+            <div className="cookie-foot">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={useCookies}
+                  disabled={cookieBusy !== null}
+                  onChange={(e) => setUseCookies(e.target.checked)}
+                />
+                Tự dùng đúng phiên đăng nhập
+              </label>
+            </div>
+            {domainCookieStats.length > 0 && (
+              <div className="site-cookie-list domain-cookie-list">
+                {domainCookieStats.map((status) => (
+                  <div className="site-cookie-row" key={status.domain ?? 'invalid'}>
+                    <div className="site-cookie-info">
+                      <b>{status.domain}</b>
+                      <span className={`cookie-status ${status.has ? 'ok' : 'warn'}`}>
+                        {status.has
+                          ? 'Đã kết nối'
+                          : 'Phiên đăng nhập đã hết hạn'}
+                      </span>
+                    </div>
+                    {status.domain && (
+                      <button
+                        className="link-btn"
+                        onClick={() => void clearGenericCookie(status.domain!)}
+                        disabled={cookieBusy !== null}
+                      >
+                        Xóa
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
 
         {cookieMsg && <div className="cookie-msg small">{cookieMsg}</div>}
       </div>
 
       {/* Proxy (vuot khoa vung) */}
-      <div className="card proxy-card">
+      <details className="card proxy-card tech-card">
+        <summary className="proxy-title tech-card-summary">
+          Kết nối qua proxy <span className="muted small">(nếu nội dung bị giới hạn khu vực)</span>
+        </summary>
+        <div className="tech-card-body">
         <div className="proxy-head">
-          <div className="proxy-title">
-            🌐 Proxy <span className="muted small">(vượt khóa vùng)</span>
-          </div>
           <button
             className="proxy-guide-btn"
             onClick={() => setProxyGuide(true)}
@@ -772,25 +1114,29 @@ export default function Downloader({
             {proxyMsg.text}
           </div>
         )}
-      </div>
+        </div>
+      </details>
 
       {/* Them URL vao hang doi */}
-      <div className="url-row">
+      <div className="url-row link-entry-row">
         <LinkInput
-          placeholder="Dán 1 hoặc nhiều liên kết — Enter để thêm, Shift+Enter để xuống dòng"
+          placeholder="Dán link video hoặc playlist vào đây"
           value={urlInput}
           onChange={setUrlInput}
           onSubmit={addUrls}
           disabled={probing}
         />
-        <button className="btn primary" onClick={addUrls} disabled={!urlInput.trim() || probing}>
+        <button
+          className="btn primary link-add-btn"
+          onClick={addUrls}
+          disabled={!urlInput.trim() || probing}
+        >
           {probing ? 'Đang phân tích…' : '+ Thêm'}
         </button>
       </div>
 
       <p className="hint muted small">
-        💡 Link <b>video</b> → thêm vào hàng đợi, mỗi video có nút <b>⚙</b> để chọn định dạng chi
-        tiết. &nbsp; Link <b>playlist</b> → hiện bảng chọn video để tải.
+        Dán link video để thêm vào hàng đợi. Với playlist, T-blao sẽ cho bạn chọn các video cần tải.
       </p>
       </div>
 
@@ -849,7 +1195,7 @@ export default function Downloader({
             Dán link <b>video</b> hoặc <b>playlist</b> ở trên rồi bấm <b>Thêm</b>.
           </div>
           <div className="small" style={{ marginTop: 8 }}>
-            Sau khi thêm, mỗi video sẽ có nút <b>⚙</b> để chọn định dạng (độ phân giải, codec…).
+            Sau khi thêm, mỗi video sẽ có nút <b>⚙</b> để chọn chất lượng riêng.
           </div>
         </div>
       )}
@@ -1085,20 +1431,26 @@ export default function Downloader({
           <div className="modal wide" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
               <h3>Chọn định dạng</h3>
-              <span className="muted small">
-                Chọn 1 dòng · video không tiếng sẽ tự ghép âm thanh tốt nhất
-              </span>
+              <span className="muted small">Chọn chất lượng phù hợp với nhu cầu của bạn</span>
             </div>
+            <label className="check format-detail-toggle">
+              <input
+                type="checkbox"
+                checked={showFormatDetails}
+                onChange={(e) => setShowFormatDetails(e.target.checked)}
+              />
+              Xem chi tiết kỹ thuật
+            </label>
             <div className="modal-list">
-              <table className="fmt-table">
+              <table className={`fmt-table ${showFormatDetails ? 'show-technical' : ''}`}>
                 <thead>
                   <tr>
                     <th></th>
                     <th>Độ phân giải</th>
-                    <th>Đuôi</th>
-                    <th>FPS</th>
-                    <th>Codec</th>
                     <th>Kích thước</th>
+                    <th className="fmt-technical">Đuôi</th>
+                    <th className="fmt-technical">FPS</th>
+                    <th className="fmt-technical">Codec</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1118,12 +1470,12 @@ export default function Downloader({
                               ? 'Âm thanh'
                               : f.resolution ?? '—'}
                         </td>
-                        <td>{f.ext}</td>
-                        <td className="num">{f.fps ?? ''}</td>
-                        <td className="fmt-codec">
+                        <td className="num">{formatBytes(f.filesize ?? f.filesizeApprox)}</td>
+                        <td className="fmt-technical">{f.ext}</td>
+                        <td className="num fmt-technical">{f.fps ?? ''}</td>
+                        <td className="fmt-codec fmt-technical">
                           {[f.vcodec, f.acodec].filter(Boolean).join(' / ') || '—'}
                         </td>
-                        <td className="num">{formatBytes(f.filesize ?? f.filesizeApprox)}</td>
                       </tr>
                     ))}
                 </tbody>
@@ -1152,6 +1504,8 @@ function statusLabel(it: QueueItem): string {
       return 'Chờ tải'
     case 'downloading':
       switch (it.progress?.status) {
+        case 'converting':
+          return 'Đang tối ưu để dễ phát…'
         case 'postprocessing':
           return 'Đang xử lý…'
         case 'preparing':
@@ -1292,29 +1646,33 @@ function QueueRow({
               ⚙
             </button>
           )}
-          {item.status === 'done' && item.result?.file && (
+          {(item.status === 'done' || item.status === 'error') && item.result?.file && (
             <>
+              {item.status === 'done' && (
+                <button
+                  className="ibtn"
+                  title="Mở file"
+                  onClick={() => window.api.openPath(item.result!.file!)}
+                >
+                  ▶
+                </button>
+              )}
               <button
                 className="ibtn"
-                title="Mở file"
-                onClick={() => window.api.openPath(item.result!.file!)}
-              >
-                ▶
-              </button>
-              <button
-                className="ibtn"
-                title="Mở thư mục"
+                title={item.status === 'error' ? 'Mở thư mục chứa file gốc' : 'Mở thư mục'}
                 onClick={() => window.api.showItem(item.result!.file!)}
               >
                 📂
               </button>
-              <button
-                className="ibtn"
-                title="Lấy phụ đề (Audio → Text)"
-                onClick={() => onGetSub(item.result!.file!)}
-              >
-                📝
-              </button>
+              {item.status === 'done' && (
+                <button
+                  className="ibtn"
+                  title="Lấy phụ đề (Audio → Text)"
+                  onClick={() => onGetSub(item.result!.file!)}
+                >
+                  📝
+                </button>
+              )}
             </>
           )}
           {item.status === 'skipped' && outputDir && (

@@ -17,7 +17,7 @@ export default function OpenAIHelp({ onClose }: { onClose: () => void }): JSX.El
     <div className="modal-nen" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div className="modal-title">Hướng dẫn lấy ChatGPT API Key</div>
+          <div className="modal-title">Kết nối OpenAI</div>
           <button className="modal-x" onClick={onClose} title="Đóng">
             ✕
           </button>
@@ -38,7 +38,7 @@ export default function OpenAIHelp({ onClose }: { onClose: () => void }): JSX.El
           <div className="hd-step">
             <div className="hd-num">2</div>
             <div>
-              <b>Tạo API Key</b>
+              <b>Tạo khóa kết nối</b>
               <p className="muted small">
                 Bấm <b>“Create new secret key”</b>, đặt tên (tuỳ chọn), rồi tạo khoá.
               </p>
@@ -48,7 +48,7 @@ export default function OpenAIHelp({ onClose }: { onClose: () => void }): JSX.El
           <div className="hd-step">
             <div className="hd-num">3</div>
             <div>
-              <b>Sao chép key</b>
+              <b>Sao chép khóa</b>
               <p className="muted small">
                 Key chỉ hiện một lần — bấm <b>“Copy”</b>, rồi dán vào ô trong T-blao. Key thường bắt
                 đầu bằng <b>sk-</b>.

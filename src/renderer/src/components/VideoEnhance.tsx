@@ -36,10 +36,7 @@ function defaultConfig(): Video2xTaskConfig {
 }
 
 function processorLabel(p: Video2xProcessor): string {
-  if (p === 'libplacebo') return 'libplacebo'
-  if (p === 'realesrgan') return 'Real-ESRGAN'
-  if (p === 'realcugan') return 'Real-CUGAN'
-  return 'RIFE'
+  return p === 'rife' ? 'Làm mượt' : 'Làm rõ'
 }
 
 function outputName(input: string, cfg: Video2xTaskConfig): string {
@@ -109,24 +106,23 @@ function TaskConfigHelp({ onClose }: { onClose: () => void }): JSX.Element {
     <div className="modal-nen" onClick={onClose}>
       <div className="modal v2x-help-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <b>Hướng dẫn chỉnh task</b>
+          <b>Hướng dẫn nâng cấp video</b>
           <button type="button" className="btn ghost" onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="modal-body v2x-help-body">
           <p>
-            Cột <b>Chỉnh task</b> là cấu hình dùng chung: mọi video trong hàng đợi chạy theo cùng
-            một thiết lập. Thay đổi được tự nhớ cho lần mở app sau.
+            Chọn mục tiêu và mức xử lý phù hợp. Thiết lập được áp dụng cho toàn bộ video trong hàng
+            đợi và được ghi nhớ cho lần mở sau.
           </p>
-          <h4>Processing</h4>
+          <h4>Chế độ chuyên gia: xử lý hình ảnh</h4>
           <ul>
             <li>
-              <b>GPU</b> — chọn card Vulkan (xem danh sách từ Video2X). Sai GPU có thể rất chậm hoặc
-              lỗi.
+              <b>Thiết bị xử lý</b> — chỉ đổi khi máy có nhiều card đồ họa.
             </li>
             <li>
-              <b>Filter (Upscaling)</b> — phóng to / làm nét:
+              <b>Làm nét</b> — chọn công nghệ phù hợp với loại video:
               <ul>
                 <li>
                   <b>Real-ESRGAN</b> — chất lượng cao, phù hợp anime / video nói chung (khuyến nghị
@@ -141,14 +137,13 @@ function TaskConfigHelp({ onClose }: { onClose: () => void }): JSX.Element {
               </ul>
             </li>
             <li>
-              <b>Scaling ×</b> hoặc <b>Width × Height</b> — chọn một trong hai (không dùng cùng lúc).
+              <b>Mức phóng</b> hoặc <b>kích thước đầu ra</b> — chỉ dùng một trong hai cách.
             </li>
             <li>
-              <b>Frame Interpolation (RIFE)</b> — tăng FPS (×2…), không phóng to. Đổi model / ngưỡng
-              scene nếu video cắt cảnh nhiều.
+              <b>Làm mượt chuyển động</b> — tạo thêm khung hình, không làm tăng độ phân giải.
             </li>
           </ul>
-          <h4>Encoder</h4>
+          <h4>Chế độ chuyên gia: mã hóa đầu ra</h4>
           <ul>
             <li>
               <b>Codec</b> — <code>libx264</code> ổn định; <code>h264_nvenc</code> /
@@ -160,14 +155,14 @@ function TaskConfigHelp({ onClose }: { onClose: () => void }): JSX.Element {
             <li>
               <b>Preset</b> — <code>medium</code> cân bằng; <code>slow</code> đẹp hơn nhưng lâu hơn.
             </li>
-            <li>Giữ bật Copy audio / subtitle trừ khi muốn encode lại luồng đó.</li>
+            <li>Giữ bật âm thanh và phụ đề trừ khi bạn có nhu cầu xử lý riêng.</li>
           </ul>
           <h4>Cách dùng nhanh</h4>
           <ol>
-            <li>Chọn Processing + Encoder trước.</li>
-            <li>Bấm 「Thêm」 chọn nhiều video.</li>
+            <li>Chọn kết quả mong muốn và mức xử lý.</li>
+            <li>Bấm “Thêm video” để chọn một hoặc nhiều video.</li>
             <li>Hàng đợi chạy lần lượt theo cấu hình hiện tại.</li>
-            <li>Pause = hết job hiện tại rồi dừng; Abort = dừng ngay.</li>
+            <li>“Tạm dừng” sẽ hoàn tất video hiện tại; “Dừng ngay” sẽ dừng tác vụ đang chạy.</li>
           </ol>
         </div>
         <div className="modal-foot">
@@ -191,6 +186,7 @@ function TaskConfigPanel({
 }): JSX.Element {
   const [tab, setTab] = useState<'processing' | 'encoder'>('processing')
   const [showHelp, setShowHelp] = useState(false)
+  const [expert, setExpert] = usePersistedState('tblao.v2x.expert', false)
 
   const patch = (partial: Partial<Video2xTaskConfig>): void => {
     onChange({ ...config, ...partial })
@@ -212,44 +208,132 @@ function TaskConfigPanel({
     })
   }
 
+  const setGoal = (goal: 'clarity' | 'motion'): void => {
+    if (goal === 'motion') {
+      onChange({ ...config, mode: 'interpolate', processor: 'rife', frameRateMul: 2 })
+      return
+    }
+    onChange({
+      ...config,
+      mode: 'filter',
+      processor: config.processor === 'rife' ? 'realesrgan' : config.processor,
+      scalingFactor: config.scalingFactor ?? 2,
+      width: null,
+      height: null
+    })
+  }
+
+  const profile =
+    config.encoderPreset === 'slow' && (config.crf ?? 20) <= 18
+      ? 'quality'
+      : config.encoderPreset === 'fast' && (config.crf ?? 20) >= 23
+        ? 'speed'
+        : 'balanced'
+
+  const setProfile = (value: string): void => {
+    if (value === 'speed') patch({ encoderPreset: 'fast', crf: 23 })
+    else if (value === 'quality') patch({ encoderPreset: 'slow', crf: 18 })
+    else patch({ encoderPreset: 'medium', crf: 20 })
+  }
+
   return (
     <aside className="v2x-cfg card">
       <div className="v2x-cfg-head">
         <div className="v2x-cfg-title">
-          <b>Chỉnh task</b>
-          <span className="muted small">Áp dụng cho cả hàng đợi · tự nhớ</span>
+          <b>Kết quả mong muốn</b>
+          <span className="muted small">Áp dụng cho cả hàng đợi · T-blao tự nhớ</span>
         </div>
         <button
           type="button"
           className="btn ghost v2x-help-btn"
-          title="Hướng dẫn sử dụng chỉnh task"
+          title="Hướng dẫn nâng cấp video"
           onClick={() => setShowHelp(true)}
         >
           ?
         </button>
       </div>
       {showHelp && <TaskConfigHelp onClose={() => setShowHelp(false)} />}
+      <div className="v2x-goal-grid" role="radiogroup" aria-label="Kết quả nâng cấp video">
+        <button
+          type="button"
+          className={`v2x-goal ${config.mode === 'filter' ? 'active' : ''}`}
+          onClick={() => setGoal('clarity')}
+        >
+          <span className="v2x-goal-icon">◇</span>
+          <span>
+            <b>Làm video rõ hơn</b>
+            <small>Tăng kích thước và làm nét hình ảnh</small>
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`v2x-goal ${config.mode === 'interpolate' ? 'active' : ''}`}
+          onClick={() => setGoal('motion')}
+        >
+          <span className="v2x-goal-icon">≫</span>
+          <span>
+            <b>Làm chuyển động mượt hơn</b>
+            <small>Tạo thêm khung hình giữa các chuyển động</small>
+          </span>
+        </button>
+      </div>
+
+      <div className="v2x-basic-form">
+        <label className="field">
+          <span className="muted small">
+            {config.mode === 'filter' ? 'Mức tăng độ nét' : 'Mức tăng độ mượt'}
+          </span>
+          <select
+            value={config.mode === 'filter' ? config.scalingFactor ?? 2 : config.frameRateMul}
+            onChange={(e) =>
+              config.mode === 'filter'
+                ? patch({ scalingFactor: Number(e.target.value), width: null, height: null })
+                : patch({ frameRateMul: Number(e.target.value) })
+            }
+          >
+            <option value={2}>Gấp 2 — khuyên dùng</option>
+            <option value={3}>Gấp 3</option>
+            <option value={4}>Gấp 4</option>
+          </select>
+        </label>
+        <label className="field">
+          <span className="muted small">Ưu tiên xử lý</span>
+          <select value={profile} onChange={(e) => setProfile(e.target.value)}>
+            <option value="speed">Nhanh</option>
+            <option value="balanced">Cân bằng — khuyên dùng</option>
+            <option value="quality">Chất lượng cao</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="gk-check v2x-expert-toggle">
+        <input type="checkbox" checked={expert} onChange={(e) => setExpert(e.target.checked)} />
+        <span>Chế độ chuyên gia</span>
+      </label>
+
+      {expert && (
+        <div className="v2x-expert">
       <div className="v2x-edit-tabs">
         <button
           type="button"
           className={tab === 'processing' ? 'active' : ''}
           onClick={() => setTab('processing')}
         >
-          Processing
+          Xử lý hình ảnh
         </button>
         <button
           type="button"
           className={tab === 'encoder' ? 'active' : ''}
           onClick={() => setTab('encoder')}
         >
-          Encoder
+          Mã hóa đầu ra
         </button>
       </div>
       <div className="v2x-cfg-body">
         {tab === 'processing' ? (
           <div className="v2x-form">
             <label className="field">
-              <span className="muted small">1. Vulkan device (GPU)</span>
+              <span className="muted small">1. Thiết bị xử lý (Vulkan GPU)</span>
               <select
                 value={config.deviceIndex}
                 onChange={(e) => patch({ deviceIndex: Number(e.target.value) })}
@@ -264,17 +348,17 @@ function TaskConfigPanel({
               </select>
             </label>
             <label className="field">
-              <span className="muted small">2. Processing mode</span>
+              <span className="muted small">2. Kiểu xử lý</span>
               <select
                 value={config.mode}
                 onChange={(e) => setMode(e.target.value as Video2xMode)}
               >
-                <option value="filter">Filter (Upscaling)</option>
-                <option value="interpolate">Frame Interpolation</option>
+                <option value="filter">Làm nét hình ảnh</option>
+                <option value="interpolate">Làm mượt chuyển động</option>
               </select>
             </label>
             <label className="field">
-              <span className="muted small">3. Filter / Processor</span>
+              <span className="muted small">3. Công nghệ xử lý</span>
               <select
                 value={config.processor}
                 onChange={(e) => setProcessor(e.target.value as Video2xProcessor)}
@@ -294,7 +378,7 @@ function TaskConfigPanel({
             {config.processor !== 'rife' && (
               <>
                 <label className="field">
-                  <span className="muted small">Scaling factor (×)</span>
+                  <span className="muted small">Mức phóng (×)</span>
                   <select
                     value={config.scalingFactor ?? ''}
                     onChange={(e) => {
@@ -303,7 +387,7 @@ function TaskConfigPanel({
                       else patch({ scalingFactor: Number(v), width: null, height: null })
                     }}
                   >
-                    <option value="">Dùng Width × Height</option>
+                    <option value="">Tự nhập kích thước</option>
                     <option value={2}>2</option>
                     <option value={3}>3</option>
                     <option value={4}>4</option>
@@ -311,7 +395,7 @@ function TaskConfigPanel({
                 </label>
                 <div className="v2x-row2">
                   <label className="field">
-                    <span className="muted small">Output width</span>
+                    <span className="muted small">Chiều rộng đầu ra</span>
                     <input
                       type="number"
                       min={1}
@@ -326,7 +410,7 @@ function TaskConfigPanel({
                     />
                   </label>
                   <label className="field">
-                    <span className="muted small">Output height</span>
+                    <span className="muted small">Chiều cao đầu ra</span>
                     <input
                       type="number"
                       min={1}
@@ -390,7 +474,7 @@ function TaskConfigPanel({
                   </select>
                 </label>
                 <label className="field">
-                  <span className="muted small">Noise level (-1 = tắt)</span>
+                  <span className="muted small">Mức khử nhiễu (-1 = tắt)</span>
                   <input
                     type="number"
                     min={-1}
@@ -417,7 +501,7 @@ function TaskConfigPanel({
                   </select>
                 </label>
                 <label className="field">
-                  <span className="muted small">Frame rate multiplier</span>
+                  <span className="muted small">Mức tăng khung hình</span>
                   <input
                     type="number"
                     min={2}
@@ -427,7 +511,7 @@ function TaskConfigPanel({
                   />
                 </label>
                 <label className="field">
-                  <span className="muted small">Scene detection threshold (%)</span>
+                  <span className="muted small">Ngưỡng nhận biết chuyển cảnh (%)</span>
                   <input
                     type="number"
                     min={0}
@@ -457,7 +541,7 @@ function TaskConfigPanel({
                 checked={config.copyAudio}
                 onChange={(e) => patch({ copyAudio: e.target.checked })}
               />
-              <span>Copy audio streams</span>
+              <span>Giữ nguyên âm thanh</span>
             </label>
             <label className="gk-check">
               <input
@@ -465,7 +549,7 @@ function TaskConfigPanel({
                 checked={config.copySubtitle}
                 onChange={(e) => patch({ copySubtitle: e.target.checked })}
               />
-              <span>Copy subtitle streams</span>
+              <span>Giữ nguyên phụ đề</span>
             </label>
             <label className="field">
               <span className="muted small">CRF</span>
@@ -480,7 +564,7 @@ function TaskConfigPanel({
               />
             </label>
             <label className="field">
-              <span className="muted small">Encoder preset</span>
+              <span className="muted small">Mức ưu tiên mã hóa</span>
               <select
                 value={config.encoderPreset ?? ''}
                 onChange={(e) => patch({ encoderPreset: e.target.value || null })}
@@ -496,6 +580,8 @@ function TaskConfigPanel({
           </div>
         )}
       </div>
+        </div>
+      )}
     </aside>
   )
 }
@@ -702,18 +788,18 @@ export default function VideoEnhance(): JSX.Element {
     <div className="v2x-page">
       {!supported && (
         <div className="qwarn">
-          Video2X chưa hỗ trợ macOS (không có bản native / Vulkan). Tab này chỉ dùng trên Windows.
+          Tính năng nâng cấp video hiện chỉ dùng được trên Windows.
         </div>
       )}
 
       {supported && hasEngine === false && (
         <div className="card" style={{ marginBottom: 12 }}>
-          <div className="cot-tieude">Cần cài công cụ Video2X</div>
+          <div className="cot-tieude">Cài tính năng nâng cấp video</div>
           <p className="muted small">
-            Tải engine từ máy chủ (hoặc copy binary vào thư mục công cụ). Cần GPU hỗ trợ Vulkan.
+            T-blao cần tải thêm thành phần xử lý để làm nét và tăng độ mượt video.
           </p>
           <button className="btn primary" disabled={installing} onClick={() => void install()}>
-            {installing ? `Đang tải… ${installPct}%` : 'Tải Video2X'}
+            {installing ? `Đang tải… ${installPct}%` : 'Cài tính năng nâng cấp'}
           </button>
           {installErr && <div className="qwarn" style={{ marginTop: 8 }}>{installErr}</div>}
         </div>
@@ -721,13 +807,13 @@ export default function VideoEnhance(): JSX.Element {
 
       {installing && hasEngine !== false && (
         <div className="muted small" style={{ marginBottom: 8 }}>
-          Đang cập nhật Video2X… {installPct}%
+          Đang cập nhật tính năng nâng cấp video… {installPct}%
         </div>
       )}
 
       <div className="v2x-toolbar">
-        <button className="btn" onClick={() => void addTasks()} title="Thêm task" disabled={!supported}>
-          ＋ Thêm
+        <button className="btn primary" onClick={() => void addTasks()} title="Thêm video" disabled={!supported}>
+          ＋ Thêm video
         </button>
         <button className="btn" onClick={removeSelected} disabled={!selectedId} title="Xóa chọn">
           － Xóa
@@ -754,9 +840,9 @@ export default function VideoEnhance(): JSX.Element {
             <table className="v2x-table">
               <thead>
                 <tr>
-                  <th>File name</th>
-                  <th>Processor</th>
-                  <th>Progress</th>
+                  <th>Tên video</th>
+                  <th>Cách xử lý</th>
+                  <th>Tiến độ</th>
                   <th></th>
                 </tr>
               </thead>
@@ -764,7 +850,7 @@ export default function VideoEnhance(): JSX.Element {
                 {tasks.length === 0 && (
                   <tr>
                     <td colSpan={4} className="muted small" style={{ textAlign: 'center', padding: 24 }}>
-                      Chưa có task — bấm 「Thêm」 để chọn video.
+                      Chưa có video. Bấm “Thêm video” để bắt đầu.
                     </td>
                   </tr>
                 )}
@@ -817,20 +903,20 @@ export default function VideoEnhance(): JSX.Element {
 
           <div className="v2x-controls">
             <button className="btn" onClick={() => setShowStats(true)}>
-              Stats
+              Chi tiết tiến trình
             </button>
             <button
               className="btn"
               disabled={!running && !paused}
               onClick={() => setPaused((p) => !p)}
             >
-              {paused ? 'Resume' : 'Pause'}
+              {paused ? 'Tiếp tục' : 'Tạm dừng'}
             </button>
             <button className="btn danger" disabled={!running} onClick={() => void abort()}>
-              Abort
+              Dừng ngay
             </button>
             <button className="btn" onClick={() => void window.api.openLogFile()}>
-              Logs
+              Thông tin hỗ trợ
             </button>
           </div>
         </div>
@@ -839,9 +925,6 @@ export default function VideoEnhance(): JSX.Element {
       </div>
 
       <div className="v2x-footer">
-        <span>Frames/s: {live?.fps?.toFixed(2) ?? '—'}</span>
-        <span>Elapsed: {live ? fmtHms(live.elapsedSec) : '—'}</span>
-        <span>Remaining: {live ? fmtHms(live.remainingSec) : '—'}</span>
         <div className="v2x-footer-prog">
           <div
             className="v2x-footer-bar"
@@ -858,34 +941,31 @@ export default function VideoEnhance(): JSX.Element {
             {paused ? ' · Tạm dừng' : ''}
           </span>
         </div>
-        <div className="muted small v2x-active-path" title={activePath}>
-          {activePath || '—'}
-        </div>
       </div>
 
       {showStats && (
         <div className="modal-nen" onClick={() => setShowStats(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
             <div className="modal-head">
-              <b>Stats</b>
+              <b>Chi tiết tiến trình</b>
               <button className="btn ghost" onClick={() => setShowStats(false)}>
                 ✕
               </button>
             </div>
             <div className="modal-body muted small" style={{ lineHeight: 1.8 }}>
-              <div>FPS: {live?.fps?.toFixed(2) ?? '—'}</div>
+              <div>Tốc độ: {live?.fps?.toFixed(2) ?? '—'} khung hình/giây</div>
               <div>
-                Frame: {live ? `${live.frame}/${live.totalFrames}` : '—'} (
+                Khung hình: {live ? `${live.frame}/${live.totalFrames}` : '—'} (
                 {live?.percent?.toFixed(2) ?? '—'}%)
               </div>
-              <div>Elapsed: {live ? fmtHms(live.elapsedSec) : '—'}</div>
-              <div>Remaining: {live ? fmtHms(live.remainingSec) : '—'}</div>
-              <div>File: {activePath ? baseName(activePath) : '—'}</div>
+              <div>Đã chạy: {live ? fmtHms(live.elapsedSec) : '—'}</div>
+              <div>Còn lại: {live ? fmtHms(live.remainingSec) : '—'}</div>
+              <div>Video: {activePath ? baseName(activePath) : '—'}</div>
               <div>
-                Queue: {doneCount}/{totalCount}
-                {paused ? ' (paused)' : ''}
+                Hàng đợi: {doneCount}/{totalCount}
+                {paused ? ' (đang tạm dừng)' : ''}
               </div>
-              <div>Processor: {processorLabel(cfg.processor)}</div>
+              <div>Công nghệ xử lý: {processorLabel(cfg.processor)}</div>
             </div>
           </div>
         </div>

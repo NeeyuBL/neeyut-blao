@@ -116,18 +116,28 @@ export default function Douyin(): JSX.Element {
   const openLogin = async (): Promise<void> => {
     setCookieBusy(true)
     setCookieMsg(null)
-    const off = window.api.onDyCookieEvent((e) => setCookieMsg(e.message))
+    const off = window.api.onDyCookieEvent((e) =>
+      setCookieMsg(
+        e.phase === 'launching'
+          ? 'Đang mở cửa sổ đăng nhập Douyin…'
+          : e.phase === 'ready'
+            ? 'Hãy đăng nhập Douyin, sau đó đóng cửa sổ để hoàn tất.'
+            : e.phase === 'saved'
+              ? 'Đã kết nối tài khoản Douyin.'
+              : 'Không thể lưu phiên đăng nhập. Hãy thử lại.'
+      )
+    )
     const res = await window.api.dyCookieCapture()
     off()
     setCookie(await window.api.dyCookieStatus())
-    setCookieMsg(res.ok ? `Đã lưu ${res.count} cookie Douyin.` : 'Lỗi: ' + (res.error ?? ''))
+    setCookieMsg(res.ok ? 'Đã kết nối tài khoản Douyin.' : 'Không thể đăng nhập: ' + (res.error ?? ''))
     setCookieBusy(false)
   }
 
   const clearCookie = async (): Promise<void> => {
     await window.api.dyCookieClear()
     setCookie(await window.api.dyCookieStatus())
-    setCookieMsg('Đã xóa cookie Douyin.')
+    setCookieMsg('Đã đăng xuất Douyin.')
   }
 
   const chooseFolder = async (): Promise<void> => {
@@ -226,15 +236,14 @@ export default function Douyin(): JSX.Element {
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">
-            {dangCapNhat ? '🔄 Đang cập nhật công cụ Douyin' : '🎬 Cần tải công cụ Douyin'}
+            {dangCapNhat ? '🔄 Đang cập nhật tính năng Douyin' : '🎬 Cài tính năng tải Douyin'}
           </div>
           <p className="muted">
             {dangCapNhat ? (
               <>Đã có bản công cụ mới — đang tải và cài đè bản cũ.</>
             ) : (
               <>
-                Douyin dùng công cụ tải chuyên biệt (khác YouTube). Bấm để tải một lần (~21MB), sau
-                đó dùng thoải mái.
+                T-blao cần tải thêm một thành phần nhỏ (~21 MB) để tải video và kênh Douyin.
               </>
             )}
           </p>
@@ -249,7 +258,7 @@ export default function Douyin(): JSX.Element {
             </>
           ) : (
             <button className="btn primary" onClick={installEngine}>
-              Tải công cụ Douyin
+              Cài tính năng Douyin
             </button>
           )}
           {installErr && <div className="dy-err small">{installErr}</div>}
@@ -269,25 +278,24 @@ export default function Douyin(): JSX.Element {
       <div className="card cookie-card">
         <div className="cookie-head">
           <div>
-            <div className="cookie-title">🔑 Đăng nhập Douyin</div>
+            <div className="cookie-title">Tài khoản Douyin</div>
             <div className="muted small">
-              Bắt buộc cho hầu hết link. Bấm nút, đăng nhập Douyin rồi <b>đóng cửa sổ</b> — cookie tự
-              lưu.
+              Hầu hết nội dung cần đăng nhập. T-blao sẽ lưu riêng phiên đăng nhập của Douyin.
             </div>
           </div>
           {cookie?.has ? (
-            <span className="cookie-status ok">Đã lưu · {cookie.count} cookie</span>
+            <span className="cookie-status ok">Đã kết nối</span>
           ) : (
             <span className="cookie-status">Chưa đăng nhập</span>
           )}
         </div>
         <div className="cookie-actions">
           <button className="btn primary" onClick={openLogin} disabled={cookieBusy}>
-            {cookieBusy ? 'Đang xử lý…' : 'Mở cửa sổ đăng nhập Douyin'}
+            {cookieBusy ? 'Đang xử lý…' : 'Đăng nhập Douyin'}
           </button>
           {cookie?.has && (
             <button className="link-btn" onClick={clearCookie} disabled={cookieBusy}>
-              Xóa cookie
+              Đăng xuất
             </button>
           )}
         </div>
@@ -315,7 +323,7 @@ export default function Douyin(): JSX.Element {
               checked={metaJson}
               onChange={(e) => setMetaJson(e.target.checked)}
             />
-            Lưu thông tin (JSON)
+            Lưu dữ liệu mô tả
           </label>
           <label className="check" title="Bật: mỗi video một thư mục con. Tắt: dồn tất cả file vào thư mục đã chọn.">
             <input
@@ -332,16 +340,19 @@ export default function Douyin(): JSX.Element {
             Chọn thư mục
           </button>
         </div>
-        <label className="field folder-mode-row">
-          <span>Proxy (nếu cần vượt khóa vùng)</span>
-          <input
-            className="folder-input"
-            placeholder="socks5://127.0.0.1:1080 — để trống nếu không dùng"
-            value={proxy}
-            onChange={(e) => setProxy(e.target.value)}
-            spellCheck={false}
-          />
-        </label>
+        <details className="tech-details">
+          <summary>Kết nối qua proxy</summary>
+          <label className="field folder-mode-row">
+            <span className="muted small">Chỉ dùng khi nội dung bị giới hạn khu vực</span>
+            <input
+              className="folder-input"
+              placeholder="Dán địa chỉ proxy"
+              value={proxy}
+              onChange={(e) => setProxy(e.target.value)}
+              spellCheck={false}
+            />
+          </label>
+        </details>
       </div>
 
       {/* Kieu tai (chi hien khi link la kenh) */}
@@ -386,20 +397,19 @@ export default function Douyin(): JSX.Element {
       )}
 
       {/* Nhap link */}
-      <div className="url-row">
+      <div className="url-row link-entry-row">
         <LinkInput
-          placeholder="Dán link video/kênh Douyin — Enter để thêm, Shift+Enter để xuống dòng"
+          placeholder="Dán link video hoặc kênh Douyin vào đây"
           value={urlInput}
           onChange={setUrlInput}
           onSubmit={addUrls}
         />
-        <button className="btn primary" onClick={addUrls} disabled={!urlInput.trim()}>
+        <button className="btn primary link-add-btn" onClick={addUrls} disabled={!urlInput.trim()}>
           + Thêm
         </button>
       </div>
       <p className="hint muted small">
-        💡 Link <b>kênh</b> (có <code>/user/</code>) → hiện Kiểu tải. Link <b>video</b> → tải video
-        đó.
+        T-blao tự nhận biết link video hoặc link kênh và hiển thị lựa chọn phù hợp.
       </p>
       </div>
 

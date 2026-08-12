@@ -37,19 +37,29 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
   }, [])
 
   const indeterminate = progress.percent < 0
+  const friendlyProgress =
+    progress.phase === 'downloading-ytdlp'
+      ? 'Đang cài tính năng tải video…'
+      : progress.phase === 'downloading-ffmpeg'
+        ? 'Đang cài tính năng xử lý video…'
+        : progress.phase === 'extracting'
+          ? 'Đang hoàn tất cài đặt…'
+          : progress.phase === 'done'
+            ? 'Hoàn tất! T-blao đã sẵn sàng.'
+            : progress.message
 
   return (
     <div className="center setup">
       <div className="card setup-card">
-        <h2>Cài đặt công cụ</h2>
+        <h2>Chuẩn bị T-blao</h2>
         <p className="muted">
-          T-blao cần cài thêm vài thành phần để tải và xử lý video. Ứng dụng sẽ tự tải về những
-          thành phần còn thiếu (không cần quyền admin).
+          Ứng dụng cần tải một số thành phần để tải và xử lý video. Quá trình này chỉ thực hiện khi
+          cần và không yêu cầu quyền quản trị.
         </p>
 
         {!running && !error && (
           <button className="btn primary" onClick={start}>
-            Tải &amp; cài đặt
+            Tiếp tục cài đặt
           </button>
         )}
 
@@ -61,13 +71,17 @@ export default function SetupScreen({ onDone }: Props): JSX.Element {
                 style={indeterminate ? undefined : { width: `${progress.percent}%` }}
               />
             </div>
-            <p className="muted small">{progress.message}</p>
+            <p className="muted small">{friendlyProgress}</p>
           </div>
         )}
 
         {error && (
           <div className="error-box">
-            <p>{error}</p>
+            <p>Không thể hoàn tất cài đặt. Hãy kiểm tra kết nối mạng rồi thử lại.</p>
+            <details className="tech-details compact">
+              <summary>Chi tiết kỹ thuật</summary>
+              <div>{error}</div>
+            </details>
             <button className="btn" onClick={start}>
               Thử lại
             </button>

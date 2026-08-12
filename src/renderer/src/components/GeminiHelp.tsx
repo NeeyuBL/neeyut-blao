@@ -19,7 +19,7 @@ export default function GeminiHelp({ onClose }: { onClose: () => void }): JSX.El
     <div className="modal-nen" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <div className="modal-title">Hướng dẫn lấy Gemini API Key</div>
+          <div className="modal-title">Kết nối Google AI Studio</div>
           <button className="modal-x" onClick={onClose} title="Đóng">
             ✕
           </button>
@@ -40,7 +40,7 @@ export default function GeminiHelp({ onClose }: { onClose: () => void }): JSX.El
           <div className="hd-step">
             <div className="hd-num">2</div>
             <div>
-              <b>Tạo API Key</b>
+              <b>Tạo khóa kết nối</b>
               <p className="muted small">
                 Ở menu bên trái, bấm <b>“Get API key”</b> → bảng hiện ra, chọn{' '}
                 <b>“Create API key”</b>.
@@ -62,7 +62,7 @@ export default function GeminiHelp({ onClose }: { onClose: () => void }): JSX.El
           <div className="hd-step">
             <div className="hd-num">4</div>
             <div>
-              <b>Sao chép key</b>
+              <b>Sao chép khóa</b>
               <p className="muted small">
                 Một đoạn mã dài hiện ra — đó là API Key của bạn. Bấm <b>“Copy”</b>, rồi dán vào ô
                 trong T-blao.
