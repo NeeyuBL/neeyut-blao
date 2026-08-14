@@ -217,7 +217,9 @@ export async function probeYtDlpCapabilities(): Promise<YtDlpCapabilities> {
 /** Tra ve duong dan ffmpeg dung duoc: bundled -> PATH. Null neu khong co. */
 export async function resolveFfmpeg(): Promise<string | null> {
   const local = join(binDir(), exe('ffmpeg'))
-  if (await canRun(local)) {
+  // FFmpeg chi nhan `-version`; `--version` thoat voi loi tren Windows va lam
+  // app nham binary da cai la dang bi thieu o moi lan khoi dong.
+  if (await canRun(local, ['-version'])) {
     if (isMac && process.arch === 'arm64') {
       const inspected = await runCapture('/usr/bin/file', ['-b', local])
       const description = inspected.out.toLowerCase()
@@ -228,7 +230,7 @@ export async function resolveFfmpeg(): Promise<string | null> {
       return local
     }
   }
-  if (await canRun('ffmpeg')) {
+  if (await canRun('ffmpeg', ['-version'])) {
     if (isMac && process.arch === 'arm64') {
       const which = await runCapture('/usr/bin/which', ['ffmpeg'])
       const resolved = which.out.trim().split(/\r?\n/)[0]

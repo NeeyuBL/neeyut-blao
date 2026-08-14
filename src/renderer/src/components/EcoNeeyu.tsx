@@ -113,7 +113,10 @@ export default function EcoNeeyu(): JSX.Element {
       <section className="eco-intro" aria-labelledby="eco-intro-title">
         <div className="eco-intro-copy">
           <span className="eco-eyebrow">Neeyu product signal</span>
-          <h2 id="eco-intro-title">Một hành trình, nhiều công cụ sáng tạo.</h2>
+          <h2 id="eco-intro-title">
+            <span>Một hành trình</span>
+            <span>nhiều công cụ sáng tạo.</span>
+          </h2>
           <p>
             Khám phá những ứng dụng Neeyu giúp đưa nội dung từ ý tưởng đến sản phẩm hoàn chỉnh,
             ngay trên máy tính của bạn.

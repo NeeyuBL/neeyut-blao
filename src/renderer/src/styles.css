@@ -1619,6 +1619,9 @@ textarea {
   line-height: 1.06;
   letter-spacing: -0.035em;
 }
+.eco-intro h2 span {
+  display: block;
+}
 .eco-intro p {
   max-width: 620px;
   margin: 2px 0 0;

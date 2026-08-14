@@ -1,41 +1,18 @@
-## T-blao v0.1.18
+## T-blao v0.1.19
 
-### Biên tập video trực quan
+### Sửa lỗi khởi động
 
-- Thêm tab **Biên tập video** để xem trước video, phụ đề, vùng làm mờ và âm thanh trước khi xuất.
-- Ánh xạ phụ đề SRT theo đúng thời gian phát và đúng tỷ lệ video ngang, vuông hoặc dọc, kể cả khi xem toàn màn hình.
-- Thêm bộ điều khiển phát/tạm dừng, tua và âm lượng ngay dưới bản xem trước để không bị vùng chỉnh sửa che thao tác.
-- Cho phép nghe thử file WAV lồng tiếng cùng video, điều chỉnh riêng âm lượng gốc và âm lượng lồng tiếng; thiết lập xem trước được dùng khi xuất.
+- Khắc phục lỗi T-blao nhận nhầm FFmpeg đã cài là đang bị thiếu trên Windows.
+- Ứng dụng không còn tải và cài lại FFmpeg ở mỗi lần mở.
+- Việc kiểm tra dùng đúng tham số phiên bản của FFmpeg và vẫn ưu tiên bản công cụ do T-blao quản lý.
 
-### Phụ đề và hiệu ứng chữ
+### Điều chỉnh giao diện
 
-- Thêm ba phong cách: hiện cả câu, hiện lần lượt từng từ và làm nổi bật từ đang đọc.
-- Hiệu ứng highlight dùng dòng nền cố định và lớp pop riêng, giữ bố cục ổn định, không làm chữ co giãn hoặc nhảy dòng liên tục.
-- Cải thiện tự ngắt dòng theo kích thước glyph và tỷ lệ video; cue dài được giới hạn hợp lý, tránh tràn khung hoặc xuống dòng dư.
-- Tối ưu đánh giá phụ đề theo nhịp lời nói thực tế; cảnh báo tập trung vào đoạn có nguy cơ ảnh hưởng trải nghiệm xem.
+- Tiêu đề trong tab **Hệ sinh thái Neeyu** được trình bày thành hai dòng: “Một hành trình” và “nhiều công cụ sáng tạo.”
+- Bỏ dấu phẩy giữa hai vế để nhịp đọc và bố cục tiêu đề rõ ràng hơn.
 
-### Font đa ngôn ngữ
+### Cập nhật
 
-- Đóng gói và kiểm checksum bốn font Noto cho tiếng Việt/Latin, Ả Rập, Thái và CJK (Trung–Nhật–Hàn).
-- Preview và video xuất dùng cùng font; hỗ trợ nhập font cá nhân và lưu ngoài thư mục cài đặt để không mất khi cập nhật.
-- Quy trình đóng gói sẽ thất bại nếu thiếu font, sai checksum hoặc có binary font ngoài manifest.
-
-### Hỗ trợ và giao diện
-
-- Nâng cấp tab **Hỗ trợ** với bảng chẩn đoán và bản sao thông tin đã làm sạch, đủ dữ kiện để phân tích lỗi mà không kèm cookie hay bí mật.
-- Làm mới tab **Hệ sinh thái Neeyu** theo dạng thư viện sản phẩm có thể mở rộng; NeeyuVoice hiển thị hỗ trợ Windows và macOS.
-- Tách rõ luồng tạo phụ đề và biên tập, đồng thời giữ handoff video/SRT an toàn giữa các tab.
-
-### Độ ổn định phát hành
-
-- Windows tiếp tục phát hành bộ cài x64 có metadata tự cập nhật.
-- macOS phát hành DMG cho **Apple Silicon (M1 trở lên)**; không phát hành bản Intel.
-- FFmpeg macOS chuyển sang binary ARM64 cố định có `libass`, AV1 và H.264, được kiểm SHA-256 trước khi cài.
-- Windows tiếp tục tự tải/cài bản mới; macOS chỉ thông báo và mở DMG để người dùng cài thủ công.
-- Bổ sung cổng kiểm version/tag, font, subtitle engine, kiến trúc ARM64, checksum DMG và metadata updater Windows trước khi tạo release.
-
-### Lưu ý
-
-- Bản macOS yêu cầu macOS 11 trở lên và máy Apple Silicon.
-- Bản macOS chưa ký/notarize nên có thể cần được cho phép trong **Privacy & Security** khi mở lần đầu.
-- Cookie, phiên đăng nhập, font cá nhân, file video/SRT/WAV và báo cáo cục bộ không nằm trong bộ cài hoặc GitHub release.
+- Windows sẽ tự nhận, tải và cài đặt v0.1.19 khi kết nối được với GitHub.
+- macOS từ v0.1.18 trở lên sẽ thông báo bản mới và mở trang tải DMG để người dùng cài thủ công.
+- Bản macOS yêu cầu Apple Silicon và hiện chưa ký/notarize; macOS có thể yêu cầu cấp quyền trong **Privacy & Security** khi mở lần đầu.
