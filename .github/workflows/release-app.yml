@@ -57,6 +57,9 @@ jobs:
 
       - name: Require macOS signing and notarization credentials
         if: runner.os == 'macOS'
+        # Rehearsal thủ công vẫn chạy tiếp để kiểm toolchain/build. Với tag thật,
+        # thiếu credential là lỗi chặn và không có artifact nào được phát hành.
+        continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
         shell: bash
         env:
           CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
