@@ -261,7 +261,17 @@ export default function App(): JSX.Element {
             <div className="side-update">Đang tải bản mới… {update.percent ?? 0}%</div>
           )}
           {update?.state === 'available' && (
-            <div className="side-update">Đã có bản {update.version}, đang tải…</div>
+            update.manual ? (
+              <button
+                className="side-update ready"
+                onClick={() => window.api.installAppUpdate()}
+                title="Mở trang tải bản cài đặt macOS"
+              >
+                🎉 Có bản mới {update.version} — Tải bản cài đặt
+              </button>
+            ) : (
+              <div className="side-update">Đã có bản {update.version}, đang tải…</div>
+            )
           )}
         </div>
       </aside>

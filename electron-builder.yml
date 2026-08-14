@@ -54,16 +54,13 @@ mac:
     - target: dmg
       arch:
         - arm64
-    - target: zip
-      arch:
-        - arm64
   icon: build/icon.png
   category: public.app-category.utilities
   minimumSystemVersion: '11.0'
-  hardenedRuntime: true
-  notarize: true
-  entitlements: build/entitlements.mac.plist
-  entitlementsInherit: build/entitlements.mac.inherit.plist
+  # macOS dùng cơ chế thông báo + tải DMG thủ công. Không tạo gói updater tự cài.
+  identity: null
+  hardenedRuntime: false
+  notarize: false
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
 # Nguon phat hanh cho electron-updater (app tu cap nhat tu GitHub Releases).
 # LUU Y: owner/repo phai TRUNG repo that ma ban up Release len.

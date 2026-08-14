@@ -32,9 +32,7 @@ jobs:
             artifact_name: release-macos-arm64
             artifact_paths: |
               dist/*.dmg
-              dist/*.zip
-              dist/*.blockmap
-              dist/latest-mac.yml
+              dist/*.dmg.sha256
 
     steps:
       - name: Checkout code
@@ -54,30 +52,6 @@ jobs:
         run: node scripts/verify-release.mjs
         env:
           RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-
-      - name: Require macOS signing and notarization credentials
-        if: runner.os == 'macOS'
-        # Rehearsal thủ công vẫn chạy tiếp để kiểm toolchain/build. Với tag thật,
-        # thiếu credential là lỗi chặn và không có artifact nào được phát hành.
-        continue-on-error: ${{ github.event_name == 'workflow_dispatch' }}
-        shell: bash
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          missing=()
-          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_TEAM_ID; do
-            if [[ -z "${!name}" ]]; then missing+=("$name"); fi
-          done
-          if (( ${#missing[@]} )); then
-            echo "::error::Missing macOS release secrets: ${missing[*]}"
-            exit 1
-          fi
-          test "$(uname -m)" = "arm64"
 
       - name: Verify downloadable macOS ARM64 toolchain
         if: runner.os == 'macOS'
@@ -127,41 +101,22 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run ${{ matrix.package_script }}
 
-      - name: Build, sign and notarize macOS ARM64 app
-        if: runner.os == 'macOS' && github.ref_type == 'tag'
-        run: npm run ${{ matrix.package_script }}
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
-          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-
-      - name: Build unsigned macOS ARM64 rehearsal
-        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
+      - name: Build macOS ARM64 DMG for manual installation
+        if: runner.os == 'macOS'
         run: npm run ${{ matrix.package_script }}
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - name: Verify signed and notarized macOS ARM64 app
-        if: runner.os == 'macOS' && github.ref_type == 'tag'
+      - name: Verify macOS architecture and create checksum
+        if: runner.os == 'macOS'
         shell: bash
         run: |
           app_path="$(find dist -type d -name 'T-blao.app' -print -quit)"
           test -n "$app_path"
           lipo -archs "$app_path/Contents/MacOS/T-blao" | grep -qw arm64
-          codesign --verify --deep --strict --verbose=2 "$app_path"
-          spctl --assess --type execute --verbose=4 "$app_path"
-          xcrun stapler validate "$app_path"
-
-      - name: Verify rehearsal macOS architecture
-        if: runner.os == 'macOS' && github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          app_path="$(find dist -type d -name 'T-blao.app' -print -quit)"
-          test -n "$app_path"
-          lipo -archs "$app_path/Contents/MacOS/T-blao" | grep -qw arm64
+          dmg="$(find dist -maxdepth 1 -type f -name 'T-blao-*-mac-arm64.dmg' -print -quit)"
+          test -n "$dmg"
+          (cd dist && shasum -a 256 "$(basename "$dmg")" > "$(basename "$dmg").sha256")
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7

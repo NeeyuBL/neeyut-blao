@@ -35,12 +35,12 @@ npm run package:mac   # đóng gói .dmg (cần macOS)
 
 Trước khi tạo tag, chạy `npm run release:verify`, `npm run typecheck`,
 `npm run test:subtitles` và gói Windows. Workflow tag chỉ tạo draft release khi cả
-Windows x64 và macOS ARM64 vượt qua kiểm tra artifact/updater.
+Windows x64 và macOS ARM64 vượt qua kiểm tra artifact.
 
-Để ký và notarize bản macOS trên GitHub Actions, repository phải có đủ sáu secret:
-`MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`,
-`APPLE_API_ISSUER` và `APPLE_TEAM_ID`. Workflow cố ý dừng nếu thiếu bất kỳ secret
-nào; không phát hành âm thầm một ứng dụng macOS chưa được Apple xác minh.
+Windows dùng `latest.yml` để tự tải/cài bản mới. macOS chỉ kiểm tra phiên bản từ
+GitHub Release và mở DMG cho người dùng cài thủ công; release không được chứa
+`latest-mac.yml` hoặc ZIP updater. Bản macOS hiện chưa ký/notarize nên có thể cần
+được cho phép thủ công trong **Privacy & Security** khi mở lần đầu.
 
 > ⚠️ **Lưu ý môi trường:** Nếu Electron khởi động mà báo `Cannot read properties of undefined (reading 'whenReady')`,
 > nghĩa là biến `ELECTRON_RUN_AS_NODE=1` đang bật (làm Electron chạy như Node thuần).

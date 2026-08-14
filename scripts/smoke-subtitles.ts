@@ -27,7 +27,14 @@ import {
 import { subtitleFontSizeForBox } from '../src/shared/subWrap'
 import { planSubtitleLayout } from '../src/shared/subtitleLayout'
 import { audioMixGains, originalAudioGain } from '../src/shared/audioMix'
+import { isNewerAppVersion } from '../src/shared/version'
 import { boCuc, docSrt, taoAss } from '../src/main/burn'
+
+assert.equal(isNewerAppVersion('0.1.18', '0.1.17'), true)
+assert.equal(isNewerAppVersion('v1.0.0', '0.99.99'), true)
+assert.equal(isNewerAppVersion('0.1.18', '0.1.18'), false)
+assert.equal(isNewerAppVersion('0.1.17', '0.1.18'), false)
+assert.equal(isNewerAppVersion('latest', '0.1.18'), false)
 
 assert.equal(originalAudioGain(100), 1)
 assert.equal(originalAudioGain(50), 0.25)

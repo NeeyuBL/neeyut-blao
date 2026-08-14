@@ -29,11 +29,13 @@
 ### Độ ổn định phát hành
 
 - Windows tiếp tục phát hành bộ cài x64 có metadata tự cập nhật.
-- macOS phát hành cho **Apple Silicon (M1 trở lên)**, gồm DMG và ZIP ARM64; không phát hành bản Intel.
+- macOS phát hành DMG cho **Apple Silicon (M1 trở lên)**; không phát hành bản Intel.
 - FFmpeg macOS chuyển sang binary ARM64 cố định có `libass`, AV1 và H.264, được kiểm SHA-256 trước khi cài.
-- Bổ sung cổng kiểm version/tag, font, subtitle engine, kiến trúc ARM64, chữ ký, notarization và metadata updater trước khi tạo release.
+- Windows tiếp tục tự tải/cài bản mới; macOS chỉ thông báo và mở DMG để người dùng cài thủ công.
+- Bổ sung cổng kiểm version/tag, font, subtitle engine, kiến trúc ARM64, checksum DMG và metadata updater Windows trước khi tạo release.
 
 ### Lưu ý
 
 - Bản macOS yêu cầu macOS 11 trở lên và máy Apple Silicon.
+- Bản macOS chưa ký/notarize nên có thể cần được cho phép trong **Privacy & Security** khi mở lần đầu.
 - Cookie, phiên đăng nhập, font cá nhân, file video/SRT/WAV và báo cáo cục bộ không nằm trong bộ cài hoặc GitHub release.

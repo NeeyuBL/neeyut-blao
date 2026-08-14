@@ -27,16 +27,20 @@ if (requestedTag && requestedTag !== `v${pkg.version}`) {
 
 const macTargets = Array.isArray(builder?.mac?.target) ? builder.mac.target : []
 const targetNames = macTargets.map((entry) => (typeof entry === 'string' ? entry : entry?.target))
-if (!targetNames.includes('dmg') || !targetNames.includes('zip')) {
-  fail('macOS phải tạo cả DMG và ZIP cho cài đặt/tự cập nhật')
+if (targetNames.length !== 1 || targetNames[0] !== 'dmg') {
+  fail('macOS chỉ được tạo DMG cho luồng cài đặt thủ công')
 }
 for (const entry of macTargets) {
   if (typeof entry === 'object' && !entry?.arch?.includes('arm64')) {
     fail(`target macOS ${entry?.target || '(không rõ)'} chưa khóa ARM64`)
   }
 }
-if (builder?.mac?.notarize !== true || builder?.mac?.hardenedRuntime !== true) {
-  fail('macOS phải bật hardened runtime và notarization')
+if (
+  builder?.mac?.identity !== null ||
+  builder?.mac?.notarize !== false ||
+  builder?.mac?.hardenedRuntime !== false
+) {
+  fail('macOS thủ công phải tắt signing discovery, notarization và hardened runtime')
 }
 if (!String(builder?.mac?.artifactName || '').includes('${arch}')) {
   fail('tên artifact macOS phải chứa kiến trúc')

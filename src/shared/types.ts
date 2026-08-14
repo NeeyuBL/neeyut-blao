@@ -138,6 +138,8 @@ export interface UpdateStatus {
   version?: string
   percent?: number
   message?: string
+  /** macOS: chỉ thông báo và mở DMG để người dùng cài thủ công. */
+  manual?: boolean
 }
 
 // ---- Douyin ----
