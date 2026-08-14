@@ -6,7 +6,7 @@ const readJson = async (path) => JSON.parse(await readFile(new URL(path, root), 
 
 const pkg = await readJson('package.json')
 const lock = await readJson('package-lock.json')
-const notes = await readFile(new URL('RELEASE_NOTES.md', root), 'utf8')
+const notes = (await readFile(new URL('RELEASE_NOTES.md', root), 'utf8')).replace(/\r\n/g, '\n')
 const builder = parseYaml(await readFile(new URL('electron-builder.yml', root), 'utf8'))
 const requestedTag = process.argv[2] || process.env.RELEASE_TAG || ''
 
