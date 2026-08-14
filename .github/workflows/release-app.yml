@@ -19,17 +19,17 @@ jobs:
       matrix:
         include:
           - name: Windows
-            os: windows-latest
+            os: windows-2025
             package_script: package:win
             artifact_name: release-windows
             artifact_paths: |
               dist/*.exe
               dist/*.blockmap
               dist/latest.yml
-          - name: macOS
-            os: macos-latest
+          - name: macOS ARM64
+            os: macos-15
             package_script: package:mac
-            artifact_name: release-macos
+            artifact_name: release-macos-arm64
             artifact_paths: |
               dist/*.dmg
               dist/*.zip
@@ -50,11 +50,96 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify release metadata and tag
+        run: node scripts/verify-release.mjs
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      - name: Require macOS signing and notarization credentials
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          for name in CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_TEAM_ID; do
+            if [[ -z "${!name}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::Missing macOS release secrets: ${missing[*]}"
+            exit 1
+          fi
+          test "$(uname -m)" = "arm64"
+
+      - name: Verify downloadable macOS ARM64 toolchain
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          asset_base="https://github.com/NeeyuBL/neeyut-blao/releases/download/assets-v1"
+          curl_args=(--fail --location --retry 4 --retry-all-errors --header "Authorization: Bearer $GH_TOKEN")
+
+          curl "${curl_args[@]}" "$asset_base/dy-engine-macos" -o "$work/dy-engine-macos"
+          curl "${curl_args[@]}" "$asset_base/whisper-engine-macos.zip" -o "$work/whisper.zip"
+          curl "${curl_args[@]}" "$asset_base/ocr-engine-macos.zip" -o "$work/ocr.zip"
+          unzip -q "$work/whisper.zip" -d "$work/whisper"
+          unzip -q "$work/ocr.zip" -d "$work/ocr"
+
+          file "$work/dy-engine-macos" | grep -q arm64
+          file "$(find "$work/whisper" -type f -name whisper-engine -print -quit)" | grep -q arm64
+          file "$(find "$work/ocr" -type f -name ocr-engine -print -quit)" | grep -q arm64
+
+          ffmpeg_base="https://ffmpeg.martin-riedl.de/download/macos/arm64/1785863997_9.0"
+          curl --fail --location --retry 4 --retry-all-errors "$ffmpeg_base/ffmpeg.zip" -o "$work/ffmpeg.zip"
+          curl --fail --location --retry 4 --retry-all-errors "$ffmpeg_base/ffprobe.zip" -o "$work/ffprobe.zip"
+          echo "5267ef149ee0d208057a1b316aac079b661b0476574dee5da7d225769773c603  $work/ffmpeg.zip" | shasum -a 256 --check
+          echo "7778fbb533fb60d3336cbd9a9e51eced71658f020b570c7203590c1c41d42f50  $work/ffprobe.zip" | shasum -a 256 --check
+          unzip -q "$work/ffmpeg.zip" -d "$work/ffmpeg"
+          ffmpeg_bin="$(find "$work/ffmpeg" -type f -name ffmpeg -print -quit)"
+          chmod +x "$ffmpeg_bin"
+          file "$ffmpeg_bin" | grep -q arm64
+          "$ffmpeg_bin" -hide_banner -filters 2>&1 | grep -q ' subtitles '
+          "$ffmpeg_bin" -hide_banner -decoders 2>&1 | grep -q dav1d
+          "$ffmpeg_bin" -hide_banner -encoders 2>&1 | grep -q libx264
+
+      - name: Prepare and verify bundled fonts
+        run: npm run fonts:prepare && npm run fonts:verify
+
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test subtitle engine
+        run: npm run test:subtitles
+
       - name: Build and package app
         run: npm run ${{ matrix.package_script }}
+        env:
+          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_API_KEY: ${{ runner.os == 'macOS' && secrets.APPLE_API_KEY || '' }}
+          APPLE_API_KEY_ID: ${{ runner.os == 'macOS' && secrets.APPLE_API_KEY_ID || '' }}
+          APPLE_API_ISSUER: ${{ runner.os == 'macOS' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && secrets.APPLE_TEAM_ID || '' }}
+
+      - name: Verify signed and notarized macOS ARM64 app
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          app_path="$(find dist -type d -name 'T-blao.app' -print -quit)"
+          test -n "$app_path"
+          lipo -archs "$app_path/Contents/MacOS/T-blao" | grep -qw arm64
+          codesign --verify --deep --strict --verbose=2 "$app_path"
+          spctl --assess --type execute --verbose=4 "$app_path"
+          xcrun stapler validate "$app_path"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
@@ -76,6 +161,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Install release verification dependency
+        run: npm ci --ignore-scripts
+
       - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
@@ -84,13 +177,7 @@ jobs:
           merge-multiple: true
 
       - name: Verify update payloads
-        shell: bash
-        run: |
-          test -n "$(find release-assets -maxdepth 1 -name '*.exe' -print -quit)"
-          test -f release-assets/latest.yml
-          test -n "$(find release-assets -maxdepth 1 -name '*.dmg' -print -quit)"
-          test -n "$(find release-assets -maxdepth 1 -name '*.zip' -print -quit)"
-          test -f release-assets/latest-mac.yml
+        run: node scripts/verify-release-assets.mjs release-assets
 
       - name: Create draft GitHub release
         uses: softprops/action-gh-release@v3

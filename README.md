@@ -1,6 +1,6 @@
 # T-blao
 
-Trình tải video & audio đa nền tảng — chạy trên **Windows** và **macOS**.
+Trình tải video & audio đa nền tảng — chạy trên **Windows x64** và **macOS Apple Silicon (M1 trở lên)**.
 
 Xây bằng **Electron + React + TypeScript** (electron-vite).
 
@@ -17,6 +17,7 @@ Xây bằng **Electron + React + TypeScript** (electron-vite).
 
 - **Node.js** ≥ 18 (khuyến nghị 20+)
 - Khi build bản **macOS** (`.dmg`) cần chạy trên máy Mac hoặc GitHub Actions.
+- Bản macOS yêu cầu macOS 11 trở lên; T-blao không phát hành binary Intel.
 
 ## Lệnh
 
@@ -29,6 +30,17 @@ npm run typecheck # kiểm tra kiểu TypeScript
 npm run package:win   # đóng gói .exe (NSIS installer) -> dist/
 npm run package:mac   # đóng gói .dmg (cần macOS)
 ```
+
+## Cổng phát hành
+
+Trước khi tạo tag, chạy `npm run release:verify`, `npm run typecheck`,
+`npm run test:subtitles` và gói Windows. Workflow tag chỉ tạo draft release khi cả
+Windows x64 và macOS ARM64 vượt qua kiểm tra artifact/updater.
+
+Để ký và notarize bản macOS trên GitHub Actions, repository phải có đủ sáu secret:
+`MAC_CSC_LINK`, `MAC_CSC_KEY_PASSWORD`, `APPLE_API_KEY`, `APPLE_API_KEY_ID`,
+`APPLE_API_ISSUER` và `APPLE_TEAM_ID`. Workflow cố ý dừng nếu thiếu bất kỳ secret
+nào; không phát hành âm thầm một ứng dụng macOS chưa được Apple xác minh.
 
 > ⚠️ **Lưu ý môi trường:** Nếu Electron khởi động mà báo `Cannot read properties of undefined (reading 'whenReady')`,
 > nghĩa là biến `ELECTRON_RUN_AS_NODE=1` đang bật (làm Electron chạy như Node thuần).
@@ -52,7 +64,7 @@ src/
 
 ## Font phụ đề
 
-Binary font **không** nằm trên GitHub (bản quyền). Khi build App trên máy bạn: đặt nguồn trong `font/` → `npm run fonts:copy` → xem [resources/fonts/README.md](resources/fonts/README.md).
+Bộ font mở được tải ở bước build từ nguồn và commit đã ghim, sau đó kiểm tra SHA-256 trước khi đóng gói. Chạy `npm run fonts:prepare && npm run fonts:verify` và xem [resources/fonts/README.md](resources/fonts/README.md).
 
 ## Giấy phép
 

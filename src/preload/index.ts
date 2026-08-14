@@ -19,17 +19,24 @@ import {
   BurnReq,
   BurnResult,
   BurnFontEntry,
+  BurnFontMutationResult,
+  BurnFontPreviewData,
   DichProvider,
   GeminiStatus,
   LogEntry,
+  RendererIssueReport,
   OcrEngineStatus,
   OcrProgress,
   OcrResult,
   PlaylistProbe,
   ProxyTestResult,
   SetupProgress,
+  SupportReport,
   SiteCookieCaptureEvent,
   SiteCookieStatus,
+  SubtitleFilePreview,
+  SubtitleLayoutRequest,
+  SubtitleRenderPlan,
   UpdateStatus,
   VideoInfo,
   Video2xDevice,
@@ -178,7 +185,24 @@ const api = {
   // ---- Ghep phu de vao video ----
   burnStart: (req: BurnReq): Promise<BurnResult> => ipcRenderer.invoke('burn:start', req),
   burnCancel: (): Promise<void> => ipcRenderer.invoke('burn:cancel'),
+  probeBurnMedia: (
+    video: string
+  ): Promise<{ ok: boolean; meta?: { w: number; h: number; giay: number; hasAudio: boolean }; error?: string }> =>
+    ipcRenderer.invoke('burn:probeMedia', video),
+  prepareAudioPreview: (
+    input: string
+  ): Promise<{ ok: boolean; path?: string; error?: string }> =>
+    ipcRenderer.invoke('audio:preparePreview', input),
   listBurnFonts: (): Promise<BurnFontEntry[]> => ipcRenderer.invoke('fonts:list'),
+  parseSubtitleFile: (path: string): Promise<SubtitleFilePreview> =>
+    ipcRenderer.invoke('subtitle:parse', path),
+  planSubtitleLayout: (request: SubtitleLayoutRequest): Promise<SubtitleRenderPlan> =>
+    ipcRenderer.invoke('subtitle:layout', request),
+  loadBurnFontData: (fontId: string): Promise<BurnFontPreviewData> =>
+    ipcRenderer.invoke('fonts:previewData', fontId),
+  importBurnFonts: (): Promise<BurnFontMutationResult> => ipcRenderer.invoke('fonts:import'),
+  removeCustomBurnFont: (fontId: string): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke('fonts:removeCustom', fontId),
   /** Do dai file .srt (giay) — de canh bao khi lech han so voi video. */
   srtGiay: (duong: string): Promise<number> => ipcRenderer.invoke('burn:srtGiay', duong),
   onBurnProgress: (cb: (p: BurnProgress) => void): (() => void) => {
@@ -270,6 +294,10 @@ const api = {
     const listener = (): void => cb()
     ipcRenderer.on('logs:cleared', listener)
     return () => ipcRenderer.removeListener('logs:cleared', listener)
+  },
+  createSupportReport: (): Promise<SupportReport> => ipcRenderer.invoke('support:createReport'),
+  reportRendererIssue: (issue: RendererIssueReport): void => {
+    ipcRenderer.send('support:rendererIssue', issue)
   },
 
   // ---- Cookie dang nhap ----

@@ -11,16 +11,16 @@ on:
 
 jobs:
   build-mac-engines:
-    runs-on: macos-latest
+    runs-on: macos-15
     permissions:
       contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
 
@@ -68,8 +68,15 @@ jobs:
           cd dist
           zip -r ocr-engine-macos.zip ocr-engine/
 
+      - name: Verify Apple Silicon engine binaries
+        run: |
+          test "$(uname -m)" = "arm64"
+          file engines/douyin-engine/dist/dy-engine-macos | grep -q arm64
+          file engines/whisper-engine/dist/whisper-engine/whisper-engine | grep -q arm64
+          file engines/ocr-engine/dist/ocr-engine/ocr-engine | grep -q arm64
+
       - name: Publish Binaries to Release assets-v1
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: assets-v1
           name: "Assets Release v1"

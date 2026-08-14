@@ -12,6 +12,20 @@ const isWin = process.platform === 'win32'
 const isMac = process.platform === 'darwin'
 const YTDLP_RELEASE_BASE = 'https://github.com/yt-dlp/yt-dlp/releases/latest/download'
 const YTDLP_RELEASE_API = 'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest'
+const FFMPEG_WIN_SHA256 = '6b8116749910312a7ce794bffcbe25fca693dfce86c840bce7fb679f938587ce'
+const FFMPEG_MAC_ARM64_RELEASE = 'https://ffmpeg.martin-riedl.de/download/macos/arm64/1785863997_9.0'
+const FFMPEG_MAC_ARM64_TARGETS = [
+  {
+    name: 'ffmpeg',
+    url: `${FFMPEG_MAC_ARM64_RELEASE}/ffmpeg.zip`,
+    sha256: '5267ef149ee0d208057a1b316aac079b661b0476574dee5da7d225769773c603'
+  },
+  {
+    name: 'ffprobe',
+    url: `${FFMPEG_MAC_ARM64_RELEASE}/ffprobe.zip`,
+    sha256: '7778fbb533fb60d3336cbd9a9e51eced71658f020b570c7203590c1c41d42f50'
+  }
+] as const
 let ytDlpInstallInFlight: Promise<void> | null = null
 
 export type YtDlpSource = 'managed' | 'path'
@@ -203,8 +217,28 @@ export async function probeYtDlpCapabilities(): Promise<YtDlpCapabilities> {
 /** Tra ve duong dan ffmpeg dung duoc: bundled -> PATH. Null neu khong co. */
 export async function resolveFfmpeg(): Promise<string | null> {
   const local = join(binDir(), exe('ffmpeg'))
-  if (await fileExists(local)) return local
-  if (await canRun('ffmpeg')) return 'ffmpeg'
+  if (await canRun(local)) {
+    if (isMac && process.arch === 'arm64') {
+      const inspected = await runCapture('/usr/bin/file', ['-b', local])
+      const description = inspected.out.toLowerCase()
+      if (inspected.code === 0 && (description.includes('arm64') || description.includes('universal binary'))) {
+        return local
+      }
+    } else {
+      return local
+    }
+  }
+  if (await canRun('ffmpeg')) {
+    if (isMac && process.arch === 'arm64') {
+      const which = await runCapture('/usr/bin/which', ['ffmpeg'])
+      const resolved = which.out.trim().split(/\r?\n/)[0]
+      if (!resolved) return null
+      const inspected = await runCapture('/usr/bin/file', ['-b', resolved])
+      const description = inspected.out.toLowerCase()
+      if (!description.includes('arm64') && !description.includes('universal binary')) return null
+    }
+    return 'ffmpeg'
+  }
   return null
 }
 
@@ -482,40 +516,58 @@ async function installFfmpeg(onProgress: ProgressCb): Promise<void> {
     await downloadFile(url, tmpZip, (p) =>
       onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ffmpeg… ${p}%`, percent: p })
     )
+    if ((await sha256File(tmpZip)) !== FFMPEG_WIN_SHA256) {
+      await rm(tmpZip, { force: true })
+      throw new Error('Checksum gói FFmpeg Windows không khớp.')
+    }
     onProgress({ phase: 'extracting', message: 'Đang giải nén ffmpeg…', percent: -1 })
     const extractDir = join(binDir(), 'ffmpeg_tmp')
     await rm(extractDir, { recursive: true, force: true })
-    await extractZip(tmpZip, extractDir)
+    try {
+      await extractZip(tmpZip, extractDir)
 
-    for (const bin of ['ffmpeg.exe', 'ffprobe.exe']) {
-      const src = await findFile(extractDir, bin)
-      if (src) await copyFile(src, join(binDir(), bin))
+      for (const bin of ['ffmpeg.exe', 'ffprobe.exe']) {
+        const src = await findFile(extractDir, bin)
+        if (!src) throw new Error(`Gói FFmpeg Windows thiếu ${bin}.`)
+        const probe = await runCapture(src, ['-version'])
+        if (probe.code !== 0) throw new Error(`${bin} trong gói tải về không chạy được.`)
+        await copyFile(src, join(binDir(), bin))
+      }
+    } finally {
+      await rm(extractDir, { recursive: true, force: true }).catch(() => {})
+      await rm(tmpZip, { force: true }).catch(() => {})
     }
-    await rm(extractDir, { recursive: true, force: true })
-    await rm(tmpZip, { force: true })
   } else if (isMac) {
-    // macOS: tai ffmpeg + ffprobe static (moi cai la 1 zip chua 1 binary).
-    // LUU Y: chua kiem thu tren may Mac that — can xac minh o giai doan macOS.
-    const targets: [string, string][] = [
-      ['ffmpeg', 'https://evermeet.cx/ffmpeg/getrelease/ffmpeg/zip'],
-      ['ffprobe', 'https://evermeet.cx/ffmpeg/getrelease/ffprobe/zip']
-    ]
-    for (const [name, url] of targets) {
+    if (process.arch !== 'arm64') {
+      throw new Error('T-blao cho macOS từ phiên bản 0.1.18 chỉ hỗ trợ Apple Silicon (M1 trở lên).')
+    }
+
+    // Bản 9.0 ARM64 cố định, có libass + dav1d + libx264. Không dùng URL "latest"
+    // để tránh binary/checksum thay đổi ngoài một bản phát hành của T-blao.
+    for (const { name, url, sha256 } of FFMPEG_MAC_ARM64_TARGETS) {
       const tmpZip = join(binDir(), `${name}.zip`)
       await downloadFile(url, tmpZip, (p) =>
         onProgress({ phase: 'downloading-ffmpeg', message: `Đang tải ${name}… ${p}%`, percent: p })
       )
+      if ((await sha256File(tmpZip)) !== sha256) {
+        await rm(tmpZip, { force: true })
+        throw new Error(`Checksum ${name} ARM64 không khớp.`)
+      }
       onProgress({ phase: 'extracting', message: `Đang giải nén ${name}…`, percent: -1 })
       const extractDir = join(binDir(), `${name}_tmp`)
       await rm(extractDir, { recursive: true, force: true })
-      await extractZip(tmpZip, extractDir)
-      const src = await findFile(extractDir, name)
-      if (src) {
+      try {
+        await extractZip(tmpZip, extractDir)
+        const src = await findFile(extractDir, name)
+        if (!src) throw new Error(`Gói FFmpeg ARM64 thiếu ${name}.`)
         await copyFile(src, join(binDir(), name))
         await chmod(join(binDir(), name), 0o755)
+        const probe = await runCapture(join(binDir(), name), ['-version'])
+        if (probe.code !== 0) throw new Error(`${name} ARM64 vừa cài không chạy được.`)
+      } finally {
+        await rm(extractDir, { recursive: true, force: true }).catch(() => {})
+        await rm(tmpZip, { force: true }).catch(() => {})
       }
-      await rm(extractDir, { recursive: true, force: true })
-      await rm(tmpZip, { force: true })
     }
   } else {
     // Linux: khuyen nghi cai qua he thong.

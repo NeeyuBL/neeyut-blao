@@ -5,6 +5,7 @@ import Downloader from './components/Downloader'
 import Douyin from './components/Douyin'
 import AudioText from './components/AudioText'
 import ScreenText from './components/ScreenText'
+import VideoEditor, { type EditorDraft } from './components/VideoEditor'
 import VideoEnhance from './components/VideoEnhance'
 import License from './components/License'
 import Logs from './components/Logs'
@@ -17,7 +18,16 @@ const REPO_URL = 'https://github.com/NeeyuBL/neeyut-blao'
 const ZALO_URL = 'https://zalo.me/g/sctlgzzn07wpiez8rbbc'
 
 type Stage = 'checking' | 'setup' | 'ready'
-type TabKey = 'download' | 'douyin' | 'audiotext' | 'screen' | 'enhance' | 'eco' | 'logs' | 'license'
+type TabKey =
+  | 'download'
+  | 'douyin'
+  | 'audiotext'
+  | 'screen'
+  | 'editor'
+  | 'enhance'
+  | 'eco'
+  | 'logs'
+  | 'license'
 
 interface Tab {
   key: TabKey
@@ -45,7 +55,7 @@ const TABS: Tab[] = [
   },
   {
     key: 'audiotext',
-    label: 'Phụ đề',
+    label: 'Tạo phụ đề',
     icon: '📝',
     title: 'Tạo phụ đề',
     subtitle: 'Chuyển lời nói trong video thành phụ đề'
@@ -58,6 +68,13 @@ const TABS: Tab[] = [
     // Anh em voi tab Phu de: mot ben tu TIENG, mot ben tu HINH.
     // Danh cho video chi co chu chay, khong co tieng -> tab Phu de bo tay.
     subtitle: 'Nhận diện chữ xuất hiện trong video và tạo phụ đề'
+  },
+  {
+    key: 'editor',
+    label: 'Biên tập video',
+    icon: '✦',
+    title: 'Biên tập video',
+    subtitle: 'Xem trước, tạo kiểu phụ đề và xuất video'
   },
   {
     key: 'enhance',
@@ -102,6 +119,7 @@ export default function App(): JSX.Element {
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   // "Hop thu" gui file tu tab Tai xuong sang tab Audio->Text (nut "Lay sub")
   const [subInbox, setSubInbox] = useState<{ path: string; id: string } | null>(null)
+  const [editorDraft, setEditorDraft] = useState<EditorDraft | null>(null)
   const [hienQr, setHienQr] = useState(false) // bang QR ung ho (nut Cafe)
   const [hienLienHe, setHienLienHe] = useState(false) // bang Zalo (nut Lien he)
   const [qrZoom, setQrZoom] = useState(1) // phong to/thu nho anh QR (Ctrl + lan chuot)
@@ -110,6 +128,11 @@ export default function App(): JSX.Element {
   const sendToSub = (filePath: string): void => {
     setSubInbox({ path: filePath, id: crypto.randomUUID() })
     setTab('audiotext')
+  }
+
+  const openInEditor = (draft: EditorDraft): void => {
+    setEditorDraft(draft)
+    setTab('editor')
   }
 
   const check = async (): Promise<void> => {
@@ -180,7 +203,7 @@ export default function App(): JSX.Element {
   const journeyTone =
     tab === 'download' || tab === 'douyin'
       ? 'ingest'
-      : tab === 'audiotext' || tab === 'screen' || tab === 'enhance'
+      : tab === 'audiotext' || tab === 'screen' || tab === 'editor' || tab === 'enhance'
         ? 'render'
         : 'neutral'
 
@@ -259,13 +282,17 @@ export default function App(): JSX.Element {
             <Douyin />
           </div>
           <div className={`tab-pane ${tab === 'audiotext' ? '' : 'hidden'}`}>
-            <AudioText subInbox={subInbox} />
+            <AudioText subInbox={subInbox} onOpenEditor={openInEditor} />
           </div>
           {/* GIU SONG (khong unmount): user chon video + keo khung xong ma qua
               tab khac mot cai la mat sach, phai lam lai tu dau. Nho toi khi tat
               app — dung y user chot. */}
           <div className={`tab-pane ${tab === 'screen' ? '' : 'hidden'}`}>
-            <ScreenText />
+            <ScreenText onOpenEditor={openInEditor} />
+          </div>
+          {/* Editor luon mounted de khong mat video, vung chinh va tien do khi doi tab. */}
+          <div className={`tab-pane ${tab === 'editor' ? '' : 'hidden'}`}>
+            <VideoEditor draft={editorDraft} active={tab === 'editor'} />
           </div>
           <div className={`tab-pane ${tab === 'enhance' ? '' : 'hidden'}`}>
             <VideoEnhance />

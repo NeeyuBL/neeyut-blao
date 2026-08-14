@@ -27,6 +27,9 @@ Vai trò: xử lý/ghép âm thanh–video, đổi định dạng, nhúng phụ 
 Giấy phép: LGPL / GPL.
 Chi tiết: https://ffmpeg.org/legal.html
 Được tải về khi cần, không chỉnh sửa mã nguồn.
+Bản macOS ARM64 dùng build cố định từ Martin Riedl's FFmpeg Build Server:
+https://ffmpeg.martin-riedl.de/
+Mã nguồn build script: https://git.martin-riedl.de/ffmpeg/build-script
 
 --------------------------------------------------------------------------
 A2) Bộ tải xuống đa nền tảng (mã nguồn mở)

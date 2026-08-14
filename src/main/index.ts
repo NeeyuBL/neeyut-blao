@@ -14,6 +14,13 @@ const KIEU_MEDIA: Record<string, string> = {
   '.m4v': 'video/mp4',
   '.ts': 'video/mp2t',
   '.flv': 'video/x-flv',
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.flac': 'audio/flac',
   '.ttf': 'font/ttf',
   '.otf': 'font/otf'
 }
@@ -74,8 +81,16 @@ import {
   translateSrt as openaiTranslateSrt
 } from './openai'
 import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
-import { burnSubtitle, cancelBurn, srtGiay } from './burn'
-import { listBurnFonts } from './fonts'
+import { boCuc, burnSubtitle, cancelBurn, docFileSrt, probeBurnMedia, srtGiay } from './burn'
+import { prepareAudioPreview } from './audioPreview'
+import {
+  importBurnFontFiles,
+  listBurnFonts,
+  readBurnFontPreview,
+  removeCustomBurnFont
+} from './fonts'
+import { parseSrt, subtitleDuration } from '../shared/subtitles'
+import { createMainSubtitlePlan } from './subtitlePlanner'
 import {
   cancelVideo2x,
   installVideo2xEngine,
@@ -88,18 +103,26 @@ import {
   clearDyCookies,
   dyCookieStatus
 } from './douyinCookies'
-import type { DichProvider, DouyinRequest, Video2xRunRequest, WhisperRequest } from '../shared/types'
+import type {
+  DichProvider,
+  DouyinRequest,
+  SubtitleLayoutRequest,
+  Video2xRunRequest,
+  WhisperRequest
+} from '../shared/types'
 import {
   clearLogs,
   debugRaw,
   errLabel,
   getLogs,
+  initializeLogSessionSync,
   logEmitter,
   logError,
   logFilePath,
   logInfo,
   wipeLogFileSync
 } from './logger'
+import { createSupportReport, recordRendererIssue } from './support'
 
 /** Nhat ky khong can biet user vao trang NAO — chi can biet tu dau. */
 function domainOf(url: string): string {
@@ -109,7 +132,7 @@ function domainOf(url: string): string {
     return '(liên kết)'
   }
 }
-import { DownloadRequest, LogEntry, SetupProgress } from '../shared/types'
+import { DownloadRequest, LogEntry, RendererIssueReport, SetupProgress } from '../shared/types'
 import type { BurnReq } from '../shared/types'
 
 let mainWindow: BrowserWindow | null = null
@@ -191,6 +214,7 @@ async function maybeAutoUpdateYtDlp(): Promise<void> {
 
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return
+  initializeLogSessionSync()
   // tblao://b64/<duong-dan-ma-hoa-base64url>  ->  doc tep tren dia.
   // !! Duong dan PHAI di qua base64 va PHAI co host "b64". Da do thuc te:
   //    voi standard:true, Chromium coi khuc dau sau "///" la TEN MIEN, nen
@@ -499,13 +523,192 @@ function registerIpc(): void {
   ipcMain.handle('ocr:cancel', async () => cancelOcr())
 
   // ---- Ghep phu de vao video (buoc phu tab Dich man hinh) ----
-  ipcMain.handle('burn:start', async (event, req: BurnReq) =>
-    burnSubtitle(req, (p) => event.sender.send('burn:progress', p))
-  )
+  ipcMain.handle('burn:start', async (event, req: BurnReq) => {
+    try {
+      return await burnSubtitle(req, (p) => event.sender.send('burn:progress', p))
+    } catch (error) {
+      debugRaw('burn ipc', error)
+      return { ok: false, error: 'Không thể bắt đầu xuất video. Hãy kiểm tra các file đã chọn rồi thử lại.' }
+    }
+  })
   ipcMain.handle('burn:cancel', async () => cancelBurn())
+  ipcMain.handle('burn:probeMedia', async (_e, video: string) => {
+    try {
+      return { ok: true, meta: await probeBurnMedia(video) }
+    } catch (error) {
+      debugRaw('burn probe media', error)
+      return { ok: false, error: 'Không thể kiểm tra âm thanh của video đã chọn.' }
+    }
+  })
+  ipcMain.handle('audio:preparePreview', async (_e, input: string) => {
+    try {
+      return await prepareAudioPreview(input)
+    } catch (error) {
+      debugRaw('audio preview ipc', error)
+      return { ok: false, error: 'Không thể chuẩn bị bản nghe thử.' }
+    }
+  })
   // Do do dai file .srt -> renderer canh bao khi lech han so voi video
   ipcMain.handle('burn:srtGiay', async (_e, duong: string) => srtGiay(duong))
+  ipcMain.handle('subtitle:parse', async (_e, duong: string) => {
+    if (typeof duong !== 'string' || extname(duong).toLowerCase() !== '.srt') {
+      return { cues: [], duration: 0, warnings: [], error: 'Hãy chọn một file phụ đề .srt hợp lệ.' }
+    }
+    try {
+      const info = await stat(duong)
+      if (!info.isFile() || info.size > 20 * 1024 * 1024) {
+        return {
+          cues: [],
+          duration: 0,
+          warnings: [],
+          error: 'File phụ đề không hợp lệ hoặc lớn hơn 20 MB.'
+        }
+      }
+      const parsed = parseSrt(docFileSrt(duong))
+      return {
+        cues: parsed.cues,
+        duration: subtitleDuration(parsed.cues),
+        warnings: parsed.warnings.map((warning) => `Dòng ${warning.line}: ${warning.message}`),
+        error: parsed.cues.length === 0 ? 'File phụ đề không có câu nào với mốc thời gian hợp lệ.' : undefined
+      }
+    } catch (error) {
+      debugRaw('subtitle parse', error)
+      return {
+        cues: [],
+        duration: 0,
+        warnings: [],
+        error: 'Không thể đọc file phụ đề này. Hãy kiểm tra lại file rồi thử lại.'
+      }
+    }
+  })
+  ipcMain.handle('subtitle:layout', async (_e, request: SubtitleLayoutRequest) => {
+    if (!request || typeof request.path !== 'string' || extname(request.path).toLowerCase() !== '.srt') {
+      throw new Error('Hãy chọn một file phụ đề .srt hợp lệ.')
+    }
+    const width = Number(request.videoWidth)
+    const height = Number(request.videoHeight)
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width < 16 ||
+      height < 16 ||
+      width > 32_768 ||
+      height > 32_768
+    ) {
+      throw new Error('Chưa xác định được kích thước video để căn phụ đề.')
+    }
+    const region = request.subRegion
+    if (
+      region &&
+      (!Number.isFinite(region.x0) ||
+        !Number.isFinite(region.y0) ||
+        !Number.isFinite(region.x1) ||
+        !Number.isFinite(region.y1) ||
+        region.x0 < 0 ||
+        region.y0 < 0 ||
+        region.x1 <= region.x0 ||
+        region.y1 <= region.y0 ||
+        region.x1 > width ||
+        region.y1 > height)
+    ) {
+      throw new Error('Vùng phụ đề không còn nằm trong video.')
+    }
+    if (
+      request.profile != null &&
+      request.profile !== 'readable' &&
+      request.profile !== 'social' &&
+      request.profile !== 'vertical'
+    ) {
+      throw new Error('Cấu hình tối ưu phụ đề không hợp lệ.')
+    }
+    if (
+      (request.autoOptimize != null && typeof request.autoOptimize !== 'boolean') ||
+      (request.bgEnabled != null && typeof request.bgEnabled !== 'boolean') ||
+      (request.fontId != null && (typeof request.fontId !== 'string' || request.fontId.length > 100))
+    ) {
+      throw new Error('Cấu hình phụ đề không hợp lệ.')
+    }
+
+    let cues
+    try {
+      const info = await stat(request.path)
+      if (!info.isFile() || info.size <= 0 || info.size > 20 * 1024 * 1024) {
+        throw new Error('invalid subtitle file')
+      }
+      cues = parseSrt(docFileSrt(request.path)).cues
+    } catch (error) {
+      debugRaw('subtitle layout read', error)
+      throw new Error('Không thể đọc file phụ đề này. Hãy chọn lại file rồi thử lại.')
+    }
+    if (cues.length === 0) throw new Error('File phụ đề không có đoạn nào với mốc thời gian hợp lệ.')
+
+    const bc = boCuc(
+      { w: width, h: height, giay: 0, hasAudio: false },
+      region,
+      false
+    )
+    const marginLeft = bc.x > 0 ? bc.x : Math.round(width * 0.08)
+    const marginRight =
+      bc.x > 0 && bc.bw > 0 ? Math.max(0, width - (bc.x + bc.bw)) : Math.round(width * 0.08)
+    const boxWidth = Math.max(8, width - marginLeft - marginRight)
+    const boxPadding = request.bgEnabled ? Math.max(8, Math.round(bc.fontSize * 0.26)) : 0
+
+    try {
+      return createMainSubtitlePlan(
+        cues,
+        {
+          profile: request.profile ?? 'readable',
+          autoOptimize: request.autoOptimize !== false,
+          videoWidth: width,
+          videoHeight: height,
+          boxWidth,
+          boxHeight:
+            bc.tamY != null ? bc.bh : Math.max(bc.fontSize * 2.5, height * 0.2),
+          fontSize: bc.fontSize,
+          boxPadding
+        },
+        request.fontId
+      ).plan
+    } catch (error) {
+      debugRaw('subtitle layout plan', error)
+      if (error instanceof Error && error.message.startsWith('Font đã chọn')) throw error
+      throw new Error('Không thể căn phụ đề bằng font đã chọn. Hãy thử một font khác.')
+    }
+  })
   ipcMain.handle('fonts:list', async () => listBurnFonts())
+  ipcMain.handle('fonts:previewData', async (_e, fontId: string) => readBurnFontPreview(fontId))
+  ipcMain.handle('fonts:import', async () => {
+    const options = {
+      title: 'Thêm font phụ đề',
+      properties: ['openFile', 'multiSelections'] as Array<'openFile' | 'multiSelections'>,
+      filters: [{ name: 'Font chữ', extensions: ['ttf', 'otf'] }]
+    }
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return { ok: true, fonts: [] }
+    try {
+      const imported = await importBurnFontFiles(result.filePaths)
+      const error = imported.errors.length
+        ? `${imported.errors.length} file font không thể thêm. ${imported.errors[0]}`
+        : undefined
+      return {
+        ok: imported.fonts.length > 0 || imported.errors.length === 0,
+        fonts: imported.fonts,
+        error
+      }
+    } catch (error) {
+      return { ok: false, error: errLabel(error) }
+    }
+  })
+  ipcMain.handle('fonts:removeCustom', async (_e, fontId: string) => {
+    try {
+      await removeCustomBurnFont(fontId)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: errLabel(error) }
+    }
+  })
 
   // ---- Video2X (nang cap video) ----
   ipcMain.handle('video2x:engineStatus', async () => video2xEngineStatus())
@@ -585,6 +788,10 @@ function registerIpc(): void {
   ipcMain.handle('logs:clear', async () => clearLogs())
   ipcMain.handle('logs:openFile', async () => {
     await shell.openPath(logFilePath())
+  })
+  ipcMain.handle('support:createReport', async () => createSupportReport())
+  ipcMain.on('support:rendererIssue', (_event, issue: RendererIssueReport) => {
+    recordRendererIssue(issue)
   })
 
   // Tai xuong

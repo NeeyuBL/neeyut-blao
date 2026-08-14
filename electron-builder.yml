@@ -31,7 +31,14 @@ extraResources:
   - from: resources/fonts
     to: fonts
     filter:
-      - '**/*'
+      - manifest.json
+      - catalog.json
+      - README.md
+      - licenses/**/*
+      - NotoSans.ttf
+      - NotoSansArabic.ttf
+      - NotoSansThai.ttf
+      - NotoSansKR.ttf
 win:
   target:
     - nsis
@@ -44,11 +51,20 @@ nsis:
   uninstallerIcon: build/icon.ico
 mac:
   target:
-    - dmg
-    - zip
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
   icon: build/icon.png
   category: public.app-category.utilities
-  artifactName: ${productName}-${version}.${ext}
+  minimumSystemVersion: '11.0'
+  hardenedRuntime: true
+  notarize: true
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
 # Nguon phat hanh cho electron-updater (app tu cap nhat tu GitHub Releases).
 # LUU Y: owner/repo phai TRUNG repo that ma ban up Release len.
 publish:

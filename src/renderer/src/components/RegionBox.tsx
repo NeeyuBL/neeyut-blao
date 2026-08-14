@@ -1,11 +1,22 @@
-import type { JSX } from 'react'
-import { useCallback, useEffect, useRef } from 'react'
-import type { BlurRegion } from '../../../shared/types'
+import type { CSSProperties, JSX } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+import type {
+  BlurRegion,
+  RenderedSubtitleSegment,
+  SubtitleCue,
+  SubtitleDisplayStyle
+} from '../../../shared/types'
+import {
+  createSubtitleEffectTimeline,
+  safeSubtitlePopScale,
+  splitSubtitleEffectLines,
+  subtitlePopScaleAt
+} from '../../../shared/subtitleEffects'
 import {
   cueUsesCjkWrap,
   estimateTextWidthPx,
-  fontSizeFromSubBox,
   ngatDongTheoPx,
+  subtitleFontSizeForBox,
   wrapWidthFromBox
 } from '../../../shared/subWrap'
 
@@ -29,16 +40,22 @@ export interface Region {
   x1: number
 }
 
+const EMPTY_SUBTITLE_CUES: Array<SubtitleCue | RenderedSubtitleSegment> = []
+
 interface Props {
   regions?: BlurRegion[]
   activeId?: string | null
   setActiveId?: (id: string) => void
   updateRegion?: (r: BlurRegion) => void
   removeRegion?: (id: string) => void
+  /** Chi hien tay nam cua blur khi cong cu Lam mo dang duoc chon. */
+  blurInteractive?: boolean
   // Khung phu de (cho phep keo di chuyen + co gian)
   hienSubBox?: boolean
   subRegion?: Region
   setSubRegion?: (v: Region) => void
+  /** Van hien ket qua phu de nhung khoa tay nam khi dang chinh cong cu khac. */
+  subInteractive?: boolean
   // Khung OCR (cho phep keo di chuyen + co gian)
   hienOcrBox?: boolean
   ocrRegion?: Region
@@ -48,14 +65,26 @@ interface Props {
   boxH: number
   boxW: number
   xemMo?: boolean
+  /** Hien hieu ung blur tong hop ke ca khi inspector dang o cong cu khac. */
+  showBlurEffect?: boolean
   /** CSS font-family cho chu mau trong khung phu de (sau khi @font-face load). */
   previewFontFamily?: string
+  /** undefined = cau mau; chuoi rong = SRT dang khong co cue tai playhead. */
+  subtitleText?: string
+  subtitleCues?: Array<SubtitleCue | RenderedSubtitleSegment>
+  subtitleTime?: number
+  subtitleDisplayStyle?: SubtitleDisplayStyle
+  /** Co chu pixel video do main tinh cung mot lan voi ASS. */
+  subtitleFontSize?: number
+  highlightColor?: string
+  highlightPop?: boolean
   textColor?: string
   outlineColor?: string
   outlinePx?: number
   bgEnabled?: boolean
   bgColor?: string
   bgOpacity?: number
+  showSafeArea?: boolean
 }
 
 type DragType = 'move' | 'top' | 'bot' | 'left' | 'right' | 'top-left' | 'top-right' | 'bot-left' | 'bot-right'
@@ -66,9 +95,11 @@ export default function RegionBox({
   setActiveId,
   updateRegion,
   removeRegion,
+  blurInteractive = true,
   hienSubBox = false,
   subRegion,
   setSubRegion,
+  subInteractive = true,
   hienOcrBox = false,
   ocrRegion,
   setOcrRegion,
@@ -77,13 +108,22 @@ export default function RegionBox({
   boxH,
   boxW,
   xemMo = false,
+  showBlurEffect,
   previewFontFamily,
+  subtitleText,
+  subtitleCues = EMPTY_SUBTITLE_CUES,
+  subtitleTime = 0,
+  subtitleDisplayStyle = 'standard',
+  subtitleFontSize,
+  highlightColor = '#43e7d5',
+  highlightPop = true,
   textColor = '#ffffff',
   outlineColor = '#000000',
   outlinePx = 2,
   bgEnabled = false,
   bgColor = '#000000',
-  bgOpacity = 60
+  bgOpacity = 60,
+  showSafeArea = false
 }: Props): JSX.Element {
   const keo = useRef<{
     target: 'blur' | 'sub' | 'ocr'
@@ -182,42 +222,116 @@ export default function RegionBox({
   const pctX = (v: number): string => `${videoW > 0 ? (v / videoW) * 100 : 0}%`
 
   const list = regions || []
+  const blurVisible = showBlurEffect ?? xemMo
   const currentActiveId = activeId ?? list[0]?.id
   const activeRegion = list.find((item) => item.id === currentActiveId)
 
   // Cỡ chữ mẫu = burn (bh * 0.7), quy về pixel preview qua sy
   const previewFontSize = subRegion && videoH > 0
-    ? Math.max(12, Math.round(fontSizeFromSubBox(subRegion.y1 - subRegion.y0) / sy))
+    ? Math.max(
+        12,
+        Math.round(
+          (subtitleFontSize ??
+            subtitleFontSizeForBox({
+              boxWidth: subRegion.x1 - subRegion.x0,
+              boxHeight: subRegion.y1 - subRegion.y0,
+              videoWidth: videoW,
+              videoHeight: videoH
+            })) / sy
+        )
+      )
     : 16
 
   // Xuong dong mau: do px that (canvas) vs chieu ngang khung (video px)
-  const sampleAssLines = ((): string[] => {
-    const sample = 'Mẫu chữ xuất ra'
-    if (!subRegion || videoW <= 0) return [sample]
+  const sample = subtitleText === undefined ? 'Mẫu chữ xuất ra' : subtitleText
+  const wrapPreviewText = useCallback((text: string): string[] => {
+    if (!text) return []
+    const assText = text.replace(/\r\n|\r|\n/g, '\\N')
+    if (!subRegion || videoW <= 0) return assText.split('\\N')
     const bw = Math.max(1, subRegion.x1 - subRegion.x0)
     const bh = Math.max(1, subRegion.y1 - subRegion.y0)
-    const fs = fontSizeFromSubBox(bh)
+    const fs = subtitleFontSize ?? subtitleFontSizeForBox({
+      boxWidth: bw,
+      boxHeight: bh,
+      videoWidth: videoW,
+      videoHeight: videoH
+    })
     const pad = bgEnabled ? Math.max(8, Math.round(fs * 0.26)) : 0
     const maxW = wrapWidthFromBox(bw, pad)
     const family = previewFontFamily
       ? `"${previewFontFamily}", Arial, sans-serif`
       : 'Arial, sans-serif'
     // Do theo co chu ASS (video px) de khop burn, khong theo previewFontSize man hinh
-    const fontCss = `bold ${fs}px ${family}`
+    const fontCss = `${fs}px ${family}`
     const measure = (t: string): number => {
       const w = measureCanvasText(fontCss, t)
       return w > 0 ? w : estimateTextWidthPx(t, fs)
     }
-    const wrapped = ngatDongTheoPx(sample, maxW, measure, cueUsesCjkWrap(sample))
+    const wrapped = ngatDongTheoPx(assText, maxW, measure, cueUsesCjkWrap(assText))
     return wrapped.split('\\N').filter(Boolean)
-  })()
+  }, [bgEnabled, previewFontFamily, subRegion, subtitleFontSize, videoH, videoW])
+
+  const sampleAssLines = useMemo(() => {
+    const planned = subtitleCues.flatMap((cue) => ('lines' in cue ? cue.lines : []))
+    return planned.length > 0 ? planned : wrapPreviewText(sample)
+  }, [sample, subtitleCues, wrapPreviewText])
+
+  const previewMaxLineWidth = useMemo(() => {
+    if (!subRegion) return 0
+    const width = Math.max(1, subRegion.x1 - subRegion.x0)
+    const fontSize =
+      subtitleFontSize ??
+      subtitleFontSizeForBox({
+        boxWidth: width,
+        boxHeight: Math.max(1, subRegion.y1 - subRegion.y0),
+        videoWidth: videoW,
+        videoHeight: videoH
+      })
+    const padding = bgEnabled ? Math.max(8, Math.round(fontSize * 0.26)) : 0
+    return wrapWidthFromBox(width, padding)
+  }, [bgEnabled, subRegion, subtitleFontSize, videoH, videoW])
+
+  const measurePreviewVideoText = useCallback(
+    (text: string): number => {
+      if (!subRegion) return estimateTextWidthPx(text, subtitleFontSize ?? 16)
+      const fontSize =
+        subtitleFontSize ??
+        subtitleFontSizeForBox({
+          boxWidth: Math.max(1, subRegion.x1 - subRegion.x0),
+          boxHeight: Math.max(1, subRegion.y1 - subRegion.y0),
+          videoWidth: videoW,
+          videoHeight: videoH
+        })
+      const family = previewFontFamily
+        ? `"${previewFontFamily}", Arial, sans-serif`
+        : 'Arial, sans-serif'
+      const measured = measureCanvasText(`${fontSize}px ${family}`, text)
+      return measured > 0 ? measured : estimateTextWidthPx(text, fontSize)
+    },
+    [previewFontFamily, subRegion, subtitleFontSize, videoH, videoW]
+  )
+
+  const effectTimelines = useMemo(
+    () =>
+      subtitleDisplayStyle === 'standard'
+        ? []
+        : subtitleCues.map((cue) => ({
+            cue,
+            timeline: createSubtitleEffectTimeline({
+              ...cue,
+              text: 'lines' in cue ? cue.lines.join('\n') : wrapPreviewText(cue.text).join('\n')
+            })
+          })),
+    [subtitleCues, subtitleDisplayStyle, wrapPreviewText]
+  )
 
   const boxPadPreview = Math.max(4, Math.round(previewFontSize * 0.26))
   // Phuong an A: gan vuong nhu ASS (blur), khong pill
   const boxRadiusPreview = Math.max(2, Math.round(previewFontSize * 0.06))
 
   const outlineShadow = (() => {
-    const px = Math.max(0, Math.min(8, Math.round(outlinePx * 2) / 2))
+    const previewScale = Math.max(sy, 0.001)
+    const px = Math.max(0, Math.min(8, Math.round((outlinePx / previewScale) * 2) / 2))
     if (px <= 0) return 'none'
     const parts: string[] = []
     const step = 0.5
@@ -252,6 +366,7 @@ export default function RegionBox({
 
   return (
     <div className="rbox-lop">
+      {showSafeArea && <div className="rbox-safe-area" aria-hidden="true" />}
       {/* Vùng mờ xung quanh active blur region */}
       {xemMo && activeRegion && (
         <>
@@ -284,7 +399,7 @@ export default function RegionBox({
         return (
           <div
             key={r.id}
-            className={`rbox ${xemMo ? 'rbox-lammo' : ''} ${isActive ? 'active' : ''}`}
+            className={`rbox ${blurVisible ? 'rbox-lammo' : ''} ${isActive && blurInteractive ? 'active' : ''} ${blurInteractive ? '' : 'rbox-passive'}`}
             style={{
               top: pct(r.y0),
               height: pct(r.y1 - r.y0),
@@ -292,13 +407,17 @@ export default function RegionBox({
               width: pctX(r.x1 - r.x0),
               borderColor: r.color
             }}
-            onMouseDown={(e) => {
-              if (setActiveId) setActiveId(r.id)
-              batBlur(r.id, r, 'move')(e)
-            }}
+            onMouseDown={
+              blurInteractive
+                ? (e) => {
+                    if (setActiveId) setActiveId(r.id)
+                    batBlur(r.id, r, 'move')(e)
+                  }
+                : undefined
+            }
             title="Vùng mờ: kéo di chuyển · kéo các mép để co giãn"
           >
-            {isActive && (
+            {isActive && blurInteractive && (
               <>
                 <div className="rbox-tay rbox-tren" onMouseDown={batBlur(r.id, r, 'top')} />
                 <div className="rbox-tay rbox-duoi" onMouseDown={batBlur(r.id, r, 'bot')} />
@@ -306,10 +425,12 @@ export default function RegionBox({
                 <div className="rbox-tay rbox-phai" onMouseDown={batBlur(r.id, r, 'right')} />
               </>
             )}
-            <div className="rbox-nhan" style={{ background: r.color }}>
-              Vùng mờ {idx + 1}
-            </div>
-            {removeRegion && list.length > 1 && (
+            {blurInteractive && (
+              <div className="rbox-nhan" style={{ background: r.color }}>
+                Vùng mờ {idx + 1}
+              </div>
+            )}
+            {blurInteractive && removeRegion && list.length > 1 && (
               <div
                 className="rbox-del"
                 onClick={(e) => {
@@ -328,25 +449,29 @@ export default function RegionBox({
       {/* Khung Phụ Đề Trực Quan (Kéo di chuyển & co giãn) */}
       {hienSubBox && subRegion && (
         <div
-          className="rbox rbox-sub"
+          className={`rbox rbox-sub ${subInteractive ? '' : 'rbox-passive'}`}
           style={{
             top: pct(subRegion.y0),
             height: pct(subRegion.y1 - subRegion.y0),
             left: pctX(subRegion.x0),
             width: pctX(subRegion.x1 - subRegion.x0)
           }}
-          onMouseDown={batSub('move')}
+          onMouseDown={subInteractive ? batSub('move') : undefined}
           title="Khung phụ đề: Kéo di chuyển vị trí · Kéo các điểm mút góc/cạnh để thay đổi cỡ chữ"
         >
           {/* Nút kéo góc & cạnh */}
-          <div className="rbox-tay rbox-goc-tl" onMouseDown={batSub('top-left')} />
-          <div className="rbox-tay rbox-goc-tr" onMouseDown={batSub('top-right')} />
-          <div className="rbox-tay rbox-goc-bl" onMouseDown={batSub('bot-left')} />
-          <div className="rbox-tay rbox-goc-br" onMouseDown={batSub('bot-right')} />
-          <div className="rbox-tay rbox-tren" onMouseDown={batSub('top')} />
-          <div className="rbox-tay rbox-duoi" onMouseDown={batSub('bot')} />
-          <div className="rbox-tay rbox-trai" onMouseDown={batSub('left')} />
-          <div className="rbox-tay rbox-phai" onMouseDown={batSub('right')} />
+          {subInteractive && (
+            <>
+              <div className="rbox-tay rbox-goc-tl" onMouseDown={batSub('top-left')} />
+              <div className="rbox-tay rbox-goc-tr" onMouseDown={batSub('top-right')} />
+              <div className="rbox-tay rbox-goc-bl" onMouseDown={batSub('bot-left')} />
+              <div className="rbox-tay rbox-goc-br" onMouseDown={batSub('bot-right')} />
+              <div className="rbox-tay rbox-tren" onMouseDown={batSub('top')} />
+              <div className="rbox-tay rbox-duoi" onMouseDown={batSub('bot')} />
+              <div className="rbox-tay rbox-trai" onMouseDown={batSub('left')} />
+              <div className="rbox-tay rbox-phai" onMouseDown={batSub('right')} />
+            </>
+          )}
 
           {/* Chu mau: can day khung (\\an2), nam trong vien tim */}
           <div className="sub-sample-slot">
@@ -359,7 +484,6 @@ export default function RegionBox({
                   : 'Arial, sans-serif',
                 color: textColor,
                 textShadow: outlineShadow,
-                whiteSpace: 'pre-line',
                 ...(bgEnabled
                   ? {
                       background: bgRgba,
@@ -369,7 +493,94 @@ export default function RegionBox({
                   : {})
               }}
             >
-              {sampleAssLines.join('\n')}
+              {effectTimelines.length > 0 ? (
+                effectTimelines.map(({ cue, timeline }) => {
+                  const activeBeat = timeline.beats.find(
+                    (beat) => subtitleTime >= beat.start && subtitleTime < beat.end
+                  )
+                  const activeBeatIndex = activeBeat?.index ?? -1
+                  const peakScale =
+                    highlightPop && activeBeat
+                      ? safeSubtitlePopScale(
+                          timeline,
+                          activeBeatIndex,
+                          previewMaxLineWidth,
+                          measurePreviewVideoText,
+                          'lineWidths' in cue ? cue.lineWidths : undefined
+                        )
+                      : 1
+                  const popScale = activeBeat
+                    ? subtitlePopScaleAt(activeBeat, subtitleTime, peakScale)
+                    : 1
+                  return (
+                    <span className="sub-preview-cue" key={cue.id}>
+                      {splitSubtitleEffectLines(timeline.tokens).map((line, lineIndex) => (
+                        <span className="sub-preview-line" key={`${cue.id}-line-${lineIndex}`}>
+                          {line.length > 0
+                            ? line.map((token, tokenIndex) => {
+                                const revealed =
+                                  token.beatIndex == null || token.beatIndex <= activeBeatIndex
+                                const highlighted =
+                                  token.kind === 'word' &&
+                                  token.beatIndex != null &&
+                                  token.beatIndex === activeBeatIndex
+                                const tokenStyle: CSSProperties | undefined =
+                                  subtitleDisplayStyle === 'word-reveal'
+                                    ? { visibility: revealed ? 'visible' : 'hidden' }
+                                    : undefined
+                                const overlayStyle: CSSProperties | undefined = highlighted
+                                  ? {
+                                      color: highlightColor,
+                                      transform: highlightPop
+                                        ? `scale(${popScale.toFixed(4)})`
+                                        : 'scale(1)'
+                                    }
+                                  : undefined
+                                return (
+                                  <span
+                                    key={`${lineIndex}-${tokenIndex}-${token.start}`}
+                                    className={
+                                      highlighted ? 'sub-preview-token active' : 'sub-preview-token'
+                                    }
+                                    style={tokenStyle}
+                                  >
+                                    <span
+                                      className="sub-preview-base-layer"
+                                      style={
+                                        subtitleDisplayStyle === 'word-highlight' && highlighted
+                                          ? { visibility: 'hidden' }
+                                          : undefined
+                                      }
+                                    >
+                                      {token.text}
+                                    </span>
+                                    {subtitleDisplayStyle === 'word-highlight' && highlighted && (
+                                      <span
+                                        aria-hidden="true"
+                                        className="sub-preview-pop-layer"
+                                        style={overlayStyle}
+                                      >
+                                        {token.text}
+                                      </span>
+                                    )}
+                                  </span>
+                                )
+                              })
+                            : '\u00a0'}
+                        </span>
+                      ))}
+                    </span>
+                  )
+                })
+              ) : (
+                <span className="sub-preview-cue">
+                  {sampleAssLines.map((line, index) => (
+                    <span className="sub-preview-line" key={`sample-line-${index}`}>
+                      {line || '\u00a0'}
+                    </span>
+                  ))}
+                </span>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 {
   "name": "t-blao",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "T-blao - Trinh tai video/audio da nen tang",
   "main": "./out/main/index.js",
   "author": "NeeyuBL",
@@ -12,9 +12,14 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
-    "fonts:copy": "node scripts/copy-fonts.mjs",
-    "package:win": "electron-vite build && electron-builder --win -p never",
-    "package:mac": "electron-vite build && electron-builder --mac -p never"
+    "fonts:prepare": "node scripts/prepare-fonts.mjs",
+    "fonts:verify": "node scripts/verify-fonts.mjs",
+    "fonts:verify-packaged": "node scripts/verify-packaged-fonts.mjs",
+    "test:subtitles": "node scripts/run-subtitle-smoke.mjs",
+    "release:verify": "node scripts/verify-release.mjs",
+    "release:verify-assets": "node scripts/verify-release-assets.mjs dist",
+    "package:win": "npm run fonts:prepare && npm run fonts:verify && electron-vite build && electron-builder --win -p never && npm run fonts:verify-packaged -- --platform win",
+    "package:mac": "npm run fonts:prepare && npm run fonts:verify && electron-vite build && electron-builder --mac --arm64 -p never && npm run fonts:verify-packaged -- --platform mac"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",

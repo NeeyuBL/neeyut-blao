@@ -53,11 +53,14 @@ repo test/
 # Font nguon day du (chi ship subset resources/fonts/ khi duoc phep)
 font/
 
-# Binary font dong goi — khong commit len GitHub public (ban quyen UTM/SVN/Windows…)
-# Giu catalog.json + README; copy local bang: npm run fonts:copy
+# Binary font OFL được tải ở bước build từ nguồn đã ghim và xác minh SHA-256.
+# Chỉ commit manifest, catalog, hướng dẫn và giấy phép; không commit file sinh ra.
 resources/fonts/**
 !resources/fonts/catalog.json
+!resources/fonts/manifest.json
 !resources/fonts/README.md
+!resources/fonts/licenses/
+!resources/fonts/licenses/**
 
 # Anh ca nhan / branding local (khong bat buoc public)
 Neeyuvoice.jpg

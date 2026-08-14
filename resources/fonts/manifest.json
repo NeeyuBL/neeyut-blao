@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "packVersion": "2026.08.14.1",
+  "defaultFontId": "noto-sans",
+  "sourceRepository": "https://github.com/google/fonts",
+  "sourceCommit": "73fc2ff52147e34a74804b500cf89ca219eac55d",
+  "fonts": [
+    {
+      "id": "noto-sans",
+      "label": "Noto Sans",
+      "file": "NotoSans.ttf",
+      "family": "Noto Sans",
+      "group": "Mặc định",
+      "sha256": "bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d",
+      "license": "OFL-1.1",
+      "licenseFile": "licenses/OFL-1.1.txt",
+      "noticeFile": "licenses/NOTICES.md",
+      "copyright": "Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/73fc2ff52147e34a74804b500cf89ca219eac55d/ofl/notosans/NotoSans%5Bwdth%2Cwght%5D.ttf",
+      "requiredCodepoints": [65, 7879]
+    },
+    {
+      "id": "noto-sans-arabic",
+      "label": "Noto Sans Arabic",
+      "file": "NotoSansArabic.ttf",
+      "family": "Noto Sans Arabic",
+      "group": "Ả Rập",
+      "sha256": "63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e",
+      "license": "OFL-1.1",
+      "licenseFile": "licenses/OFL-1.1.txt",
+      "noticeFile": "licenses/NOTICES.md",
+      "copyright": "Copyright 2022 The Noto Project Authors (https://github.com/notofonts/arabic)",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/73fc2ff52147e34a74804b500cf89ca219eac55d/ofl/notosansarabic/NotoSansArabic%5Bwdth%2Cwght%5D.ttf",
+      "requiredCodepoints": [1593]
+    },
+    {
+      "id": "noto-sans-thai",
+      "label": "Noto Sans Thai",
+      "file": "NotoSansThai.ttf",
+      "family": "Noto Sans Thai",
+      "group": "Thái",
+      "sha256": "5a1c559bb539583c8a1fd99d1c5b9491e5e14478c9cd2bd0970d5c3096cc9ef8",
+      "license": "OFL-1.1",
+      "licenseFile": "licenses/OFL-1.1.txt",
+      "noticeFile": "licenses/NOTICES.md",
+      "copyright": "Copyright 2022 The Noto Project Authors (https://github.com/notofonts/thai)",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/73fc2ff52147e34a74804b500cf89ca219eac55d/ofl/notosansthai/NotoSansThai%5Bwdth%2Cwght%5D.ttf",
+      "requiredCodepoints": [3585]
+    },
+    {
+      "id": "noto-sans-kr",
+      "label": "Noto Sans CJK",
+      "file": "NotoSansKR.ttf",
+      "family": "Noto Sans KR",
+      "group": "Trung · Nhật · Hàn",
+      "sha256": "194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252",
+      "license": "OFL-1.1",
+      "licenseFile": "licenses/OFL-1.1.txt",
+      "noticeFile": "licenses/NOTICES.md",
+      "copyright": "Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'",
+      "sourceUrl": "https://raw.githubusercontent.com/google/fonts/73fc2ff52147e34a74804b500cf89ca219eac55d/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf",
+      "requiredCodepoints": [23383, 12354, 54620]
+    }
+  ]
+}

@@ -8,6 +8,7 @@ import { hasFeature } from '../lib/license'
 import { useQueueRunner } from '../lib/useQueueRunner'
 import RunControls from './RunControls'
 import GeminiKey from './GeminiKey'
+import type { EditorDraft } from './VideoEditor'
 
 type ItemStatus = 'queued' | 'running' | 'translating' | 'done' | 'error'
 
@@ -40,11 +41,14 @@ const LANGS: { value: string; label: string }[] = [
 ]
 
 const baseName = (p: string): string => p.split(/[\\/]/).pop() || p
+const isVideoPath = (p: string): boolean => /\.(?:mp4|mkv|webm|mov|avi|m4v|ts|flv)$/i.test(p)
 
 export default function AudioText({
-  subInbox
+  subInbox,
+  onOpenEditor
 }: {
   subInbox: { path: string; id: string } | null
+  onOpenEditor?: (draft: EditorDraft) => void
 }): JSX.Element {
   const [outputDir, setOutputDir] = useTabOutputDir('tblao.outputDir.audiotext')
   const [hasEngine, setHasEngine] = useState<boolean | null>(null)
@@ -559,6 +563,26 @@ export default function AudioText({
                             {baseName(o)}
                           </button>
                         ))}
+                        {onOpenEditor &&
+                          isVideoPath(it.input) &&
+                          it.outputs.some((o) => o.toLowerCase().endsWith('.srt')) && (
+                            <button
+                              className="link-btn"
+                              onClick={() => {
+                                const srt = it.outputs.find((o) => o.toLowerCase().endsWith('.srt'))
+                                if (!srt) return
+                                onOpenEditor({
+                                  requestId: crypto.randomUUID(),
+                                  video: it.input,
+                                  srt,
+                                  outputDir,
+                                  source: 'audio'
+                                })
+                              }}
+                            >
+                              Mở trong Biên tập
+                            </button>
+                          )}
                       </>
                     )}
                     {it.status === 'translating' && '✨ Đang dịch phụ đề…'}

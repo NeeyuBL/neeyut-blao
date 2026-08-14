@@ -12,6 +12,24 @@ export interface LogEntry {
   msg: string
 }
 
+export type RendererIssueKind = 'error' | 'unhandled-rejection' | 'react'
+export interface RendererIssueReport {
+  kind: RendererIssueKind
+  time: string
+  message: string
+  stack?: string | null
+  componentStack?: string | null
+}
+
+export interface SupportReport {
+  generatedAt: string
+  text: string
+  logCount: number
+  rendererIssueCount: number
+  includesPreviousCrash: boolean
+  privacyNotice: string
+}
+
 export interface DepStatus {
   ytdlp: boolean
   ffmpeg: boolean
@@ -264,8 +282,117 @@ export interface BurnFontEntry {
   /** Ten noi bo dung trong ASS Style Fontname. */
   family: string
   group: string
+  /** Nguon font de UI phan biet font di kem app va font nguoi dung tu them. */
+  source?: 'bundled' | 'custom'
+  /** False khi manifest con entry nhung tep vat ly khong dung duoc. UI khong nen hien entry nay. */
+  available?: boolean
   /** URL tblao:// de @font-face preview trong renderer (main gan khi list). */
   previewUrl?: string
+}
+
+export interface BurnFontPreviewData {
+  id: string
+  family: string
+  data: ArrayBuffer
+}
+
+export interface BurnFontMutationResult {
+  ok: boolean
+  fonts?: BurnFontEntry[]
+  error?: string
+}
+
+export type SubtitleDisplayStyle = 'standard' | 'word-reveal' | 'word-highlight'
+
+export type SubtitleLayoutProfile = 'readable' | 'social' | 'vertical'
+export type SubtitleCueHealthLevel = 'good' | 'warning' | 'error'
+export type SubtitleCueIssueCode =
+  | 'split'
+  | 'too-fast'
+  | 'too-short'
+  | 'overflow'
+  | 'too-many-lines'
+
+export interface SubtitleLayoutOptions {
+  profile: SubtitleLayoutProfile
+  autoOptimize: boolean
+  videoWidth: number
+  videoHeight: number
+  boxWidth: number
+  boxHeight: number
+  fontSize: number
+  boxPadding: number
+}
+
+export interface SubtitleCueIssue {
+  code: SubtitleCueIssueCode
+  level: SubtitleCueHealthLevel
+  message: string
+}
+
+/**
+ * Mot phan hien thi da duoc lap bo cuc. Nhieu segment co the cung tro ve mot
+ * cue SRT nguon; preview va ASS bat buoc dung nguyen lines/timing nay.
+ */
+export interface RenderedSubtitleSegment extends SubtitleCue {
+  sourceCueId: string
+  segmentIndex: number
+  lines: string[]
+  lineWidths: number[]
+  charactersPerSecond: number
+  issues: SubtitleCueIssue[]
+}
+
+export interface SubtitleCueHealth {
+  cueId: string
+  level: SubtitleCueHealthLevel
+  lineCount: number
+  charactersPerSecond: number
+  duration: number
+  segmentCount: number
+  issues: SubtitleCueIssue[]
+}
+
+export interface SubtitleRenderSummary {
+  cueCount: number
+  segmentCount: number
+  splitCueCount: number
+  warningCueCount: number
+  errorCueCount: number
+}
+
+export interface SubtitleRenderPlan {
+  segments: RenderedSubtitleSegment[]
+  cueHealth: SubtitleCueHealth[]
+  summary: SubtitleRenderSummary
+  options: SubtitleLayoutOptions
+}
+
+export interface SubtitleLayoutRequest {
+  path: string
+  videoWidth: number
+  videoHeight: number
+  subRegion?: { x0: number; y0: number; x1: number; y1: number }
+  fontId?: string | null
+  bgEnabled?: boolean
+  profile?: SubtitleLayoutProfile
+  autoOptimize?: boolean
+}
+
+/** Cue da chuan hoa cho preview; start/end luon tinh bang giay. */
+export interface SubtitleCue {
+  id: string
+  start: number
+  end: number
+  text: string
+  sourceIndex: number
+}
+
+export interface SubtitleFilePreview {
+  cues: SubtitleCue[]
+  duration: number
+  warnings: string[]
+  error?: string
 }
 
 export interface BurnReq {
@@ -306,6 +433,16 @@ export interface BurnReq {
   bgColor?: string
   /** Do dam nen 0–100. */
   bgOpacity?: number
+  /** Cach noi dung cue xuat hien trong khoang thoi gian cua cue. */
+  subtitleDisplayStyle?: SubtitleDisplayStyle
+  /** Mau tu dang duoc doc, chi dung voi word-highlight. */
+  highlightColor?: string
+  /** Them nhip phong to nhe cho tu dang duoc highlight. */
+  subtitleHighlightPop?: boolean
+  /** Cach T-blao can bang dong va chia cue dai khi dot phu de. */
+  subtitleLayoutProfile?: SubtitleLayoutProfile
+  /** Mac dinh true: chi chia trong ke hoach render, khong sua file SRT nguon. */
+  subtitleAutoOptimize?: boolean
 }
 export interface BurnProgress {
   percent: number // -1 = chua tinh duoc

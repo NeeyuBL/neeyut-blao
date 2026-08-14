@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { appendFile, mkdir } from 'node:fs/promises'
-import { rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import type { LogEntry, LogLevel } from '../shared/types'
@@ -8,12 +8,41 @@ import type { LogEntry, LogLevel } from '../shared/types'
 const MAX = 1000 // giu toi da 1000 dong gan nhat trong bo nho
 const buffer: LogEntry[] = []
 export const logEmitter = new EventEmitter()
+let logGeneration = 0
 
 function logDir(): string {
   return join(app.getPath('userData'), 'logs')
 }
 export function logFilePath(): string {
   return join(logDir(), 'tblao.log')
+}
+export function previousCrashLogFilePath(): string {
+  return join(logDir(), 'tblao-previous-crash.log')
+}
+
+/**
+ * Neu phien truoc dung bat thuong, before-quit khong kip xoa tblao.log. Doi
+ * ten no truoc dong log dau tien de bao cao ho tro van doc duoc dau vet crash.
+ */
+export function initializeLogSessionSync(): void {
+  try {
+    mkdirSync(logDir(), { recursive: true })
+    const current = logFilePath()
+    if (!existsSync(current)) return
+    rmSync(previousCrashLogFilePath(), { force: true })
+    renameSync(current, previousCrashLogFilePath())
+  } catch {
+    // Khong chan khoi dong neu antivirus dang giu file log.
+  }
+}
+
+export function getPreviousCrashLogLines(limit = 200): string[] {
+  try {
+    const lines = readFileSync(previousCrashLogFilePath(), 'utf8').split(/\r?\n/).filter(Boolean)
+    return lines.slice(-Math.max(1, limit))
+  } catch {
+    return []
+  }
 }
 
 let dirReady = false
@@ -104,9 +133,11 @@ export function log(level: LogLevel, msg: string): void {
   logEmitter.emit('entry', entry)
 
   // Ghi file (fire-and-forget, khong chan luong)
-  void ensureDir().then(() =>
-    appendFile(logFilePath(), `[${entry.time}] ${level.toUpperCase()} ${msg}\n`).catch(() => {})
-  )
+  const generation = logGeneration
+  void ensureDir().then(() => {
+    if (generation !== logGeneration) return
+    return appendFile(logFilePath(), `[${entry.time}] ${level.toUpperCase()} ${msg}\n`).catch(() => {})
+  })
 
   // In ra console CHI de tien theo doi luc phat trien. Neu dau kia dong ong
   // (dong cua so console, chay qua `| head`...) thi console.log NEM EPIPE ->
@@ -127,16 +158,24 @@ export function getLogs(): LogEntry[] {
   return [...buffer]
 }
 export function clearLogs(): void {
+  logGeneration += 1
   buffer.length = 0
+  try {
+    rmSync(logFilePath(), { force: true })
+    rmSync(previousCrashLogFilePath(), { force: true })
+  } catch {
+    /* bo qua */
+  }
   logEmitter.emit('cleared')
-  logInfo('Đã xóa nhật ký.')
 }
 
 /** Xoa sach file log (dong bo) — goi luc app thoat de moi lan mo la nhat ky moi. */
 export function wipeLogFileSync(): void {
+  logGeneration += 1
   buffer.length = 0
   try {
     rmSync(logFilePath(), { force: true })
+    rmSync(previousCrashLogFilePath(), { force: true })
   } catch {
     /* bo qua */
   }

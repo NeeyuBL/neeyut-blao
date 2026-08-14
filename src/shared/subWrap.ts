@@ -2,6 +2,7 @@
 
 const CJK_CHAR =
   /[\u3040-\u309f\u30a0-\u30ff\u4e00-\u9fa5\uac00-\ud7a3\u1100-\u11ff\u3130-\u318f]/
+const THAI_CHAR = /[\u0e00-\u0e7f]/
 
 export type MeasureFn = (text: string) => number
 
@@ -13,7 +14,42 @@ export function cueUsesCjkWrap(text: string): boolean {
   const flat = text.replace(/\\N/g, '')
   if (!flat) return false
   if (/\s/.test(flat)) return false
-  return CJK_CHAR.test(flat)
+  return CJK_CHAR.test(flat) || THAI_CHAR.test(flat)
+}
+
+function graphemeSegments(text: string): string[] {
+  if (typeof Intl.Segmenter === 'function') {
+    try {
+      return Array.from(
+        new Intl.Segmenter('und', { granularity: 'grapheme' }).segment(text),
+        (item) => item.segment
+      )
+    } catch {
+      // Fall through to code points.
+    }
+  }
+  return Array.from(text)
+}
+
+function naturalUnits(text: string): string[] {
+  if (typeof Intl.Segmenter === 'function') {
+    try {
+      const locale = THAI_CHAR.test(text)
+        ? 'th'
+        : /[\u3040-\u30ff]/.test(text)
+          ? 'ja'
+          : /[\uac00-\ud7a3]/.test(text)
+            ? 'ko'
+            : 'zh'
+      return Array.from(
+        new Intl.Segmenter(locale, { granularity: 'word' }).segment(text),
+        (item) => item.segment
+      ).filter(Boolean)
+    } catch {
+      // Fall through to graphemes.
+    }
+  }
+  return graphemeSegments(text)
 }
 
 /** Uoc luong px khi khong do duoc font (fallback). */
@@ -26,15 +62,25 @@ export function estimateTextWidthPx(text: string, fontSizePx: number): number {
 }
 
 function wrapCjkPx(text: string, maxWidthPx: number, measure: MeasureFn): string {
-  const chars = Array.from(text)
+  const units = naturalUnits(text)
   const lines: string[] = []
   let currentLine = ''
 
-  for (const char of chars) {
-    const next = currentLine + char
+  for (const unit of units) {
+    if (measure(unit) > maxWidthPx) {
+      if (currentLine) {
+        lines.push(currentLine)
+        currentLine = ''
+      }
+      const chunks = softBreakWordPx(unit, maxWidthPx, measure)
+      lines.push(...chunks.slice(0, -1))
+      currentLine = chunks.at(-1) || ''
+      continue
+    }
+    const next = currentLine + unit
     if (currentLine && measure(next) > maxWidthPx) {
       lines.push(currentLine)
-      currentLine = char
+      currentLine = unit
     } else {
       currentLine = next
     }
@@ -44,7 +90,7 @@ function wrapCjkPx(text: string, maxWidthPx: number, measure: MeasureFn): string
 }
 
 function softBreakWordPx(word: string, maxWidthPx: number, measure: MeasureFn): string[] {
-  const chars = Array.from(word)
+  const chars = graphemeSegments(word)
   const chunks: string[] = []
   let cur = ''
   for (const char of chars) {
@@ -114,6 +160,38 @@ export function ngatDongTheoPx(
 /** Co chu ASS tu chieu cao khung phu de (giong boCuc). */
 export function fontSizeFromSubBox(boxHeight: number): number {
   return Math.max(14, Math.round(boxHeight * 0.7))
+}
+
+export interface SubtitleFontBox {
+  boxWidth: number
+  boxHeight: number
+  videoWidth: number
+  videoHeight: number
+}
+
+/**
+ * Co chu an toan cho mot khung phu de cu the.
+ *
+ * Chieu cao khung van la dieu khien chinh, nhung khong duoc phep lam chu phong
+ * to den muc moi dong chi con 1-2 tu. Video doc lay moc theo be rong, video
+ * ngang lay moc theo chieu cao; day cung la he quy chieu cua bo preset cu.
+ */
+export function subtitleFontSizeForBox({
+  boxWidth,
+  boxHeight,
+  videoWidth,
+  videoHeight
+}: SubtitleFontBox): number {
+  const safeVideoWidth = Math.max(1, videoWidth)
+  const safeVideoHeight = Math.max(1, videoHeight)
+  const safeBoxWidth = Math.max(1, Math.min(boxWidth, safeVideoWidth))
+  const portrait = safeVideoWidth < safeVideoHeight
+  const orientationBase = portrait ? safeVideoWidth : safeVideoHeight
+  const orientationCap = orientationBase * (portrait ? 0.065 : 0.055)
+  // Giu du cho khoang 10 ky tu CJK hoac 20 ky tu Latin tren mot dong.
+  const widthCap = safeBoxWidth * 0.1
+  const requested = fontSizeFromSubBox(Math.max(1, boxHeight))
+  return Math.max(14, Math.round(Math.min(requested, orientationCap, widthCap)))
 }
 
 /** Be rong dung de wrap: tru 2*pad khi co nen hop. */
