@@ -46,6 +46,8 @@ engines/**/.venv-build/
 engines/**/build/
 engines/**/storage/
 engines/**/dist/
+**/__pycache__/
+*.py[cod]
 
 # Clone / thu nghiem noi bo
 repo test/

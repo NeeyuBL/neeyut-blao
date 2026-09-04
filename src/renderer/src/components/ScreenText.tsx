@@ -7,6 +7,7 @@ import { hasFeature } from '../lib/license'
 import RegionBox, { type Region } from './RegionBox'
 import GeminiKey from './GeminiKey'
 import type { EditorDraft } from './VideoEditor'
+import type { OcrEngineStatus, OcrInstallMode, OcrProvider } from '../../../shared/types'
 
 const baseName = (path: string): string => path.split(/[\\/]/).pop() || path
 
@@ -47,14 +48,27 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
   const [formatVtt, setFormatVtt] = usePersistedState('tblao.ocr.fmt.vtt', false)
   const [formatJson, setFormatJson] = usePersistedState('tblao.ocr.fmt.json', false)
 
-  const [hasEngine, setHasEngine] = useState<boolean | null>(null)
+  const [engineStatus, setEngineStatus] = useState<OcrEngineStatus | null>(null)
+  const [provider, setProvider] = useState<OcrProvider | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installPercent, setInstallPercent] = useState(0)
   const [installError, setInstallError] = useState<string | null>(null)
+  const [showProcessingOptions, setShowProcessingOptions] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const unlocked = hasFeature('ocr')
+
+  const applyEngineStatus = (status: OcrEngineStatus): void => {
+    setEngineStatus(status)
+    setProvider((current) => {
+      if (current && status.providers.some((item) => item.provider === current && item.ready)) return current
+      const gpu = status.providers.find((item) => item.provider !== 'cpu' && item.ready)
+      if (gpu) return gpu.provider
+      const cpu = status.providers.find((item) => item.provider === 'cpu' && item.ready)
+      return status.gpuRequired ? null : cpu?.provider ?? null
+    })
+  }
 
   const measureStage = (): void => {
     const element = stageRef.current
@@ -68,17 +82,17 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
     void (async () => {
       const status = await window.api.ocrEngineStatus()
       if (cancelled) return
-      setHasEngine(status.has)
+      applyEngineStatus(status)
       if (!status.needsUpdate) return
       setInstalling(true)
       setInstallError(null)
       setInstallPercent(0)
       const off = window.api.onOcrInstallProgress(setInstallPercent)
-      const result = await window.api.ocrInstallEngine()
+      const result = await window.api.ocrInstallEngine('auto')
       off()
       if (cancelled) return
       setInstalling(false)
-      if (result.ok) setHasEngine(true)
+      if (result.ok && result.status) applyEngineStatus(result.status)
       else setInstallError(result.error || 'Cập nhật công cụ thất bại.')
     })()
     return () => {
@@ -95,16 +109,22 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
     return () => observer.disconnect()
   }, [video, videoW, videoH])
 
-  const installEngine = async (): Promise<void> => {
+  const installEngine = async (mode: OcrInstallMode = 'auto'): Promise<void> => {
     setInstalling(true)
     setInstallError(null)
     setInstallPercent(0)
     const off = window.api.onOcrInstallProgress(setInstallPercent)
-    const result = await window.api.ocrInstallEngine()
+    const result = await window.api.ocrInstallEngine(mode)
     off()
     setInstalling(false)
-    if (result.ok) setHasEngine(true)
-    else setInstallError(result.error || 'Tải công cụ đọc chữ thất bại.')
+    if (result.ok && result.status) {
+      applyEngineStatus(result.status)
+      if (mode === 'cpu') setProvider('cpu')
+    } else {
+      setInstallError(result.error || 'Tải công cụ đọc chữ thất bại.')
+      const refreshed = await window.api.ocrEngineStatus(true)
+      applyEngineStatus(refreshed)
+    }
   }
 
   const chooseVideo = async (): Promise<void> => {
@@ -136,7 +156,13 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
   }
 
   const runOcr = async (): Promise<void> => {
-    if (!video || !outputDir) return
+    if (!video || !outputDir || !provider) return
+    const selected = engineStatus?.providers.find((item) => item.provider === provider)
+    if (!selected?.ready) {
+      setError('Chế độ xử lý đã chọn chưa sẵn sàng. Hãy mở Tùy chọn xử lý và kiểm tra lại.')
+      setStep('error')
+      return
+    }
 
     const formats: string[] = []
     if (formatSrt) formats.push('.srt')
@@ -166,10 +192,10 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
     const y0 = limitRegion && ocrRegion ? ocrRegion.y0 : -1
     const y1 = limitRegion && ocrRegion ? ocrRegion.y1 : -1
     const off = window.api.onOcrProgress((progress) => {
-      setPercent(progress.percent)
+      if (progress.percent >= 0) setPercent(progress.percent)
       if (progress.text) setCurrentText(progress.text)
     })
-    const result = await window.api.ocrVideo(video, outputDir, y0, y1, x0, x1, formats)
+    const result = await window.api.ocrVideo(video, outputDir, y0, y1, x0, x1, formats, provider)
     off()
     setStopping(false)
 
@@ -220,28 +246,63 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
 
   if (!unlocked) return <div className="card muted">Tính năng đang khoá.</div>
 
-  if (hasEngine === false || installing) {
-    const updating = hasEngine === true
+  const selectedProviderStatus = engineStatus?.providers.find((item) => item.provider === provider)
+  const gpuReady = engineStatus?.providers.find((item) => item.provider !== 'cpu' && item.ready)
+  const cpuReady = engineStatus?.providers.find((item) => item.provider === 'cpu' && item.ready)
+  const needsProviderSetup = engineStatus !== null && (!provider || !selectedProviderStatus?.ready)
+
+  if (engineStatus === null || installing || needsProviderSetup) {
+    const updating = Boolean(engineStatus?.has)
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">
-            {updating ? 'Đang cập nhật tính năng đọc chữ' : 'Cài tính năng đọc chữ trong video'}
+            {engineStatus === null
+              ? 'Đang chuẩn bị nhận diện'
+              : installing
+                ? updating
+                  ? 'Đang cập nhật công cụ nhận diện'
+                  : 'Đang cài công cụ nhận diện'
+                : 'Chưa thể bật tăng tốc'}
           </div>
           <p className="muted">
-            {updating
-              ? 'Đang tải và thay thế công cụ đọc chữ bằng phiên bản mới.'
-              : 'Việc nhận diện chạy ngay trên máy. T-blao cần tải thêm khoảng 230 MB trong lần đầu.'}
+            {engineStatus === null
+              ? 'T-blao đang chọn cách xử lý phù hợp nhất với máy của bạn.'
+              : 'Bạn có thể thử cài lại thành phần tăng tốc hoặc tiếp tục bằng CPU. Chế độ CPU sẽ xử lý chậm hơn.'}
           </p>
-          {installing ? (
+          {engineStatus === null ? (
+            <div className="spinner ocr-provider-spinner" />
+          ) : installing ? (
             <>
               <div className="bar"><div className="bar-fill" style={{ width: `${installPercent}%` }} /></div>
-              <div className="muted small">Đang chuẩn bị công cụ… {installPercent}%</div>
+              <div className="muted small">Đang tải và kiểm tra thành phần cần thiết… {installPercent}%</div>
             </>
           ) : (
-            <button className="btn primary" onClick={installEngine}>Cài tính năng đọc chữ</button>
+            <div className="ocr-provider-setup-actions">
+              <button className="btn primary" onClick={() => void installEngine('auto')}>
+                Thử cài lại
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  if (cpuReady) setProvider('cpu')
+                  else void installEngine('cpu')
+                }}
+              >
+                Tiếp tục bằng CPU
+              </button>
+            </div>
           )}
-          {installError && <div className="dy-err small">{installError}</div>}
+          {engineStatus && !gpuReady && (
+            <div className="muted small ocr-provider-explain">
+              T-blao sẽ không tự đổi sang chế độ chậm hơn nếu chưa có lựa chọn của bạn.
+            </div>
+          )}
+          {installError && (
+            <div className="dy-err small">
+              Không thể chuẩn bị công cụ tăng tốc. Hãy kiểm tra kết nối mạng rồi thử lại, hoặc tiếp tục bằng CPU.
+            </div>
+          )}
         </div>
       </div>
     )
@@ -275,6 +336,69 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
               </button>
             </div>
           </label>
+        </div>
+
+        <div className={`card ocr-provider-card ${provider === 'cpu' ? 'cpu' : 'gpu'}`}>
+          <div className="ocr-provider-card-head">
+            <span className="ocr-provider-state-icon" aria-hidden="true">
+              {provider === 'cpu' ? '●' : '⚡'}
+            </span>
+            <div>
+              <div className="ocr-provider-title-row">
+                <strong>{provider === 'cpu' ? 'Chế độ tiêu chuẩn' : 'Tăng tốc đang bật'}</strong>
+                <span>{provider === 'cpu' ? 'CPU' : 'Nhanh hơn'}</span>
+              </div>
+              <small>
+                {provider === 'cpu'
+                  ? 'T-blao đang xử lý bằng bộ xử lý chính của máy.'
+                  : 'T-blao đang dùng card đồ họa để nhận diện chữ nhanh hơn.'}
+              </small>
+            </div>
+          </div>
+          <button
+            className="ocr-provider-options-toggle"
+            type="button"
+            aria-expanded={showProcessingOptions}
+            onClick={() => setShowProcessingOptions((value) => !value)}
+          >
+            <span>Tùy chọn xử lý</span>
+            <span aria-hidden="true">{showProcessingOptions ? '−' : '+'}</span>
+          </button>
+          {showProcessingOptions && (
+            <div className="ocr-provider-options-panel">
+              <div className="ocr-provider-options" role="group" aria-label="Chế độ xử lý">
+                {gpuReady && (
+                  <button
+                    className={provider !== 'cpu' ? 'active' : ''}
+                    onClick={() => setProvider(gpuReady.provider)}
+                    disabled={running}
+                  >
+                    Card đồ họa <span>Khuyến nghị</span>
+                  </button>
+                )}
+                {cpuReady && (
+                  <button
+                    className={provider === 'cpu' ? 'active' : ''}
+                    onClick={() => setProvider('cpu')}
+                    disabled={running}
+                  >
+                    Bộ xử lý <span>Chậm hơn</span>
+                  </button>
+                )}
+              </div>
+              {provider !== 'cpu' && engineStatus?.gpuName && (
+                <div className="muted small ocr-provider-device">Thiết bị: {engineStatus.gpuName}</div>
+              )}
+              <button
+                className="ocr-provider-recheck"
+                type="button"
+                onClick={() => void installEngine('auto')}
+                disabled={running || installing}
+              >
+                Kiểm tra lại khả năng tăng tốc
+              </button>
+            </div>
+          )}
         </div>
 
         <GeminiKey dich={language} setDich={setLanguage} />
@@ -324,7 +448,7 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
             </div>
 
             {!running ? (
-              <button className="btn primary screen-reader-run" disabled={!outputDir} onClick={runOcr}>
+              <button className="btn primary screen-reader-run" disabled={!outputDir || !provider} onClick={runOcr}>
                 Bắt đầu đọc chữ
               </button>
             ) : step === 'ocr' ? (

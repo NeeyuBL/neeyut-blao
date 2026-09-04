@@ -1,18 +1,20 @@
-## T-blao v0.1.19
+## T-blao v0.1.20
 
-### Sửa lỗi khởi động
+### Đọc chữ video chính xác hơn
 
-- Khắc phục lỗi T-blao nhận nhầm FFmpeg đã cài là đang bị thiếu trên Windows.
-- Ứng dụng không còn tải và cài lại FFmpeg ở mỗi lần mở.
-- Việc kiểm tra dùng đúng tham số phiên bản của FFmpeg và vẫn ưu tiên bản công cụ do T-blao quản lý.
+- T-blao phát hiện vùng chữ trước trên các frame đã lấy mẫu, rồi mới nhận dạng tại frame đầu, rõ nhất và cuối của mỗi đoạn.
+- Tăng tần suất theo dõi lên 6 frame/giây, hạn chế bỏ sót chữ ở đầu video hoặc subtitle xuất hiện ngắn.
+- Nhận diện tốt hơn subtitle có hiệu ứng hiện từng từ, đổi màu karaoke, fade hoặc chuyển cảnh; giảm cue lặp và chữ rác.
+- Khi không khoanh vùng, T-blao quét toàn bộ khung hình thay vì chỉ phần đáy video.
 
-### Điều chỉnh giao diện
+### Tăng tốc và độ tin cậy OCR
 
-- Tiêu đề trong tab **Hệ sinh thái Neeyu** được trình bày thành hai dòng: “Một hành trình” và “nhiều công cụ sáng tạo.”
-- Bỏ dấu phẩy giữa hai vế để nhịp đọc và bố cục tiêu đề rõ ràng hơn.
+- Windows ưu tiên DirectML để dùng GPU NVIDIA, AMD hoặc Intel; người dùng vẫn có thể chọn CPU khi cần.
+- Engine tự kiểm tra detection, xoay chữ và recognition trước khi sử dụng; kết quả bị từ chối nếu engine chạy sai provider đã chọn.
+- Bổ sung trạng thái GPU/CPU rõ ràng trong tab Đọc chữ video và nút kiểm tra lại khi thành phần tăng tốc chưa sẵn sàng.
+- Gói OCR Windows tách DirectML và CPU, kiểm tra SHA-256 khi tải, đồng thời giữ lại engine cũ nếu quá trình cập nhật thất bại.
 
-### Cập nhật
+### Phát hành
 
-- Windows sẽ tự nhận, tải và cài đặt v0.1.19 khi kết nối được với GitHub.
-- macOS từ v0.1.18 trở lên sẽ thông báo bản mới và mở trang tải DMG để người dùng cài thủ công.
-- Bản macOS yêu cầu Apple Silicon và hiện chưa ký/notarize; macOS có thể yêu cầu cấp quyền trong **Privacy & Security** khi mở lần đầu.
+- Windows sẽ tự nhận, tải và cài v0.1.20 khi kết nối được với GitHub.
+- macOS Apple Silicon sẽ thông báo bản mới và mở trang tải DMG để cài thủ công. Bản macOS chưa ký/notarize, nên có thể cần cấp quyền trong **Privacy & Security** khi mở lần đầu.

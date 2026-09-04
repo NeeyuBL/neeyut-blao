@@ -1,0 +1,103 @@
+name: Build Windows OCR Engines & Publish to Release assets-v1
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'assets-v*'
+    paths:
+      - 'engines/ocr-engine/**'
+      - 'engines-manifest.json'
+      - '.github/workflows/build-windows-ocr-engines.yml'
+
+concurrency:
+  group: windows-ocr-engines
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: windows-2025
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Build isolated DirectML and CPU engines
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'engines/ocr-engine'
+          $release = Join-Path $env:RUNNER_TEMP 'ocr-release'
+          New-Item -ItemType Directory -Path $release -Force | Out-Null
+
+          foreach ($provider in @('directml', 'cpu')) {
+            $venv = Join-Path $env:RUNNER_TEMP "ocr-$provider-venv"
+            $dist = Join-Path $env:RUNNER_TEMP "ocr-$provider-dist"
+            $work = Join-Path $env:RUNNER_TEMP "ocr-$provider-work"
+            python -m venv $venv
+            $python = Join-Path $venv 'Scripts/python.exe'
+            & $python -m pip install --upgrade pip setuptools wheel
+            & $python -m pip install -r (Join-Path $source "requirements-$provider.txt")
+            & $python -m unittest discover -s $source -p 'test_*.py' -v
+
+            Push-Location $source
+            try {
+              & $python -m PyInstaller --clean --noconfirm --distpath $dist --workpath $work ocr-engine.spec
+            } finally {
+              Pop-Location
+            }
+
+            $built = Join-Path $dist 'ocr-engine'
+            $exe = Join-Path $built 'ocr-engine.exe'
+            if (-not (Test-Path -LiteralPath $exe)) { throw "Missing packaged OCR executable for $provider" }
+
+            # GitHub-hosted runner khong co GPU. Kiem tra CPU tai day chi xac
+            # nhan artifact khoi dong duoc, du model va chay suy luan that.
+            # App van bat buoc self-test DirectML tren may nguoi dung sau khi tai.
+            & $exe --self-test --provider cpu
+            if ($LASTEXITCODE -ne 0) { throw "Packaged OCR smoke test failed for $provider" }
+
+            $named = Join-Path $dist "ocr-engine-$provider"
+            Move-Item -LiteralPath $built -Destination $named
+            $zip = Join-Path $release "ocr-engine-win-$provider.zip"
+            Compress-Archive -LiteralPath $named -DestinationPath $zip -CompressionLevel Optimal
+          }
+
+          $hashes = [ordered]@{}
+          foreach ($zip in Get-ChildItem -LiteralPath $release -Filter '*.zip') {
+            $hashes[$zip.Name] = (Get-FileHash -LiteralPath $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          }
+          $hashes | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $release 'ocr-engines-sha256.json') -Encoding utf8
+
+      - name: Upload build evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ocr-engines
+          path: |
+            ${{ runner.temp }}/ocr-release/*.zip
+            ${{ runner.temp }}/ocr-release/ocr-engines-sha256.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Publish OCR engines to Release assets-v1
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: assets-v1
+          name: Assets Release v1
+          prerelease: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ runner.temp }}/ocr-release/ocr-engine-win-directml.zip
+            ${{ runner.temp }}/ocr-release/ocr-engine-win-cpu.zip
+            ${{ runner.temp }}/ocr-release/ocr-engines-sha256.json
+            engines-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

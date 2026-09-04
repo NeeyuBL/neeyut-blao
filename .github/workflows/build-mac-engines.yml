@@ -58,13 +58,15 @@ jobs:
       - name: Build OCR Engine (macOS)
         run: |
           cd engines/ocr-engine
-          pip install rapidocr_onnxruntime opencv-python-headless numpy || true
+          pip install -r requirements-cpu.txt
+          python -m unittest discover -s . -p 'test_*.py' -v
           if [ -f "ocr-engine.spec" ]; then
             pyinstaller ocr-engine.spec
           else
             pyinstaller --onedir --name ocr-engine engine.py
           fi
           chmod +x dist/ocr-engine/ocr-engine || true
+          dist/ocr-engine/ocr-engine --self-test --provider cpu
           cd dist
           zip -r ocr-engine-macos.zip ocr-engine/
 

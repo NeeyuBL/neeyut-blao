@@ -106,6 +106,8 @@ import {
 import type {
   DichProvider,
   DouyinRequest,
+  OcrInstallMode,
+  OcrProvider,
   SubtitleLayoutRequest,
   Video2xRunRequest,
   WhisperRequest
@@ -505,11 +507,16 @@ function registerIpc(): void {
     return g
   })
   // ---- Dich man hinh (doc chu chay tren video) ----
-  ipcMain.handle('ocr:engineStatus', async () => ocrEngineStatus())
-  ipcMain.handle('ocr:installEngine', async (event) => {
+  ipcMain.handle('ocr:engineStatus', async (_event, refresh = false) => ocrEngineStatus(refresh === true))
+  const isOcrInstallMode = (value: unknown): value is OcrInstallMode =>
+    value === 'auto' || value === 'cuda' || value === 'directml' || value === 'cpu'
+  const isOcrProvider = (value: unknown): value is OcrProvider =>
+    value === 'cuda' || value === 'directml' || value === 'cpu'
+  ipcMain.handle('ocr:installEngine', async (event, requested: unknown = 'auto') => {
     try {
-      await installOcrEngine((p) => event.sender.send('ocr:install-progress', p))
-      return { ok: true }
+      const mode: OcrInstallMode = isOcrInstallMode(requested) ? requested : 'auto'
+      const status = await installOcrEngine(mode, (p) => event.sender.send('ocr:install-progress', p))
+      return { ok: true, status }
     } catch (err) {
       debugRaw('ocr install', err)
       return { ok: false, error: errLabel(err) }
@@ -517,8 +524,30 @@ function registerIpc(): void {
   })
   ipcMain.handle(
     'ocr:video',
-    async (event, input: string, outputDir: string, y0: number, y1: number, x0: number, x1: number, formats: string[]) =>
-      ocrVideo(input, outputDir, y0, y1, x0, x1, formats, (p) => event.sender.send('ocr:progress', p))
+    async (
+      event,
+      input: string,
+      outputDir: string,
+      y0: number,
+      y1: number,
+      x0: number,
+      x1: number,
+      formats: string[],
+      requestedProvider: unknown
+    ) => {
+      if (!isOcrProvider(requestedProvider)) return { ok: false, error: 'Provider OCR không hợp lệ.' }
+      return ocrVideo(
+        input,
+        outputDir,
+        y0,
+        y1,
+        x0,
+        x1,
+        formats,
+        requestedProvider,
+        (p) => event.sender.send('ocr:progress', p)
+      )
+    }
   )
   ipcMain.handle('ocr:cancel', async () => cancelOcr())
 

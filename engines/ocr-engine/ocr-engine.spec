@@ -4,7 +4,13 @@ from PyInstaller.utils.hooks import collect_all
 datas = []
 binaries = []
 hiddenimports = []
-for _m in ('rapidocr_onnxruntime', 'onnxruntime', 'cv2'):
+# Cac namespace NVIDIA chi ton tai trong bien the CUDA. collect_all bo qua
+# package khong co, nen cung mot spec van dong goi duoc CPU/DirectML tach biet.
+for _m in (
+    'rapidocr', 'onnxruntime', 'cv2', 'numpy',
+    'nvidia.cuda_runtime', 'nvidia.cublas', 'nvidia.cudnn',
+    'nvidia.cufft', 'nvidia.curand', 'nvidia.nvjitlink',
+):
     try:
         tmp_ret = collect_all(_m)
         datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]

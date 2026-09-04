@@ -240,9 +240,31 @@ export interface WhisperEngineStatus {
 }
 
 // ---- Tab Dich man hinh (doc chu chay tren video) ----
+export type OcrProvider = 'cuda' | 'directml' | 'cpu'
+export type OcrInstallMode = 'auto' | OcrProvider
+
+export interface OcrProviderStatus {
+  provider: OcrProvider
+  installed: boolean
+  ready: boolean
+  strict: boolean
+  hybrid: boolean
+  deviceId: number
+  inferenceMs: number | null
+  executionProvider: string | null
+  models: Partial<Record<'det' | 'cls' | 'rec', string>>
+  error: string | null
+}
+
 export interface OcrEngineStatus {
   has: boolean
   needsUpdate?: boolean
+  recommendedProvider: OcrProvider
+  activeProvider: OcrProvider | null
+  gpuRequired: boolean
+  gpuName: string | null
+  providers: OcrProviderStatus[]
+  error?: string | null
 }
 export interface OcrProgress {
   percent: number // -1 = chua tinh duoc (dang tach khung)
@@ -270,6 +292,7 @@ export interface OcrResult {
   outputs?: string[]
   count?: number
   error?: string
+  provider?: OcrProvider
   // Dai chu goc (pixel video) — buoc ghep video dung de che phu de cung san co.
   bandTop?: number | null
   bandBot?: number | null

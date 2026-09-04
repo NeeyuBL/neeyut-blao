@@ -88,6 +88,36 @@ jobs:
           "$ffmpeg_bin" -hide_banner -decoders 2>&1 | grep -q dav1d
           "$ffmpeg_bin" -hide_banner -encoders 2>&1 | grep -q libx264
 
+      - name: Verify downloadable Windows OCR engines
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'ocr-assets-check'
+          New-Item -ItemType Directory -Path $work -Force | Out-Null
+          $base = 'https://github.com/NeeyuBL/neeyut-blao/releases/download/assets-v1'
+          $authHeader = "Authorization: Bearer $env:GH_TOKEN"
+
+          curl.exe --fail --location --retry 4 --retry-all-errors -H $authHeader "$base/ocr-engines-sha256.json" -o (Join-Path $work 'hashes.json')
+          $hashes = Get-Content -LiteralPath (Join-Path $work 'hashes.json') -Raw | ConvertFrom-Json
+
+          foreach ($provider in @('directml', 'cpu')) {
+            $name = "ocr-engine-win-$provider.zip"
+            $zip = Join-Path $work $name
+            curl.exe --fail --location --retry 4 --retry-all-errors -H $authHeader "$base/$name" -o $zip
+            $expected = $hashes.PSObject.Properties[$name].Value
+            $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+            if (-not $expected -or $expected.ToLowerInvariant() -ne $actual) {
+              throw "OCR checksum mismatch: $name"
+            }
+            $expanded = Join-Path $work $provider
+            Expand-Archive -LiteralPath $zip -DestinationPath $expanded
+            $exe = Join-Path $expanded "ocr-engine-$provider/ocr-engine.exe"
+            if (-not (Test-Path -LiteralPath $exe)) { throw "Invalid OCR archive layout: $name" }
+          }
+
       - name: Prepare and verify bundled fonts
         run: npm run fonts:prepare && npm run fonts:verify
 

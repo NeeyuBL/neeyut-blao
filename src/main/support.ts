@@ -148,7 +148,14 @@ export async function createSupportReport(): Promise<SupportReport> {
     safeValue(detectGpu(), null),
     safeValue(dyEngineStatus(), { has: false }),
     safeValue(whisperEngineStatus(), { has: false }),
-    safeValue(ocrEngineStatus(), { has: false }),
+    safeValue(ocrEngineStatus(), {
+      has: false,
+      recommendedProvider: 'cpu' as const,
+      activeProvider: null,
+      gpuRequired: false,
+      gpuName: null,
+      providers: []
+    }),
     safeValue(video2xEngineStatus(), { has: false, supported: process.platform !== 'darwin' }),
     ffmpegCommand ? captureVersion(ffmpegCommand, ['-version']) : Promise.resolve(null)
   ])
@@ -163,6 +170,7 @@ export async function createSupportReport(): Promise<SupportReport> {
       : 'không có'
   const memoryGiB = Math.round((totalmem() / 1024 ** 3) * 10) / 10
   const cpu = cpus()[0]?.model?.replace(/\s+/g, ' ').trim() || 'không xác định'
+  const activeOcr = ocr.providers.find((item) => item.provider === ocr.activeProvider)
   const lines: string[] = [
     '=== BÁO CÁO CHẨN ĐOÁN T-BLAO ===',
     `Tạo lúc: ${generatedAt}`,
@@ -188,7 +196,7 @@ export async function createSupportReport(): Promise<SupportReport> {
     `FFmpeg: ${ffmpegVersion ? reportLine(ffmpegVersion) : deps.ffmpeg ? 'có, chưa đọc được phiên bản' : 'thiếu'}`,
     `Douyin engine: ${yesNo(dy.has)}${dy.needsUpdate ? ' · cần cập nhật' : ''}`,
     `Nhận diện giọng nói: ${yesNo(whisper.has)}${whisper.needsUpdate ? ' · cần cập nhật' : ''}`,
-    `Đọc chữ video: ${yesNo(ocr.has)}${ocr.needsUpdate ? ' · cần cập nhật' : ''}`,
+    `Đọc chữ video: ${yesNo(ocr.has)}${ocr.needsUpdate ? ' · cần cập nhật' : ''} · provider=${ocr.activeProvider ?? 'chưa sẵn sàng'}${activeOcr ? ` · adapter=${activeOcr.deviceId} · inference=${activeOcr.inferenceMs ?? 'n/a'}ms · strict=${yesNo(activeOcr.strict)} · hybrid=${yesNo(activeOcr.hybrid)}` : ''}`,
     `Nâng cấp video: ${video2x.supported ? yesNo(video2x.has) : 'không hỗ trợ trên nền tảng này'}${video2x.needsUpdate ? ' · cần cập nhật' : ''}`,
     '',
     `[Lỗi giao diện gần đây: ${rendererIssues.length}]`

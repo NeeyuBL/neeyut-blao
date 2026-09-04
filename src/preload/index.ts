@@ -26,7 +26,9 @@ import {
   LogEntry,
   RendererIssueReport,
   OcrEngineStatus,
+  OcrInstallMode,
   OcrProgress,
+  OcrProvider,
   OcrResult,
   PlaylistProbe,
   ProxyTestResult,
@@ -157,9 +159,12 @@ const api = {
   whisperDetectGpu: (): Promise<GpuInfo> => ipcRenderer.invoke('whisper:detectGpu'),
 
   // ---- Dich man hinh (doc chu chay tren video) ----
-  ocrEngineStatus: (): Promise<OcrEngineStatus> => ipcRenderer.invoke('ocr:engineStatus'),
-  ocrInstallEngine: (): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke('ocr:installEngine'),
+  ocrEngineStatus: (refresh = false): Promise<OcrEngineStatus> =>
+    ipcRenderer.invoke('ocr:engineStatus', refresh),
+  ocrInstallEngine: (
+    mode: OcrInstallMode = 'auto'
+  ): Promise<{ ok: boolean; status?: OcrEngineStatus; error?: string }> =>
+    ipcRenderer.invoke('ocr:installEngine', mode),
   onOcrInstallProgress: (cb: (percent: number) => void): (() => void) => {
     const listener = (_e: unknown, p: number): void => cb(p)
     ipcRenderer.on('ocr:install-progress', listener)
@@ -172,9 +177,10 @@ const api = {
     y1: number,
     x0: number,
     x1: number,
-    formats: string[]
+    formats: string[],
+    provider: OcrProvider
   ): Promise<OcrResult> =>
-    ipcRenderer.invoke('ocr:video', input, outputDir, y0, y1, x0, x1, formats),
+    ipcRenderer.invoke('ocr:video', input, outputDir, y0, y1, x0, x1, formats, provider),
   ocrCancel: (): Promise<void> => ipcRenderer.invoke('ocr:cancel'),
   onOcrProgress: (cb: (p: OcrProgress) => void): (() => void) => {
     const listener = (_e: unknown, p: OcrProgress): void => cb(p)
