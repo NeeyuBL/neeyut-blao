@@ -26,7 +26,9 @@ jobs:
 
       - name: Install PyInstaller & Base Build Tools
         run: |
-          python -m pip install --upgrade pip setuptools wheel pyinstaller
+          # setuptools 81+ da loai bo mot phan API pkg_resources ma runtime hook
+          # cua PyInstaller can khi dong goi RapidOCR. Ghim ban cuoi con tuong thich.
+          python -m pip install --upgrade pip wheel pyinstaller "setuptools==80.9.0"
 
       - name: Build Douyin Engine (macOS)
         run: |
