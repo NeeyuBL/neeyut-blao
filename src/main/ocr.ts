@@ -7,7 +7,7 @@ import { basename, join } from 'node:path'
 import { ASSET_BASE, binDir, downloadFile, extractZip, resolveFfmpeg } from './deps'
 import { engineNeedsUpdate, markEngineInstalled } from './engines-update'
 import { detectGpu } from './gpu'
-import { debugRaw, errLabel, logError, logInfo } from './logger'
+import { debugRaw, errLabel, logError, logInfo, logWarn } from './logger'
 import type {
   OcrEngineStatus,
   OcrInstallMode,
@@ -204,6 +204,15 @@ async function probeProvider(provider: OcrProvider, refresh = false): Promise<Oc
       ? null
       : payload?.message || result.stderr.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] || `Tự kiểm tra thất bại (code ${result.code}).`
   }
+  if (!ready && provider !== 'cpu') {
+    logWarn(`Dịch màn hình: ${provider.toUpperCase()} chưa sẵn sàng — ${errLabel(status.error)}.`)
+    debugRaw(`ocr self-test ${provider}`, {
+      code: result.code,
+      stdoutTail: result.stdout.trim().split(/\r?\n/).filter(Boolean).slice(-5),
+      stderrTail: result.stderr.trim().split(/\r?\n/).filter(Boolean).slice(-8),
+      payload
+    })
+  }
   probeCache.set(provider, status)
   return status
 }
@@ -223,7 +232,7 @@ export async function ocrEngineStatus(refresh = false): Promise<OcrEngineStatus>
     needsUpdate: await engineNeedsUpdate('ocr', has),
     recommendedProvider,
     activeProvider,
-    gpuRequired: isWin,
+    gpuRequired: false,
     gpuName: gpu?.hasNvidia ? gpu.name : isWin ? 'GPU DirectX 12' : null,
     providers,
     error: activeProvider ? null : 'Chưa có công cụ OCR nào vượt qua tự kiểm tra.'
@@ -299,17 +308,26 @@ export async function installOcrEngine(
   mode: OcrInstallMode,
   onProgress: (p: number) => void
 ): Promise<OcrEngineStatus> {
-  const candidates: OcrProvider[] = mode !== 'auto' ? [mode] : isWin ? ['directml'] : ['cpu']
+  const candidates: OcrProvider[] = mode !== 'auto' ? [mode] : isWin ? ['directml', 'cpu'] : ['cpu']
   const failures: string[] = []
   for (const provider of candidates) {
     try {
       await installProvider(provider, onProgress)
       await markEngineInstalled('ocr')
       logInfo(`Dịch màn hình: ${provider.toUpperCase()} đã vượt qua tự kiểm tra.`)
+      if (provider === 'cpu' && failures.length > 0) {
+        logWarn('Dịch màn hình: tăng tốc chưa sẵn sàng, đang dùng chế độ ổn định.')
+      }
       return ocrEngineStatus(true)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       failures.push(`${provider.toUpperCase()}: ${message}`)
+      const label = errLabel(error)
+      if (provider !== 'cpu' && mode === 'auto') {
+        logWarn(`Dịch màn hình: không bật được ${provider.toUpperCase()} (${label}), sẽ thử chế độ ổn định.`)
+      } else {
+        logError(`Dịch màn hình: cài ${provider.toUpperCase()} thất bại (${label}).`)
+      }
       debugRaw(`ocr install ${provider}`, error)
       if (mode !== 'auto') break
     }

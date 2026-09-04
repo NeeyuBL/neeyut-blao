@@ -250,6 +250,7 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
   const gpuReady = engineStatus?.providers.find((item) => item.provider !== 'cpu' && item.ready)
   const cpuReady = engineStatus?.providers.find((item) => item.provider === 'cpu' && item.ready)
   const needsProviderSetup = engineStatus !== null && (!provider || !selectedProviderStatus?.ready)
+  const usingStableFallback = provider === 'cpu' && engineStatus?.providers.some((item) => item.provider !== 'cpu' && item.installed) && !gpuReady
 
   if (engineStatus === null || installing || needsProviderSetup) {
     const updating = Boolean(engineStatus?.has)
@@ -349,7 +350,9 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
                 <span>{provider === 'cpu' ? 'CPU' : 'Nhanh hơn'}</span>
               </div>
               <small>
-                {provider === 'cpu'
+                {usingStableFallback
+                  ? 'Tăng tốc chưa sẵn sàng, T-blao đang dùng chế độ ổn định.'
+                  : provider === 'cpu'
                   ? 'T-blao đang xử lý bằng bộ xử lý chính của máy.'
                   : 'T-blao đang dùng card đồ họa để nhận diện chữ nhanh hơn.'}
               </small>
@@ -388,6 +391,11 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
               </div>
               {provider !== 'cpu' && engineStatus?.gpuName && (
                 <div className="muted small ocr-provider-device">Thiết bị: {engineStatus.gpuName}</div>
+              )}
+              {usingStableFallback && (
+                <div className="muted small ocr-provider-device">
+                  Tăng tốc GPU chưa vượt qua kiểm tra. Bạn vẫn có thể xử lý bằng CPU và thử bật lại sau.
+                </div>
               )}
               <button
                 className="ocr-provider-recheck"

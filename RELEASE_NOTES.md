@@ -1,3 +1,11 @@
+## T-blao v0.1.21
+
+### Hotfix đọc chữ video
+
+- Khi tăng tốc DirectML không vượt qua tự kiểm tra trên máy người dùng, T-blao sẽ tự chuyển sang chế độ CPU ổn định thay vì chặn tab Đọc chữ video.
+- Cải thiện thông báo trong giao diện: nếu GPU chưa sẵn sàng, app báo đang dùng chế độ ổn định và vẫn cho người dùng tiếp tục xử lý.
+- Ghi nhật ký rõ hơn khi DirectML không sẵn sàng hoặc cài engine thất bại, giúp phân biệt lỗi mạng, driver, engine hoặc môi trường máy.
+
 ## T-blao v0.1.20
 
 ### Đọc chữ video chính xác hơn
