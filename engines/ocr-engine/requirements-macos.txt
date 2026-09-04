@@ -1,0 +1,7 @@
+rapidocr==3.9.2
+# onnxruntime 1.24.x chua phat hanh wheel macOS ARM64; 1.23.2 la ban moi
+# nhat co wheel cho Python 3.10 tren macOS runner.
+onnxruntime==1.23.2
+opencv-python==4.12.0.88
+numpy==2.2.6
+pyinstaller==6.15.0
