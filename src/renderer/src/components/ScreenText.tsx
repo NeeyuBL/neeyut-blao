@@ -83,7 +83,8 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
       const status = await window.api.ocrEngineStatus()
       if (cancelled) return
       applyEngineStatus(status)
-      if (!status.needsUpdate) return
+      const needsBootstrap = !status.activeProvider
+      if (!status.needsUpdate && !needsBootstrap) return
       setInstalling(true)
       setInstallError(null)
       setInstallPercent(0)

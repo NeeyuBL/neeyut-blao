@@ -1,3 +1,10 @@
+## T-blao v0.1.22
+
+### Hotfix OCR fallback
+
+- Sửa trường hợp máy đã có DirectML engine nhưng engine không vượt qua tự kiểm tra, trong khi CPU engine chưa được cài.
+- Khi mở tab Đọc chữ video mà không có provider OCR nào sẵn sàng, T-blao sẽ tự chuẩn bị lại engine và fallback sang CPU nếu cần.
+
 ## T-blao v0.1.21
 
 ### Hotfix đọc chữ video
