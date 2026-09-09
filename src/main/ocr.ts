@@ -204,8 +204,8 @@ async function probeProvider(provider: OcrProvider, refresh = false): Promise<Oc
       ? null
       : payload?.message || result.stderr.trim().split(/\r?\n/).filter(Boolean).slice(-1)[0] || `Tự kiểm tra thất bại (code ${result.code}).`
   }
-  if (!ready && provider !== 'cpu') {
-    logWarn(`Dịch màn hình: ${provider.toUpperCase()} chưa sẵn sàng — ${errLabel(status.error)}.`)
+  if (!ready) {
+    logWarn(`Dịch màn hình: ${provider.toUpperCase()} chưa sẵn sàng [stage=self-test, exit=${result.code}] — ${errLabel(status.error)}.`)
     debugRaw(`ocr self-test ${provider}`, {
       code: result.code,
       stdoutTail: result.stdout.trim().split(/\r?\n/).filter(Boolean).slice(-5),
@@ -262,49 +262,88 @@ async function expectedAssetSha256(name: string): Promise<string> {
   return value.toLowerCase()
 }
 
+type OcrInstallStage = 'download' | 'checksum' | 'prepare' | 'extract' | 'self-test'
+
+const INSTALL_STAGE_MESSAGES: Record<OcrInstallStage, string> = {
+  download: 'Không tải được công cụ đọc chữ video.',
+  checksum: 'Không xác minh được file công cụ đọc chữ video. Hãy thử tải lại.',
+  prepare: 'Không chuẩn bị được thư mục cài công cụ đọc chữ video.',
+  extract: 'Không giải nén được công cụ đọc chữ video. Hãy thử cài lại.',
+  'self-test': 'Công cụ đọc chữ video chưa vượt qua tự kiểm tra.'
+}
+
+// message chỉ gồm câu do app tạo + nhãn đã lọc, không chứa đường dẫn hay stderr.
+class OcrInstallError extends Error {}
+
+export function ocrInstallErrorMessage(error: unknown): string {
+  return error instanceof OcrInstallError ? error.message : errLabel(error)
+}
+
 async function installProvider(provider: OcrProvider, onProgress: (p: number) => void): Promise<OcrProviderStatus> {
-  await mkdir(binDir(), { recursive: true })
   const assetName = asset(provider)
-  const zip = join(binDir(), `${assetName}.download`)
-  logInfo(`Dịch màn hình: đang tải công cụ ${provider.toUpperCase()}…`)
-  await downloadFile(`${BASE}/${assetName}`, zip, onProgress)
-  try {
-    if (isWin) {
-      const [expected, actual] = await Promise.all([expectedAssetSha256(assetName), fileSha256(zip)])
-      if (expected !== actual.toLowerCase()) {
-        throw new Error(`Checksum ${assetName} không khớp. Đã huỷ cài đặt.`)
-      }
-    }
-  } catch (error) {
-    await rm(zip, { force: true })
-    throw error
-  }
-  logInfo(`Dịch màn hình: đang giải nén công cụ ${provider.toUpperCase()}…`)
+  // Expand-Archive của Windows bắt buộc đuôi cuối là .zip, kể cả file tạm.
+  const zip = join(binDir(), `${assetName}.download.zip`)
   const target = engineDir(provider)
   const backup = `${target}.backup`
-  await rm(backup, { recursive: true, force: true })
-  const hadPrevious = await exists(target)
-  if (hadPrevious) await rename(target, backup)
+  let stage: OcrInstallStage = 'prepare'
   try {
-    await extractZip(zip, binDir())
-    if (!isWin && (await exists(enginePath(provider)))) await chmod(enginePath(provider), 0o755)
-    probeCache.delete(provider)
-    const status = await probeProvider(provider, true)
-    if (!status.ready) throw new Error(status.error || `${provider} không vượt qua tự kiểm tra.`)
+    await mkdir(binDir(), { recursive: true })
+    stage = 'download'
+    logInfo(`Dịch màn hình: đang tải công cụ ${provider.toUpperCase()}…`)
+    await downloadFile(`${BASE}/${assetName}`, zip, onProgress)
+    stage = 'checksum'
+    if (isWin) {
+      logInfo(`Dịch màn hình: đang xác minh file ${provider.toUpperCase()}…`)
+      const [expected, actual] = await Promise.all([expectedAssetSha256(assetName), fileSha256(zip)])
+      if (expected !== actual.toLowerCase()) {
+        throw Object.assign(new Error('File tải về không khớp mã kiểm tra.'), { code: 'OCR_CHECKSUM_MISMATCH' })
+      }
+    }
+    stage = 'prepare'
     await rm(backup, { recursive: true, force: true })
-    return status
+    const hadPrevious = await exists(target)
+    if (hadPrevious) await rename(target, backup)
+    try {
+      stage = 'extract'
+      logInfo(`Dịch màn hình: đang giải nén công cụ ${provider.toUpperCase()}…`)
+      await extractZip(zip, binDir())
+      if (!isWin && (await exists(enginePath(provider)))) await chmod(enginePath(provider), 0o755)
+      stage = 'self-test'
+      logInfo(`Dịch màn hình: đang tự kiểm tra công cụ ${provider.toUpperCase()}…`)
+      probeCache.delete(provider)
+      const status = await probeProvider(provider, true)
+      if (!status.ready) throw new Error(status.error || `${provider} không vượt qua tự kiểm tra.`)
+      stage = 'prepare'
+      await rm(backup, { recursive: true, force: true }).catch((error) => {
+        // Công cụ mới đã chạy được; lỗi dọn bản sao không được kích hoạt rollback.
+        logWarn(`Dịch màn hình: chưa dọn được bản sao công cụ cũ (${errLabel(error)}).`)
+      })
+      return status
+    } catch (error) {
+      // Bản cập nhật lỗi không được phá engine cũ đang hoạt động.
+      await rm(target, { recursive: true, force: true })
+      if (hadPrevious && (await exists(backup))) await rename(backup, target)
+      probeCache.delete(provider)
+      throw error
+    }
   } catch (error) {
-    // Bản cập nhật lỗi không được phá engine cũ đang hoạt động.
-    await rm(target, { recursive: true, force: true })
-    if (hadPrevious && (await exists(backup))) await rename(backup, target)
-    probeCache.delete(provider)
-    throw error
+    const cause = error instanceof Error ? error.cause : null
+    const rawCode = (error as NodeJS.ErrnoException | null)?.code ?? (cause as NodeJS.ErrnoException | null)?.code
+    const code = typeof rawCode === 'string' && /^[A-Z0-9_]{1,64}$/.test(rawCode) ? rawCode : 'UNKNOWN'
+    let label = errLabel(error)
+    // Tên asset có chữ DirectML không phải bằng chứng lỗi GPU ở bước tải/xác minh.
+    if ((stage === 'download' || stage === 'checksum') && label.startsWith('lỗi tăng tốc GPU')) label = 'lỗi không xác định'
+    const message = `${INSTALL_STAGE_MESSAGES[stage]}${label === 'lỗi không xác định' ? '' : ` ${label}.`}`
+    logWarn(`Dịch màn hình: ${provider.toUpperCase()} [stage=${stage}, code=${code}] ${message}`)
+    throw new OcrInstallError(message, { cause: error })
   } finally {
-    await rm(zip, { force: true })
+    await rm(zip, { force: true }).catch((error) => {
+      logWarn(`Dịch màn hình: không xóa được file tải tạm (${errLabel(error)}).`)
+    })
   }
 }
 
-export async function installOcrEngine(
+async function performOcrInstall(
   mode: OcrInstallMode,
   onProgress: (p: number) => void
 ): Promise<OcrEngineStatus> {
@@ -320,9 +359,9 @@ export async function installOcrEngine(
       }
       return ocrEngineStatus(true)
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
+      const message = ocrInstallErrorMessage(error)
       failures.push(`${provider.toUpperCase()}: ${message}`)
-      const label = errLabel(error)
+      const label = message
       if (provider !== 'cpu' && mode === 'auto') {
         logWarn(`Dịch màn hình: không bật được ${provider.toUpperCase()} (${label}), sẽ thử chế độ ổn định.`)
       } else {
@@ -332,7 +371,50 @@ export async function installOcrEngine(
       if (mode !== 'auto') break
     }
   }
-  throw new Error(`Không cài được công cụ đã chọn. ${failures.join(' · ')}`)
+  throw new OcrInstallError(`Không cài được công cụ đã chọn. ${failures.join(' · ')}`)
+}
+
+let ocrInstallInFlight: {
+  mode: OcrInstallMode
+  promise: Promise<OcrEngineStatus>
+  listeners: Set<(p: number) => void>
+} | null = null
+
+export async function installOcrEngine(
+  mode: OcrInstallMode,
+  onProgress: (p: number) => void
+): Promise<OcrEngineStatus> {
+  const pending = ocrInstallInFlight
+  if (pending) {
+    if (mode === 'auto' || mode === pending.mode) {
+      pending.listeners.add(onProgress)
+      try {
+        return await pending.promise
+      } finally {
+        pending.listeners.delete(onProgress)
+      }
+    }
+    // Một lần chọn provider khác phải chờ lượt hiện tại dọn file/rollback xong.
+    await pending.promise.catch(() => {})
+    return installOcrEngine(mode, onProgress)
+  }
+  const listeners = new Set([onProgress])
+  const promise = performOcrInstall(mode, (percent) => {
+    for (const listener of listeners) {
+      try {
+        listener(percent)
+      } catch {
+        // Cửa sổ đã đóng không được làm hỏng lượt cài.
+      }
+    }
+  })
+  ocrInstallInFlight = { mode, promise, listeners }
+  try {
+    return await promise
+  } finally {
+    ocrInstallInFlight = null
+    listeners.clear()
+  }
 }
 
 let child: ChildProcess | null = null

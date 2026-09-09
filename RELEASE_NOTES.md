@@ -1,19 +1,15 @@
-## T-blao v0.1.22
+## T-blao v0.1.23
 
-### Hotfix OCR fallback
+Bản cập nhật dành cho người dùng v0.1.19 và các bản v0.1.20–v0.1.22 đã được thu hồi, bao gồm toàn bộ cải tiến đọc chữ video và sửa lỗi cài công cụ.
 
-- Sửa trường hợp máy đã có DirectML engine nhưng engine không vượt qua tự kiểm tra, trong khi CPU engine chưa được cài.
-- Khi mở tab Đọc chữ video mà không có provider OCR nào sẵn sàng, T-blao sẽ tự chuẩn bị lại engine và fallback sang CPU nếu cần.
+### Sửa lỗi cài công cụ đọc chữ video
 
-## T-blao v0.1.21
-
-### Hotfix đọc chữ video
-
-- Khi tăng tốc DirectML không vượt qua tự kiểm tra trên máy người dùng, T-blao sẽ tự chuyển sang chế độ CPU ổn định thay vì chặn tab Đọc chữ video.
-- Cải thiện thông báo trong giao diện: nếu GPU chưa sẵn sàng, app báo đang dùng chế độ ổn định và vẫn cho người dùng tiếp tục xử lý.
-- Ghi nhật ký rõ hơn khi DirectML không sẵn sàng hoặc cài engine thất bại, giúp phân biệt lỗi mạng, driver, engine hoặc môi trường máy.
-
-## T-blao v0.1.20
+- Sửa lỗi Windows tải xong tài nguyên nhưng không giải nén được do tên file tạm không có đuôi cuối `.zip`.
+- Xử lý đường dẫn có tiếng Việt/ký tự đặc biệt và gộp yêu cầu cài trùng để tránh ghi đè file đang tải.
+- Tự chuẩn bị công cụ khi chưa có bộ xử lý sẵn sàng; tự chuyển sang CPU nếu tăng tốc DirectML không sử dụng được.
+- Giữ kiểm tra SHA-256 và khôi phục công cụ cũ nếu cài bản mới thất bại.
+- Thông báo và nhật ký phân biệt bước tải, xác minh, giải nén và tự kiểm tra; không còn mặc định quy mọi lỗi cài đặt cho kết nối mạng.
+- Bổ sung kiểm thử luồng cài thực tế trên Windows với tài nguyên tải công khai từ GitHub, bao gồm cài mới CPU và chuyển sang CPU khi tăng tốc lỗi.
 
 ### Đọc chữ video chính xác hơn
 
@@ -24,12 +20,12 @@
 
 ### Tăng tốc và độ tin cậy OCR
 
-- Windows ưu tiên DirectML để dùng GPU NVIDIA, AMD hoặc Intel; người dùng vẫn có thể chọn CPU khi cần.
+- Windows ưu tiên DirectML để dùng GPU NVIDIA, AMD hoặc Intel; tự dùng CPU ổn định nếu tăng tốc chưa sẵn sàng.
 - Engine tự kiểm tra detection, xoay chữ và recognition trước khi sử dụng; kết quả bị từ chối nếu engine chạy sai provider đã chọn.
 - Bổ sung trạng thái GPU/CPU rõ ràng trong tab Đọc chữ video và nút kiểm tra lại khi thành phần tăng tốc chưa sẵn sàng.
 - Gói OCR Windows tách DirectML và CPU, kiểm tra SHA-256 khi tải, đồng thời giữ lại engine cũ nếu quá trình cập nhật thất bại.
 
 ### Phát hành
 
-- Windows sẽ tự nhận, tải và cài v0.1.20 khi kết nối được với GitHub.
+- Windows tự nhận và tải v0.1.23 khi kết nối được với GitHub, cài khi người dùng khởi động lại hoặc thoát ứng dụng.
 - macOS Apple Silicon sẽ thông báo bản mới và mở trang tải DMG để cài thủ công. Bản macOS chưa ký/notarize, nên có thể cần cấp quyền trong **Privacy & Security** khi mở lần đầu.

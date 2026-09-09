@@ -80,7 +80,7 @@ import {
   saveKey as openaiSaveKey,
   translateSrt as openaiTranslateSrt
 } from './openai'
-import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrVideo } from './ocr'
+import { cancelOcr, installOcrEngine, ocrEngineStatus, ocrInstallErrorMessage, ocrVideo } from './ocr'
 import { boCuc, burnSubtitle, cancelBurn, docFileSrt, probeBurnMedia, srtGiay } from './burn'
 import { prepareAudioPreview } from './audioPreview'
 import {
@@ -519,7 +519,7 @@ function registerIpc(): void {
       return { ok: true, status }
     } catch (err) {
       debugRaw('ocr install', err)
-      return { ok: false, error: errLabel(err) }
+      return { ok: false, error: ocrInstallErrorMessage(err) }
     }
   })
   ipcMain.handle(

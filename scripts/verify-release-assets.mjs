@@ -29,6 +29,18 @@ const urls = (meta) => (Array.isArray(meta?.files) ? meta.files.map((file) => fi
 if (windowsMeta?.version !== version || windowsMeta?.path !== windowsExe || !urls(windowsMeta).includes(windowsExe)) {
   throw new Error('latest.yml không trỏ đúng bộ cài Windows của version hiện tại')
 }
+const windowsFile = windowsMeta.files.find((file) => file.url === windowsExe)
+const windowsStat = await stat(join(assetDir, windowsExe))
+const windowsHash = createHash('sha512')
+for await (const chunk of createReadStream(join(assetDir, windowsExe))) windowsHash.update(chunk)
+const windowsSha512 = windowsHash.digest('base64')
+if (
+  windowsFile.sha512 !== windowsSha512 ||
+  windowsMeta.sha512 !== windowsSha512 ||
+  windowsFile.size !== windowsStat.size
+) {
+  throw new Error('SHA-512 hoặc dung lượng bộ cài Windows không khớp latest.yml')
+}
 const names = await readdir(assetDir)
 const forbidden = names.filter((name) => name === 'latest-mac.yml' || name.endsWith('.zip'))
 if (forbidden.length) {

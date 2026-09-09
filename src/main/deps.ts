@@ -289,6 +289,7 @@ export async function downloadFile(
 /** Giai nen zip: Windows dung Expand-Archive, macOS/Linux dung unzip (co san). */
 export function extractZip(zipPath: string, destDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    let stderr = ''
     const child = isWin
       ? spawn(
           'powershell',
@@ -296,13 +297,35 @@ export function extractZip(zipPath: string, destDir: string): Promise<void> {
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            `Expand-Archive -LiteralPath "${zipPath}" -DestinationPath "${destDir}" -Force`
+            "$ErrorActionPreference = 'Stop'; [System.IO.Directory]::CreateDirectory($env:TBLAO_ARCHIVE_DEST) | Out-Null; Set-Location -LiteralPath $env:TBLAO_ARCHIVE_DEST; Expand-Archive -LiteralPath $env:TBLAO_ARCHIVE_PATH -DestinationPath '.' -Force"
           ],
-          { windowsHide: true, stdio: 'ignore' }
+          {
+            windowsHide: true,
+            stdio: ['ignore', 'ignore', 'pipe'],
+            env: { ...process.env, TBLAO_ARCHIVE_PATH: zipPath, TBLAO_ARCHIVE_DEST: destDir }
+          }
         )
-      : spawn('unzip', ['-q', '-o', zipPath, '-d', destDir], { stdio: 'ignore' })
+      : spawn('unzip', ['-q', '-o', zipPath, '-d', destDir], { stdio: ['ignore', 'ignore', 'pipe'] })
+    child.stderr?.on('data', (data: Buffer) => {
+      stderr = (stderr + data.toString()).slice(-8_192)
+    })
     child.on('error', reject)
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error('Giải nén thất bại'))))
+    child.on('close', (exitCode) => {
+      if (exitCode === 0) return resolve()
+      const code = /NotSupportedArchiveFileExtension/i.test(stderr)
+        ? 'ZIP_UNSUPPORTED_EXTENSION'
+        : /EndOfCentralDirectory|central.directory|InvalidData|not a zipfile/i.test(stderr)
+          ? 'ZIP_INVALID_ARCHIVE'
+          : /UnauthorizedAccess|Access.*denied|Permission denied/i.test(stderr)
+            ? 'EACCES'
+            : /disk.*full|not enough space|no space/i.test(stderr)
+              ? 'ENOSPC'
+              : 'ZIP_EXTRACT_FAILED'
+      // Giữ stderr trong cause cho dev; chỉ đưa mã lỗi an toàn vào log/UI.
+      reject(Object.assign(new Error(`Giải nén thất bại (code ${exitCode}).`, {
+        cause: new Error(stderr.trim())
+      }), { code }))
+    })
   })
 }
 

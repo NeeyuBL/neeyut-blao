@@ -79,25 +79,34 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
 
   useEffect(() => {
     let cancelled = false
+    let off: (() => void) | undefined
     void (async () => {
-      const status = await window.api.ocrEngineStatus()
-      if (cancelled) return
-      applyEngineStatus(status)
-      const needsBootstrap = !status.activeProvider
-      if (!status.needsUpdate && !needsBootstrap) return
-      setInstalling(true)
-      setInstallError(null)
-      setInstallPercent(0)
-      const off = window.api.onOcrInstallProgress(setInstallPercent)
-      const result = await window.api.ocrInstallEngine('auto')
-      off()
-      if (cancelled) return
-      setInstalling(false)
-      if (result.ok && result.status) applyEngineStatus(result.status)
-      else setInstallError(result.error || 'Cập nhật công cụ thất bại.')
+      try {
+        const status = await window.api.ocrEngineStatus()
+        if (cancelled) return
+        applyEngineStatus(status)
+        const needsBootstrap = !status.activeProvider
+        if (!status.needsUpdate && !needsBootstrap) return
+        setInstalling(true)
+        setInstallError(null)
+        setInstallPercent(0)
+        off = window.api.onOcrInstallProgress(setInstallPercent)
+        const result = await window.api.ocrInstallEngine('auto')
+        if (cancelled) return
+        if (result.ok && result.status) applyEngineStatus(result.status)
+        else setInstallError(result.error || 'Chưa thể cài công cụ đọc chữ. Hãy thử lại.')
+      } catch {
+        if (!cancelled) setInstallError('Chưa thể kiểm tra hoặc cài công cụ đọc chữ. Hãy thử lại.')
+      } finally {
+        off?.()
+        off = undefined
+        if (!cancelled) setInstalling(false)
+      }
     })()
     return () => {
       cancelled = true
+      off?.()
+      off = undefined
     }
   }, [])
 
@@ -115,16 +124,21 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
     setInstallError(null)
     setInstallPercent(0)
     const off = window.api.onOcrInstallProgress(setInstallPercent)
-    const result = await window.api.ocrInstallEngine(mode)
-    off()
-    setInstalling(false)
-    if (result.ok && result.status) {
-      applyEngineStatus(result.status)
-      if (mode === 'cpu') setProvider('cpu')
-    } else {
-      setInstallError(result.error || 'Tải công cụ đọc chữ thất bại.')
-      const refreshed = await window.api.ocrEngineStatus(true)
-      applyEngineStatus(refreshed)
+    try {
+      const result = await window.api.ocrInstallEngine(mode)
+      if (result.ok && result.status) {
+        applyEngineStatus(result.status)
+        if (mode === 'cpu') setProvider('cpu')
+      } else {
+        setInstallError(result.error || 'Chưa thể cài công cụ đọc chữ. Hãy thử lại.')
+        const refreshed = await window.api.ocrEngineStatus(true).catch(() => null)
+        if (refreshed) applyEngineStatus(refreshed)
+      }
+    } catch {
+      setInstallError('Chưa thể cài công cụ đọc chữ. Hãy thử lại.')
+    } finally {
+      off()
+      setInstalling(false)
     }
   }
 
@@ -251,28 +265,31 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
   const gpuReady = engineStatus?.providers.find((item) => item.provider !== 'cpu' && item.ready)
   const cpuReady = engineStatus?.providers.find((item) => item.provider === 'cpu' && item.ready)
   const needsProviderSetup = engineStatus !== null && (!provider || !selectedProviderStatus?.ready)
-  const usingStableFallback = provider === 'cpu' && engineStatus?.providers.some((item) => item.provider !== 'cpu' && item.installed) && !gpuReady
+  const usingStableFallback = provider === 'cpu' && engineStatus?.recommendedProvider !== 'cpu' && !gpuReady
 
   if (engineStatus === null || installing || needsProviderSetup) {
     const updating = Boolean(engineStatus?.has)
+    const checkingEngine = engineStatus === null && !installError && !installing
     return (
       <div className="dy-setup">
         <div className="card dy-install-card">
           <div className="dy-install-title">
-            {engineStatus === null
+            {checkingEngine
               ? 'Đang chuẩn bị nhận diện'
               : installing
                 ? updating
                   ? 'Đang cập nhật công cụ nhận diện'
                   : 'Đang cài công cụ nhận diện'
-                : 'Chưa thể bật tăng tốc'}
+                : 'Chưa thể chuẩn bị công cụ đọc chữ'}
           </div>
           <p className="muted">
-            {engineStatus === null
+            {checkingEngine
               ? 'T-blao đang chọn cách xử lý phù hợp nhất với máy của bạn.'
-              : 'Bạn có thể thử cài lại thành phần tăng tốc hoặc tiếp tục bằng CPU. Chế độ CPU sẽ xử lý chậm hơn.'}
+              : installing
+                ? 'T-blao đang chuẩn bị công cụ nhận diện phù hợp với máy của bạn.'
+                : 'Bạn có thể thử cài lại hoặc chọn chế độ CPU để tiếp tục khi công cụ đã sẵn sàng.'}
           </p>
-          {engineStatus === null ? (
+          {checkingEngine ? (
             <div className="spinner ocr-provider-spinner" />
           ) : installing ? (
             <>
@@ -297,12 +314,12 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
           )}
           {engineStatus && !gpuReady && (
             <div className="muted small ocr-provider-explain">
-              T-blao sẽ không tự đổi sang chế độ chậm hơn nếu chưa có lựa chọn của bạn.
+              Nếu tăng tốc chưa sẵn sàng, T-blao sẽ tự dùng chế độ CPU ổn định. Chế độ này có thể xử lý chậm hơn.
             </div>
           )}
           {installError && (
             <div className="dy-err small">
-              Không thể chuẩn bị công cụ tăng tốc. Hãy kiểm tra kết nối mạng rồi thử lại, hoặc tiếp tục bằng CPU.
+              {installError}
             </div>
           )}
         </div>
@@ -395,7 +412,7 @@ export default function ScreenText({ onOpenEditor }: Props): JSX.Element {
               )}
               {usingStableFallback && (
                 <div className="muted small ocr-provider-device">
-                  Tăng tốc GPU chưa vượt qua kiểm tra. Bạn vẫn có thể xử lý bằng CPU và thử bật lại sau.
+                  Bạn vẫn có thể đọc chữ bằng CPU và kiểm tra lại khả năng tăng tốc sau.
                 </div>
               )}
               <button
